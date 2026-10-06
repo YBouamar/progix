@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <ItemGroup>
+    <ProjectReference Include="..\Modules\Progix.Modules.Identity\Progix.Modules.Identity.csproj" />
+    <ProjectReference Include="..\Modules\Progix.Modules.Partenaires\Progix.Modules.Partenaires.csproj" />
+    <ProjectReference Include="..\Progix.SharedKernel\Progix.SharedKernel.csproj" />
+    <ProjectReference Include="..\Modules\Progix.Modules.Projets\Progix.Modules.Projets.csproj" />
+    <ProjectReference Include="..\Modules\Progix.Modules.Devis\Progix.Modules.Devis.csproj" />
+    <ProjectReference Include="..\Modules\Progix.Modules.Fichiers\Progix.Modules.Fichiers.csproj" />
+    <ProjectReference Include="..\Modules\Progix.Modules.Facturation\Progix.Modules.Facturation.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Hangfire.AspNetCore" Version="1.8.17" />
+    <PackageReference Include="Hangfire.PostgreSql" Version="1.20.10" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.11">
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+    <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="8.0.11" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.9.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+  </PropertyGroup>
+
+</Project>

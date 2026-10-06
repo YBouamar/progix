@@ -1,0 +1,93 @@
+# PROGIX en production, sur un serveur.
+# Lancement : docker compose -f docker-compose.prod.yml --env-file .env up -d --build
+# Seul le serveur frontal (Caddy) est ouvert sur Internet, en HTTPS. Les autres services ne sont joignables que entre eux.
+name: progix
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?Renseignez SITE_ADDRESS dans .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploiement/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddydata:/data
+      - caddyconfig:/config
+    depends_on:
+      - web
+
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: progix
+      POSTGRES_USER: progix
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Renseignez POSTGRES_PASSWORD dans .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U progix -d progix"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-progix}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Renseignez MINIO_ROOT_PASSWORD dans .env}
+    volumes:
+      - miniodata:/data
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=progix;Username=progix;Password=${POSTGRES_PASSWORD}
+      ConnectionStrings__Redis: redis:6379
+      Jwt__Key: ${JWT_KEY:?Renseignez JWT_KEY dans .env}
+      Seed__AdminEmail: ${ADMIN_EMAIL:?Renseignez ADMIN_EMAIL dans .env}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:?Renseignez ADMIN_PASSWORD dans .env}
+      # Pas de comptes de démonstration en production.
+      Seed__DemoUsers: "false"
+      App__PublicUrl: ${PUBLIC_URL:?Renseignez PUBLIC_URL dans .env}
+      Storage__Endpoint: http://minio:9000
+      Storage__AccessKey: ${MINIO_ROOT_USER:-progix}
+      Storage__SecretKey: ${MINIO_ROOT_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_started
+
+  web:
+    build:
+      context: ./web
+      args:
+        API_URL: http://api:8080
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  miniodata:
+  caddydata:
+  caddyconfig:

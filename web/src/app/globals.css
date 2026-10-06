@@ -1,0 +1,38 @@
+@import "tailwindcss";
+@import "@fontsource-variable/space-grotesk";
+@import "@fontsource-variable/manrope";
+
+@theme {
+  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-marine: #1b2a6b;
+  --color-marine-fonce: #14205a;
+  --color-fond: #f4f5f8;
+  --color-texte: #1a1d2e;
+  --color-secondaire: #5b6178;
+  --color-attenue: #8a90a6;
+  --color-bordure: #e4e7f0;
+  --color-bordure-forte: #cfd4e2;
+
+  --color-neutre-fond: #eef0f5;
+  --color-neutre-texte: #4a5068;
+  --color-orange-fond: #fdf0e1;
+  --color-orange-texte: #9a4a00;
+  --color-vert-fond: #e3f4ea;
+  --color-vert-texte: #136b3a;
+  --color-rouge-fond: #fde8e8;
+  --color-rouge-texte: #a61b1b;
+  --color-rouge-vif: #d93636;
+  --color-violet-fond: #ece9fb;
+  --color-violet-texte: #4c3aa8;
+}
+
+body {
+  background: var(--color-fond);
+  color: var(--color-texte);
+  font-family: var(--font-sans);
+  font-size: 14px;
+}
+
+h1, h2, h3 { font-family: var(--font-display); }

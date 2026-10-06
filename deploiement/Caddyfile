@@ -1,0 +1,16 @@
+# Serveur frontal de PROGIX. Avec un nom de domaine, le certificat HTTPS est obtenu et renouvelé tout seul.
+{$SITE_ADDRESS} {
+	encode gzip
+	# Envoi de fichiers par morceaux de 8 Mo.
+	request_body {
+		max_size 20MB
+	}
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "SAMEORIGIN"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		-Server
+	}
+	reverse_proxy web:3000
+}

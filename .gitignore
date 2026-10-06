@@ -1,0 +1,23 @@
+bin/
+obj/
+node_modules/
+.next/
+.env
+.DS_Store
+
+# Archives de transfert, jamais dans le dépôt
+_to_delete/
+
+# Clés SSH et secrets : ne jamais les publier
+mac_key
+mac_key.pub
+ybmac
+ybmac.pub
+*.pem
+*.key
+id_*
+.env.*
+!.env.example
+
+# Fichiers de construction
+*.tsbuildinfo

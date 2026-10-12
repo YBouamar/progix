@@ -39,6 +39,17 @@ export function lireNombre(s: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Filtre une saisie pour ne garder que des chiffres et un seul séparateur décimal (virgule ou point).
+ * Avec `negatif`, un signe moins en tête reste permis (écart d'inventaire). À utiliser dans un onChange,
+ * pour empêcher la saisie de texte dans un champ numérique plutôt que de la corriger après coup. */
+export function filtrerDecimal(valeur: string, negatif = false) {
+  let v = valeur.replace(negatif ? /[^0-9,.-]/g : /[^0-9,.]/g, "");
+  if (negatif) v = (v.startsWith("-") ? "-" : "") + v.replace(/-/g, "");
+  const i = v.search(/[,.]/);
+  if (i !== -1) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/[,.]/g, "");
+  return v;
+}
+
 /** Taille de fichier lisible : 8,4 Mo. */
 export function formatTaille(octets: number) {
   if (octets < 1024) return `${octets} o`;

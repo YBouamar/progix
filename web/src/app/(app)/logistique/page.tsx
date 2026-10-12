@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { cn, formatDate, lireNombre } from "@/lib/utils";
+import { cn, filtrerDecimal, formatDate, lireNombre } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -234,11 +234,13 @@ function EtatStock() {
           <div className="space-y-3">
             <Field label="Article"><Select value={mvt.code} onChange={(e) => setMvt({ ...mvt, code: e.target.value })}>{stock?.articles.map((a) => <option key={a.code} value={a.code}>{a.article}</option>)}</Select></Field>
             <Field label="Sens">
-              <Select value={mvt.sens} onChange={(e) => setMvt({ ...mvt, sens: e.target.value })}>
+              <Select value={mvt.sens} onChange={(e) => setMvt({ ...mvt, sens: e.target.value, quantite: filtrerDecimal(mvt.quantite, e.target.value === "correction") })}>
                 <option value="entree">Entrée en stock</option><option value="sortie">Sortie de stock</option><option value="correction">Correction d&apos;inventaire</option>
               </Select>
             </Field>
-            <Field label={mvt.sens === "correction" ? "Écart, positif ou négatif" : "Quantité"}><Input inputMode="decimal" value={mvt.quantite} onChange={(e) => setMvt({ ...mvt, quantite: e.target.value })} /></Field>
+            <Field label={mvt.sens === "correction" ? "Écart, positif ou négatif" : "Quantité"}>
+              <Input inputMode="decimal" value={mvt.quantite} onChange={(e) => setMvt({ ...mvt, quantite: filtrerDecimal(e.target.value, mvt.sens === "correction") })} />
+            </Field>
             <Field label="Motif" required><Input value={mvt.motif} onChange={(e) => setMvt({ ...mvt, motif: e.target.value })} /></Field>
             {erreur && <div role="alert" className="text-[13px] text-rouge-texte">{erreur}</div>}
           </div>
@@ -254,8 +256,8 @@ function EtatStock() {
         }>
         {reglage && (
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Stock initial"><Input inputMode="decimal" value={reglage.initial} onChange={(e) => setReglage({ ...reglage, initial: e.target.value })} /></Field>
-            <Field label="Seuil d'alerte"><Input inputMode="decimal" value={reglage.seuil} onChange={(e) => setReglage({ ...reglage, seuil: e.target.value })} /></Field>
+            <Field label="Stock initial"><Input inputMode="decimal" value={reglage.initial} onChange={(e) => setReglage({ ...reglage, initial: filtrerDecimal(e.target.value) })} /></Field>
+            <Field label="Seuil d'alerte"><Input inputMode="decimal" value={reglage.seuil} onChange={(e) => setReglage({ ...reglage, seuil: filtrerDecimal(e.target.value) })} /></Field>
             {erreur && <div role="alert" className="col-span-2 text-[13px] text-rouge-texte">{erreur}</div>}
           </div>
         )}

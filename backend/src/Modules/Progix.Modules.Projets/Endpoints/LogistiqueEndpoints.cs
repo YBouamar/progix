@@ -189,12 +189,16 @@ public static class LogistiqueEndpoints
     /// <summary>Restant = stock initial + mouvements manuels − consommé. Le consommé vient des commandes livrées de l'entité.</summary>
     private static async Task<object> Stock(ProjetsDbContext db, string entite)
     {
-        var livrees = await (
+        var commandes = await (
             from c in db.CommandesUsine.AsNoTracking()
             join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
             join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
-            where c.LivreeLe != null && p.Entite == entite
+            where p.Entite == entite
             select c).ToListAsync();
+        var livrees = commandes.Where(c => c.LivreeLe != null).ToList();
+        // Les systèmes (ancrage, gaine) apparaissent dès qu'une commande les utilise, livrée ou non : le stock des câbles
+        // se prépare pendant que les commandes sont en cours, pas seulement une fois la première livraison faite.
+        var systemes = commandes.SelectMany(c => c.Lignes).Select(l => l.Torons).Distinct().OrderBy(t => t).ToList();
         var conso = new Dictionary<string, decimal>();
         void Ajouter(string code, decimal q) => conso[code] = conso.GetValueOrDefault(code) + q;
         foreach (var l in livrees.SelectMany(c => c.Lignes))
@@ -217,6 +221,7 @@ public static class LogistiqueEndpoints
         var articles = await db.ArticlesStock.AsNoTracking().Where(a => a.Entite == entite).ToListAsync();
         var mouvements = await db.MouvementsStock.AsNoTracking().Where(m => m.Entite == entite).OrderByDescending(m => m.CreatedAt).ToListAsync();
         var codes = articles.Select(a => a.Code).Concat(conso.Keys).Concat(mouvements.Select(m => m.Code)).Append("toron")
+            .Concat(systemes.SelectMany(t => new[] { $"ancrage:{t}", $"gaine:{t}" }))
             .Concat(accessoires.Where(a => a.Actif).Select(a => $"accessoire:{a.Id:N}")).Distinct()
             .OrderBy(Rang).ThenBy(c => Rang(c) < 2 ? int.Parse(c.Split(':')[1]) : 0)
             .ThenBy(c => accessoires.FindIndex(a => c == $"accessoire:{a.Id:N}"));

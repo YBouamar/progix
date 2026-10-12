@@ -201,11 +201,14 @@ public static class LogistiqueEndpoints
         var systemes = commandes.SelectMany(c => c.Lignes).Select(l => l.Torons).Distinct().OrderBy(t => t).ToList();
         var conso = new Dictionary<string, decimal>();
         void Ajouter(string code, decimal q) => conso[code] = conso.GetValueOrDefault(code) + q;
+        // Mètres de toron consommés par système : même produit, mais la quantité dépend du système (S4 consomme 4 fois plus qu'un S1 de même longueur).
+        var toronParSysteme = new Dictionary<int, decimal>();
         foreach (var l in livrees.SelectMany(c => c.Lignes))
         {
             Ajouter($"ancrage:{l.Torons}", l.Ancrages);
             Ajouter($"gaine:{l.Torons}", l.Gaine);
             Ajouter("toron", l.MetresTorons);
+            toronParSysteme[l.Torons] = toronParSysteme.GetValueOrDefault(l.Torons) + l.MetresTorons;
         }
         // Les accessoires sont suivis en stock comme les autres articles, dans l'unité du Paramétrage.
         var accessoires = await db.Accessoires.AsNoTracking().OrderBy(a => a.Ordre).ToListAsync();
@@ -238,6 +241,9 @@ public static class LogistiqueEndpoints
                 {
                     code, article = Libelle(code), stockInitial = a?.StockInitial ?? 0, mouvements = mvt, consomme, restant,
                     seuil = a?.Seuil ?? 0, bas = restant < (a?.Seuil ?? 0),
+                    // Pour le toron, détail de la consommation par système : le stock reste commun, mais l'écart entre systèmes doit se voir.
+                    detail = code != "toron" || toronParSysteme.Count < 2 ? null
+                        : string.Join(" · ", toronParSysteme.OrderBy(x => x.Key).Select(x => $"S{x.Key} : {x.Value:0.##} m")),
                 };
             }),
             mouvements = mouvements.Take(30).Select(m => new { date = m.CreatedAt, article = Libelle(m.Code), sens = m.Sens, quantite = m.Quantite, motif = m.Motif, par = m.Par }),

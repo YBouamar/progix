@@ -15,7 +15,7 @@ type Commande = {
   contenu: string; validations: string; etat: string; etatLabel: string;
 };
 type Commandes = { compteurs: { etat: string; label: string; nb: number }[]; commandes: Commande[] };
-type Article = { code: string; article: string; stockInitial: number; mouvements: number; consomme: number; restant: number; seuil: number; bas: boolean };
+type Article = { code: string; article: string; stockInitial: number; mouvements: number; consomme: number; restant: number; seuil: number; bas: boolean; detail?: string | null };
 type Stock = { entite: string; articles: Article[]; mouvements: { date: string; article: string; sens: string; quantite: number; motif: string; par: string }[] };
 
 const ETATS: [string, string][] = [["validee", "Validée"], ["fabrication", "En fabrication"], ["livree", "Livrée"], ["recue", "Reçue"]];
@@ -173,7 +173,10 @@ function EtatStock() {
           <tbody>
             {stock?.articles.map((a) => (
               <tr key={a.code} className="border-b border-bordure last:border-0">
-                <td className="px-5 py-3 font-semibold">{a.article}</td>
+                <td className="px-5 py-3">
+                  <div className="font-semibold">{a.article}</div>
+                  {a.detail && <div className="text-[12px] text-attenue">Par système : {a.detail}</div>}
+                </td>
                 <td className="px-5 py-3 text-right font-display">{n0(a.stockInitial)}</td>
                 <td className="px-5 py-3 text-right font-display">{signe(a.mouvements)}</td>
                 <td className="px-5 py-3 text-right font-display">{n0(a.consomme)}</td>
@@ -190,6 +193,7 @@ function EtatStock() {
       </div>
       <p className="mt-2 text-[12px] text-attenue">
         Restant = stock initial + mouvements manuels − consommé. Le stock baisse dès qu&apos;une commande usine passe à l&apos;état « Livrée », et remonte si elle revient en arrière. Les accessoires viennent du Paramétrage.
+        Le toron est le même fil quel que soit le système : son stock reste commun, mais la consommation de chaque système s&apos;affiche en dessous dès qu&apos;il y en a plusieurs.
       </p>
 
       <div className="mt-3 flex flex-wrap items-end gap-2">

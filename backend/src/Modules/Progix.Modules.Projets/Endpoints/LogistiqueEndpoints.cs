@@ -138,10 +138,11 @@ public static class LogistiqueEndpoints
             });
         });
 
-        g.MapGet("/stock", async (string entite, ProjetsDbContext db) =>
+        // Sans dates, les 30 derniers mouvements suffisent à l'écran. Avec une période demandée, on cherche plus large dans l'historique.
+        g.MapGet("/stock", async (string entite, DateOnly? du, DateOnly? au, ProjetsDbContext db) =>
         {
             if (!Entites.Labels.ContainsKey(entite)) return Results.NotFound();
-            return Results.Ok(await Stock(db, entite));
+            return Results.Ok(await Stock(db, entite, du, au));
         });
 
         g.MapPut("/stock/articles", async (ArticleInput input, ProjetsDbContext db) =>
@@ -187,7 +188,7 @@ public static class LogistiqueEndpoints
     }
 
     /// <summary>Restant = stock initial + mouvements manuels − consommé. Le consommé vient des commandes livrées de l'entité.</summary>
-    private static async Task<object> Stock(ProjetsDbContext db, string entite)
+    private static async Task<object> Stock(ProjetsDbContext db, string entite, DateOnly? du = null, DateOnly? au = null)
     {
         var commandes = await (
             from c in db.CommandesUsine.AsNoTracking()
@@ -246,7 +247,12 @@ public static class LogistiqueEndpoints
                         : string.Join(" · ", toronParSysteme.OrderBy(x => x.Key).Select(x => $"S{x.Key} : {x.Value:0.##} m")),
                 };
             }),
-            mouvements = mouvements.Take(30).Select(m => new { date = m.CreatedAt, article = Libelle(m.Code), sens = m.Sens, quantite = m.Quantite, motif = m.Motif, par = m.Par }),
+            // Sans période demandée, les 30 derniers mouvements suffisent à l'écran. Avec une période, le total ci-dessus par article
+            // reste calculé sur tout l'historique (il doit rester exact) : seule la liste affichée ici se limite à la période.
+            mouvements = mouvements
+                .Where(m => (du is null || DateOnly.FromDateTime(m.CreatedAt) >= du) && (au is null || DateOnly.FromDateTime(m.CreatedAt) <= au))
+                .Take(du is null && au is null ? 30 : 300)
+                .Select(m => new { date = m.CreatedAt, article = Libelle(m.Code), sens = m.Sens, quantite = m.Quantite, motif = m.Motif, par = m.Par }),
         };
     }
 }

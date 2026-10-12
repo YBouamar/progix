@@ -39,6 +39,21 @@ export function lireNombre(s: string) {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** Vrai si la date ISO tombe dans l'intervalle [du, au] (bornes au format AAAA-MM-JJ, inclusives). Une borne vide n'est pas appliquée. */
+export function dansIntervalle(iso: string | null | undefined, du: string, au: string) {
+  if (!du && !au) return true;
+  if (!iso) return false;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return false;
+  if (du && d < new Date(du)) return false;
+  if (au) {
+    const fin = new Date(au);
+    fin.setDate(fin.getDate() + 1);
+    if (d >= fin) return false;
+  }
+  return true;
+}
+
 /** Filtre une saisie pour ne garder que des chiffres et un seul séparateur décimal (virgule ou point).
  * Avec `negatif`, un signe moins en tête reste permis (écart d'inventaire). À utiliser dans un onChange,
  * pour empêcher la saisie de texte dans un champ numérique plutôt que de la corriger après coup. */

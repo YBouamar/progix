@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
-import { cn, filtrerDecimal, formatDate, lireNombre } from "@/lib/utils";
+import { cn, dansIntervalle, filtrerDecimal, formatDate, lireNombre } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -44,12 +44,19 @@ function CommandesUsine() {
   const [etat, setEtat] = useState("");
   const [data, setData] = useState<Commandes | null>(null);
   const [erreur, setErreur] = useState("");
+  const [filtreDate, setFiltreDate] = useState({ du: "", au: "" });
 
   const charger = useCallback(() => {
     api<Commandes>(`/logistique/commandes${etat ? `?etat=${etat}` : ""}`).then((r) => { setData(r); setErreur(""); })
       .catch((e) => setErreur(e instanceof ApiError ? e.message : "Chargement impossible."));
   }, [etat]);
   useEffect(() => { charger(); }, [charger]);
+
+  const commandesFiltrees = useMemo(
+    () => (data?.commandes ?? []).filter((c) => dansIntervalle(c.demandee, filtreDate.du, filtreDate.au)),
+    [data, filtreDate],
+  );
+  const dateFiltreActif = !!(filtreDate.du || filtreDate.au);
 
   async function changer(c: Commande, etat: string) {
     try {
@@ -74,6 +81,11 @@ function CommandesUsine() {
           </button>
         ))}
       </div>
+      <div className="mb-4 flex flex-wrap items-end gap-2">
+        <Field label="Demandée du"><Input type="date" className="h-9 w-40" value={filtreDate.du} onChange={(e) => setFiltreDate({ ...filtreDate, du: e.target.value })} /></Field>
+        <Field label="au"><Input type="date" className="h-9 w-40" value={filtreDate.au} onChange={(e) => setFiltreDate({ ...filtreDate, au: e.target.value })} /></Field>
+        {dateFiltreActif && <Button size="sm" variant="ghost" onClick={() => setFiltreDate({ du: "", au: "" })}>Réinitialiser</Button>}
+      </div>
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
@@ -90,7 +102,10 @@ function CommandesUsine() {
             </tr>
           </thead>
           <tbody>
-            {data?.commandes.map((c) => (
+            {data && data.commandes.length > 0 && commandesFiltrees.length === 0 && (
+              <tr><td colSpan={8} className="px-5 py-8 text-center text-secondaire">Aucune commande ne correspond aux filtres.</td></tr>
+            )}
+            {commandesFiltrees.map((c) => (
               <tr key={c.dalleId} tabIndex={0} role="link" aria-label={`Détail de la commande ${c.reference}`}
                 onClick={() => router.push(`/logistique/${c.dalleId}`)}
                 onKeyDown={(e) => { if (e.key === "Enter") router.push(`/logistique/${c.dalleId}`); }}
@@ -122,7 +137,7 @@ function CommandesUsine() {
           </div>
         )}
       </div>
-      {data && <div className="mt-3 text-[13px] text-secondaire">{data.commandes.length} commande(s)</div>}
+      {data && <div className="mt-3 text-[13px] text-secondaire">{commandesFiltrees.length} commande(s){dateFiltreActif && ` sur ${data.commandes.length}`}</div>}
     </div>
   );
 }
@@ -138,13 +153,22 @@ function EtatStock() {
   const [reglage, setReglage] = useState<{ code: string; article: string; initial: string; seuil: string } | null>(null);
   const [nouveau, setNouveau] = useState({ type: "ancrage", torons: "" });
   const [filtreArticle, setFiltreArticle] = useState({ recherche: "", type: "", niveau: "" });
-  const [filtreMvt, setFiltreMvt] = useState({ recherche: "", sens: "", article: "" });
+  const [filtreMvt, setFiltreMvt] = useState({ recherche: "", sens: "", article: "", du: "", au: "" });
 
+  // Changer d'entité repart de filtres vides.
   useEffect(() => {
-    api<Stock>(`/logistique/stock?entite=${entite}`).then(setStock).catch(() => setErreur("Chargement impossible."));
     setFiltreArticle({ recherche: "", type: "", niveau: "" });
-    setFiltreMvt({ recherche: "", sens: "", article: "" });
+    setFiltreMvt({ recherche: "", sens: "", article: "", du: "", au: "" });
   }, [entite]);
+
+  // La période (du/au) se filtre côté serveur : sans elle, seuls les 30 derniers mouvements sont chargés,
+  // ce qui ne couvrirait pas une recherche plus ancienne dans l'historique.
+  useEffect(() => {
+    const params = new URLSearchParams({ entite });
+    if (filtreMvt.du) params.set("du", filtreMvt.du);
+    if (filtreMvt.au) params.set("au", filtreMvt.au);
+    api<Stock>(`/logistique/stock?${params}`).then(setStock).catch(() => setErreur("Chargement impossible."));
+  }, [entite, filtreMvt.du, filtreMvt.au]);
 
   async function envoyer(chemin: string, methode: string, corps: object, apres: () => void) {
     setErreur("");
@@ -172,7 +196,7 @@ function EtatStock() {
       && (!r || m.article.toLowerCase().includes(r) || m.motif.toLowerCase().includes(r) || m.par.toLowerCase().includes(r)));
   }, [stock, filtreMvt]);
   const articleFiltreActif = !!(filtreArticle.recherche || filtreArticle.type || filtreArticle.niveau);
-  const mvtFiltreActif = !!(filtreMvt.recherche || filtreMvt.sens || filtreMvt.article);
+  const mvtFiltreActif = !!(filtreMvt.recherche || filtreMvt.sens || filtreMvt.article || filtreMvt.du || filtreMvt.au);
 
   return (
     <div>
@@ -259,9 +283,11 @@ function EtatStock() {
       <div className="mt-6 rounded-xl border border-bordure bg-white p-6">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 className="text-[15px] font-bold">Derniers mouvements manuels</h3>
-          {stock && stock.mouvements.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2">
-              <Input className="h-9 w-56" placeholder="Rechercher (article, motif, auteur)" aria-label="Rechercher un mouvement"
+          {stock && (stock.mouvements.length > 0 || mvtFiltreActif) && (
+            <div className="flex flex-wrap items-end gap-2">
+              <Field label="Du"><Input type="date" className="h-9 w-36" value={filtreMvt.du} onChange={(e) => setFiltreMvt({ ...filtreMvt, du: e.target.value })} /></Field>
+              <Field label="Au"><Input type="date" className="h-9 w-36" value={filtreMvt.au} onChange={(e) => setFiltreMvt({ ...filtreMvt, au: e.target.value })} /></Field>
+              <Input className="h-9 w-52" placeholder="Rechercher (article, motif, auteur)" aria-label="Rechercher un mouvement"
                 value={filtreMvt.recherche} onChange={(e) => setFiltreMvt({ ...filtreMvt, recherche: e.target.value })} />
               <Select className="h-9 w-36" aria-label="Sens du mouvement" value={filtreMvt.sens} onChange={(e) => setFiltreMvt({ ...filtreMvt, sens: e.target.value })}>
                 <option value="">Tous les sens</option>
@@ -269,15 +295,17 @@ function EtatStock() {
                 <option value="sortie">Sortie</option>
                 <option value="correction">Correction</option>
               </Select>
-              <Select className="h-9 w-48" aria-label="Article du mouvement" value={filtreMvt.article} onChange={(e) => setFiltreMvt({ ...filtreMvt, article: e.target.value })}>
+              <Select className="h-9 w-44" aria-label="Article du mouvement" value={filtreMvt.article} onChange={(e) => setFiltreMvt({ ...filtreMvt, article: e.target.value })}>
                 <option value="">Tous les articles</option>
                 {articlesMouvements.map((a) => <option key={a} value={a}>{a}</option>)}
               </Select>
-              {mvtFiltreActif && <Button size="sm" variant="ghost" onClick={() => setFiltreMvt({ recherche: "", sens: "", article: "" })}>Réinitialiser</Button>}
+              {mvtFiltreActif && <Button size="sm" variant="ghost" onClick={() => setFiltreMvt({ recherche: "", sens: "", article: "", du: "", au: "" })}>Réinitialiser</Button>}
             </div>
           )}
         </div>
-        {stock?.mouvements.length === 0 && <div className="text-[13px] text-attenue">Aucun mouvement manuel.</div>}
+        {stock?.mouvements.length === 0 && (
+          <div className="text-[13px] text-attenue">{filtreMvt.du || filtreMvt.au ? "Aucun mouvement sur cette période." : "Aucun mouvement manuel."}</div>
+        )}
         {stock && stock.mouvements.length > 0 && mouvementsFiltres.length === 0 && (
           <div className="text-[13px] text-attenue">Aucun mouvement ne correspond aux filtres.</div>
         )}

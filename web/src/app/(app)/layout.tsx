@@ -6,7 +6,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { useAuth } from "@/lib/auth";
 import { menuPour, titrePour } from "@/lib/nav";
-import { cn, initiales } from "@/lib/utils";
+import { cn } from "@/lib/utils";
+import { MonCompte } from "@/components/mon-compte";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, logout } = useAuth();
@@ -38,14 +39,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
-        <div className="flex items-center gap-3 border-t border-white/15 px-4 py-4">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 font-display text-[13px] font-bold">
-            {initiales(user.fullName)}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[13px] font-semibold">{user.fullName}</div>
-            <div className="truncate text-[12px] text-white/65">{user.roleLabel}</div>
-          </div>
+        <div className="flex items-center gap-1 border-t border-white/15 px-2 py-2">
+          <MonCompte />
           <button onClick={() => logout()} title="Se déconnecter" aria-label="Se déconnecter"
             className="cursor-pointer rounded-lg p-2 text-white/70 hover:bg-white/10 hover:text-white">
             <LogOut size={16} />

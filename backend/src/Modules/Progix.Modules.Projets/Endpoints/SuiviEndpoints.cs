@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -32,7 +33,7 @@ public static class SuiviEndpoints
             return projet is null || dalle is null ? Results.NotFound() : Results.Ok(await Vue(db, projet, dalle, user, encours));
         });
 
-        g.MapPost("/{n:int}/realiser", async (Guid id, Guid did, int n, RealisationInput input, ProjetsDbContext db, IFichiersLookup fichiers, IUtilisateursLookup users, ClaimsPrincipal user, IEncoursProjet encours) =>
+        g.MapPost("/{n:int}/realiser", async (Guid id, Guid did, int n, RealisationInput input, ProjetsDbContext db, IFichiersLookup fichiers, IUtilisateursLookup users, ClaimsPrincipal user, IEncoursProjet encours, INotificationsDirection notifications, ILoggerFactory logs) =>
         {
             var (projet, dalle) = await Charger(db, id, did, suivi: true);
             if (projet is null || dalle is null) return Results.NotFound();
@@ -75,6 +76,8 @@ public static class SuiviEndpoints
             if (e.Terminee) dalle.EtapesFaites = n;
             await db.SaveChangesAsync();
             await MajStatut(db, projet);
+            if (e.Terminee && n is 6 or Etapes.MiseEnTension or Etapes.Injection)
+                await PrevenirDirectionAsync(db, notifications, logs, projet, dalle, def, e);
             return Results.Ok(await Vue(db, projet, dalle, user, encours));
         });
 
@@ -161,6 +164,32 @@ public static class SuiviEndpoints
         projet.Statut = statut;
         projet.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
+    }
+
+    /// <summary>Réception de dalle, mise en tension et injection : un courriel part aux directeurs. Un échec d'envoi ne bloque pas l'étape.</summary>
+    private static async Task PrevenirDirectionAsync(ProjetsDbContext db, INotificationsDirection notifications, ILoggerFactory logs, Projet projet, Dalle dalle, Etapes.Definition def, EtapeDalle e)
+    {
+        var reference = $"{projet.Code}-{dalle.Suffixe}";
+        try
+        {
+            var lignes = new List<KeyValuePair<string, string>>
+            {
+                new("Projet", $"{projet.Code} · {projet.Libelle}"), new("Dalle", reference), new("Étape", $"{def.Numero} · {def.Label}"),
+                new("Réalisée par", $"{e.FaitPar}, le {e.FaitLe!.Value.AddHours(1):dd/MM/yyyy à HH:mm}"),
+            };
+            if (def.Numero == Etapes.MiseEnTension)
+            {
+                var s = TensionEndpoints.Calculer(await db.MesuresTension.AsNoTracking().Where(m => m.DalleId == dalle.Id).ToListAsync());
+                lignes.Add(new("Allongements", s.Ecart is null ? "non calculés"
+                    : $"écart du groupe {s.Ecart:+0.0;-0.0} %, {(s.Conforme == true && s.HorsTolerance == 0 ? "conforme" : $"{s.HorsTolerance} tendon(s) hors tolérance")}"));
+            }
+            if (!string.IsNullOrWhiteSpace(e.Remarque)) lignes.Add(new("Remarque", e.Remarque));
+            await notifications.SignalerAsync($"{def.Label} réalisée · {reference}", $"{def.Label} réalisée sur la dalle {reference}", lignes, $"/projets/{projet.Id}#dalles");
+        }
+        catch (Exception ex)
+        {
+            logs.CreateLogger("Notifications").LogWarning(ex, "Courriel aux directeurs non préparé pour la dalle {Dalle}", reference);
+        }
     }
 
     private static async Task<object> Vue(ProjetsDbContext db, Projet projet, Dalle dalle, ClaimsPrincipal user, IEncoursProjet encours)

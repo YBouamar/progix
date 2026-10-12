@@ -69,6 +69,13 @@ services:
       Storage__Endpoint: http://minio:9000
       Storage__AccessKey: ${MINIO_ROOT_USER:-progix}
       Storage__SecretKey: ${MINIO_ROOT_PASSWORD}
+      # Courriels aux directeurs (étapes clés, paiements). Sans SMTP_HOST, rien n'est envoyé.
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-}
+      Smtp__Securite: ${SMTP_SECURITE:-starttls}
     depends_on:
       postgres:
         condition: service_healthy

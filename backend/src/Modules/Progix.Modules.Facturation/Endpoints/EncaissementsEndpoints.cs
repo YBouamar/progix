@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -43,7 +44,8 @@ public static class EncaissementsEndpoints
             return Results.Ok(new { plafond = PlafondEspeces, deja, disponible = Math.Max(0, PlafondEspeces - deja) });
         });
 
-        g.MapPost("/factures/{id:guid}/encaissements", async (Guid id, EncaissementInput input, FacturationDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
+        g.MapPost("/factures/{id:guid}/encaissements", async (Guid id, EncaissementInput input, FacturationDbContext db, IUtilisateursLookup users, ClaimsPrincipal user,
+            INotificationsDirection notifications, ILoggerFactory logs) =>
         {
             // L'encaissement vaut signature électronique du reçu : le mot de passe de la personne qui encaisse est exigé.
             if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
@@ -77,8 +79,22 @@ public static class EncaissementsEndpoints
                 FactureId = f.Id, ClientId = f.ClientId, DatePaiement = input.DatePaiement, Mode = input.Mode, Montant = montant, Reference = reference, EcheanceEffet = input.Mode == ModesPaiement.Effet ? input.EcheanceEffet : null,
                 Banque = string.IsNullOrWhiteSpace(input.Banque) ? null : input.Banque.Trim(), SaisiPar = user.UserName(),
             });
+            var recu = db.Encaissements.Local.Last(x => x.FactureId == f.Id);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
+            // Un courriel prévient les directeurs ; un échec d'envoi n'annule pas le paiement.
+            try
+            {
+                var lignes = new List<KeyValuePair<string, string>>
+                {
+                    new("Montant", DH(montant)), new("Mode", ModesPaiement.Libelles[input.Mode] + (reference is null ? "" : $" · {reference}")),
+                    new("Client", f.ClientNom), new("Facture", $"{f.Numero} · reste {DH(Math.Max(0, f.Reste))}"), new("Projet", $"{f.ProjetCode} · {f.ProjetLibelle}"),
+                    new("Date du paiement", input.DatePaiement.ToString("dd/MM/yyyy")), new("Reçu", recu.NumeroRecu), new("Saisi par", user.UserName()),
+                };
+                if (input.Mode == ModesPaiement.Effet && input.EcheanceEffet is { } ech) lignes.Add(new("Échéance de l'effet", ech.ToString("dd/MM/yyyy")));
+                await notifications.SignalerAsync($"Nouveau paiement · {DH(montant)} · {f.ClientNom}", $"Nouveau paiement de {DH(montant)}", lignes, $"/facturation");
+            }
+            catch (Exception ex) { logs.CreateLogger("Notifications").LogWarning(ex, "Courriel de paiement non préparé pour la facture {Facture}", f.Numero); }
             return Results.Ok(FacturesEndpoints.Dto(f, true));
         });
 

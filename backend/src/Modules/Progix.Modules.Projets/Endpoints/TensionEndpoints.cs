@@ -98,9 +98,9 @@ public static class TensionEndpoints
         return e?.Validee == true ? null : "Les validations technique, administrative et du responsable des chantiers sont requises avant la saisie des mesures.";
     }
 
-    private sealed record Synthese(decimal Theorique, decimal Mesure, decimal? Ecart, bool? Conforme, int HorsTolerance, int Incompletes, int Total);
+    internal sealed record Synthese(decimal Theorique, decimal Mesure, decimal? Ecart, bool? Conforme, int HorsTolerance, int Incompletes, int Total);
 
-    private static Synthese Calculer(IReadOnlyList<MesureTension> m)
+    internal static Synthese Calculer(IReadOnlyList<MesureTension> m)
     {
         var completes = m.Where(x => x.Mesure != null).ToList();
         var theo = completes.Sum(x => x.Theorique);

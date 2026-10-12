@@ -4,9 +4,9 @@ import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 
 /** Panneau latéral droit, utilisé pour les fiches et les formulaires. Avec « large », une grande fenêtre centrée pour les contenus à tableaux. */
-export function Sheet({ open, onOpenChange, title, description, children, footer, large }: {
+export function Sheet({ open, onOpenChange, title, description, children, footer, large, plein }: {
   open: boolean; onOpenChange: (o: boolean) => void; title: string; description?: string;
-  children: React.ReactNode; footer?: React.ReactNode; large?: boolean;
+  children: React.ReactNode; footer?: React.ReactNode; large?: boolean; plein?: boolean;
 }) {
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -24,7 +24,8 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
               <X size={18} />
             </Dialog.Close>
           </div>
-          <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+          {/* « plein » : le contenu gère lui-même sa mise en page et son défilement. */}
+          <div className={plein ? "min-h-0 flex-1 overflow-hidden" : "flex-1 overflow-y-auto px-6 py-5"}>{children}</div>
           {footer && <div className="flex justify-end gap-2 border-t border-bordure px-6 py-4">{footer}</div>}
         </Dialog.Content>
       </Dialog.Portal>

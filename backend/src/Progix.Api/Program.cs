@@ -38,6 +38,10 @@ builder.Services.AddSwaggerGen(o =>
 });
 builder.Services.AddProblemDetails();
 
+// Courriels aux directeurs : préparés pendant l'action, envoyés par la file des tâches.
+builder.Services.AddScoped<INotificationsDirection, Progix.Api.Notifications.NotificationsDirection>();
+builder.Services.AddTransient<Progix.Api.Notifications.EnvoiCourriel>();
+
 var app = builder.Build();
 
 // Migrations et données de référence, avec reprise tant que PostgreSQL démarre.

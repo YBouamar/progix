@@ -1,0 +1,5 @@
+# Développement uniquement : le code vient d'un volume (docker-compose.override.yml), pas d'une copie figée.
+# dotnet watch recompile et redémarre l'API à chaque modification de fichier.
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+WORKDIR /src
+EXPOSE 8080

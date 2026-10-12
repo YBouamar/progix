@@ -161,6 +161,16 @@ public interface IEncoursProjet
 /// <param name="Echues">Parmi elles, celles dont l'échéance est passée.</param>
 public record EncoursProjet(int Factures, int Echues, decimal Reste, decimal ResteEchu);
 
+/// <summary>
+/// Courriels d'information envoyés aux directeurs (étapes clés du chantier, nouveaux paiements).
+/// L'envoi se fait en arrière-plan : une panne de messagerie ne bloque jamais l'action qui l'a déclenché.
+/// </summary>
+public interface INotificationsDirection
+{
+    /// <param name="lien">Chemin dans PROGIX à ouvrir depuis le courriel, par exemple /projets/{id}.</param>
+    Task SignalerAsync(string sujet, string titre, IReadOnlyList<KeyValuePair<string, string>> lignes, string? lien, CancellationToken ct = default);
+}
+
 /// <summary>Entités émettrices des documents.</summary>
 public static class Entites
 {

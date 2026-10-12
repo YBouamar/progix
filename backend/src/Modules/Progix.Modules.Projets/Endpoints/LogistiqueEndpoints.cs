@@ -57,6 +57,36 @@ public static class LogistiqueEndpoints
             });
         });
 
+        // Détail d'une commande usine : fiche isolée, consultable depuis la liste sans passer par le projet.
+        g.MapGet("/commandes/{dalleId:guid}", async (Guid dalleId, ProjetsDbContext db, IPartenairesLookup partenaires) =>
+        {
+            var row = await (
+                from c in db.CommandesUsine.AsNoTracking()
+                join e in db.Etapes.AsNoTracking() on new { c.DalleId, Numero = Etapes.CommandeUsine } equals new { e.DalleId, e.Numero }
+                join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
+                join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
+                where c.DalleId == dalleId && e.FaitLe != null
+                select new { c, e, d, p }).FirstOrDefaultAsync();
+            if (row is null) return Results.NotFound();
+            var noms = await partenaires.NomsAsync([row.p.ClientId]);
+            var etat = Etat(row.c, row.e);
+            return Results.Ok(new
+            {
+                dalleId = row.d.Id, projetId = row.p.Id,
+                reference = $"{row.p.Code}-{row.d.Suffixe}", projet = row.p.Libelle, client = noms.GetValueOrDefault(row.p.ClientId, ""),
+                entite = row.p.Entite, entiteLabel = Entites.Labels.GetValueOrDefault(row.p.Entite, row.p.Entite),
+                adresse = row.p.Adresse, ville = row.p.Ville,
+                bloc = row.d.Bloc, immeuble = row.d.Immeuble, niveau = Dalle.NiveauLabel(row.d.Niveau), surface = row.d.Surface, detailDalle = row.d.Detail,
+                demandee = row.e.FaitLe, demandeePar = row.e.FaitPar,
+                validationTechniquePar = row.e.ValidationTechniquePar, validationTechniqueLe = row.e.ValidationTechniqueLe,
+                validationAdministrativePar = row.e.ValidationAdministrativePar, validationAdministrativeLe = row.e.ValidationAdministrativeLe,
+                fabricationLe = row.c.FabricationLe, livreeLe = row.c.LivreeLe, recueLe = row.c.RecueLe, suiviPar = row.c.SuiviPar,
+                etat, etatLabel = Etats.First(x => x.Code == etat).Label,
+                tendons = row.c.Tendons().Select(t => new { numero = t.Numero, torons = t.Torons, sens = t.Sens, longueur = t.Longueur, ancrages = t.Ancrages }),
+                accessoires = row.c.Accessoires.Select(a => new { libelle = a.Libelle, unite = a.Unite, quantite = a.Quantite }),
+            });
+        });
+
         // État de la commande après validation : validée, en fabrication, livrée, reçue.
         g.MapPost("/commandes/{dalleId:guid}/etat", async (Guid dalleId, EtatCommandeInput input, ProjetsDbContext db, ClaimsPrincipal user) =>
         {

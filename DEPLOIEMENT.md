@@ -96,6 +96,18 @@ Ouvrir ensuite `https://progix.votre-domaine.ma` et se connecter avec l'identifi
 2. Paramétrage, Utilisateurs : créer les comptes de l'équipe. Aucun compte de démonstration n'existe en production.
 3. Vérifier un PDF (un devis signé, par exemple) et le dépôt d'un fichier.
 
+### Courriels aux directeurs
+
+PROGIX envoie un courriel à chaque compte « Directeur » actif après une réception de dalle, une mise en tension, une injection, et à chaque nouveau paiement saisi.
+Pour l'activer, remplir les lignes `SMTP_...` du fichier `.env` avec les réglages d'envoi de votre messagerie (hôte, port, identifiant, mot de passe, adresse d'expédition), puis relancer :
+
+```
+docker compose -f docker-compose.prod.yml --env-file .env up -d
+```
+
+Un échec d'envoi ne bloque jamais l'étape ni le paiement : le courriel est retenté plusieurs fois, et le motif apparaît dans `logs api`.
+Vérifiez l'adresse e-mail du compte directeur dans Paramétrage, Utilisateurs : c'est elle qui reçoit les messages.
+
 ## 7. Sauvegardes
 
 Tester une sauvegarde à la main :

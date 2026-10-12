@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { cn, formatDate, lireNombre } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -39,6 +40,7 @@ export default function LogistiquePage() {
 }
 
 function CommandesUsine() {
+  const router = useRouter();
   const [etat, setEtat] = useState("");
   const [data, setData] = useState<Commandes | null>(null);
   const [erreur, setErreur] = useState("");
@@ -89,15 +91,20 @@ function CommandesUsine() {
           </thead>
           <tbody>
             {data?.commandes.map((c) => (
-              <tr key={c.dalleId} className="border-b border-bordure last:border-0">
-                <td className="whitespace-nowrap px-5 py-3"><Link href={`/projets/${c.projetId}`} className="font-display font-bold text-marine hover:underline">{c.reference}</Link></td>
+              <tr key={c.dalleId} tabIndex={0} role="link" aria-label={`Détail de la commande ${c.reference}`}
+                onClick={() => router.push(`/logistique/${c.dalleId}`)}
+                onKeyDown={(e) => { if (e.key === "Enter") router.push(`/logistique/${c.dalleId}`); }}
+                className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond focus:outline-none focus:bg-fond">
+                <td className="whitespace-nowrap px-5 py-3" onClick={(e) => e.stopPropagation()}>
+                  <Link href={`/projets/${c.projetId}`} className="font-display font-bold text-marine hover:underline">{c.reference}</Link>
+                </td>
                 <td className="px-5 py-3">{c.projet}</td>
                 <td className="px-5 py-3 font-display">{c.entite}</td>
                 <td className="whitespace-nowrap px-5 py-3 font-display text-secondaire">{formatDate(c.demandee)}</td>
                 <td className="px-5 py-3 text-secondaire">{c.contenu}</td>
                 <td className={cn("px-5 py-3 text-[13px]", c.etat === "attente" ? "font-semibold text-rouge-texte" : "text-secondaire")}>{c.validations}</td>
                 <td className="whitespace-nowrap px-5 py-3"><Badge ton={c.etat === "recue" ? "vert" : c.etat === "attente" ? "neutre" : "orange"}>{c.etatLabel}</Badge></td>
-                <td className="whitespace-nowrap px-3 py-3 text-right">
+                <td className="whitespace-nowrap px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   {c.etat !== "attente" && (
                     <Select className="h-8 w-40 text-[13px]" aria-label={`État de la commande ${c.reference}`} value={c.etat} onChange={(e) => changer(c, e.target.value)}>
                       {ETATS.map(([code, label]) => <option key={code} value={code}>{label}</option>)}

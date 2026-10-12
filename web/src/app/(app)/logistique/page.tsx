@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
@@ -127,6 +127,9 @@ function CommandesUsine() {
   );
 }
 
+const TYPES_ARTICLE: [string, string][] = [["ancrage", "Ancrages"], ["gaine", "Gaines"], ["toron", "Toron"], ["accessoire", "Accessoires"]];
+const typeArticle = (code: string) => code.startsWith("ancrage") ? "ancrage" : code.startsWith("gaine") ? "gaine" : code.startsWith("accessoire") ? "accessoire" : "toron";
+
 function EtatStock() {
   const [entite, setEntite] = useState("APT");
   const [stock, setStock] = useState<Stock | null>(null);
@@ -134,14 +137,42 @@ function EtatStock() {
   const [mvt, setMvt] = useState<{ code: string; sens: string; quantite: string; motif: string } | null>(null);
   const [reglage, setReglage] = useState<{ code: string; article: string; initial: string; seuil: string } | null>(null);
   const [nouveau, setNouveau] = useState({ type: "ancrage", torons: "" });
+  const [filtreArticle, setFiltreArticle] = useState({ recherche: "", type: "", niveau: "" });
+  const [filtreMvt, setFiltreMvt] = useState({ recherche: "", sens: "", article: "" });
 
-  useEffect(() => { api<Stock>(`/logistique/stock?entite=${entite}`).then(setStock).catch(() => setErreur("Chargement impossible.")); }, [entite]);
+  useEffect(() => {
+    api<Stock>(`/logistique/stock?entite=${entite}`).then(setStock).catch(() => setErreur("Chargement impossible."));
+    setFiltreArticle({ recherche: "", type: "", niveau: "" });
+    setFiltreMvt({ recherche: "", sens: "", article: "" });
+  }, [entite]);
 
   async function envoyer(chemin: string, methode: string, corps: object, apres: () => void) {
     setErreur("");
     try { setStock(await api<Stock>(chemin, { method: methode, body: JSON.stringify(corps) })); apres(); }
     catch (e) { setErreur(e instanceof ApiError ? e.message : "Action impossible."); }
   }
+
+  const articlesFiltres = useMemo(() => {
+    const r = filtreArticle.recherche.trim().toLowerCase();
+    return (stock?.articles ?? []).filter((a) =>
+      (!filtreArticle.type || typeArticle(a.code) === filtreArticle.type)
+      && (!filtreArticle.niveau || (filtreArticle.niveau === "bas" ? a.bas : !a.bas))
+      && (!r || a.article.toLowerCase().includes(r)));
+  }, [stock, filtreArticle]);
+
+  const articlesMouvements = useMemo(
+    () => Array.from(new Set((stock?.mouvements ?? []).map((m) => m.article))).sort((a, b) => a.localeCompare(b, "fr")),
+    [stock],
+  );
+  const mouvementsFiltres = useMemo(() => {
+    const r = filtreMvt.recherche.trim().toLowerCase();
+    return (stock?.mouvements ?? []).filter((m) =>
+      (!filtreMvt.sens || m.sens === filtreMvt.sens)
+      && (!filtreMvt.article || m.article === filtreMvt.article)
+      && (!r || m.article.toLowerCase().includes(r) || m.motif.toLowerCase().includes(r) || m.par.toLowerCase().includes(r)));
+  }, [stock, filtreMvt]);
+  const articleFiltreActif = !!(filtreArticle.recherche || filtreArticle.type || filtreArticle.niveau);
+  const mvtFiltreActif = !!(filtreMvt.recherche || filtreMvt.sens || filtreMvt.article);
 
   return (
     <div>
@@ -155,6 +186,21 @@ function EtatStock() {
         <Button className="ml-auto" onClick={() => setMvt({ code: stock?.articles[0]?.code ?? "toron", sens: "entree", quantite: "", motif: "" })}>Mouvement manuel</Button>
       </div>
       {erreur && !mvt && !reglage && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Input className="h-9 w-56" placeholder="Rechercher un article" aria-label="Rechercher un article"
+          value={filtreArticle.recherche} onChange={(e) => setFiltreArticle({ ...filtreArticle, recherche: e.target.value })} />
+        <Select className="h-9 w-36" aria-label="Type d'article" value={filtreArticle.type} onChange={(e) => setFiltreArticle({ ...filtreArticle, type: e.target.value })}>
+          <option value="">Tous les types</option>
+          {TYPES_ARTICLE.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
+        </Select>
+        <Select className="h-9 w-36" aria-label="Niveau de stock" value={filtreArticle.niveau} onChange={(e) => setFiltreArticle({ ...filtreArticle, niveau: e.target.value })}>
+          <option value="">Tous les niveaux</option>
+          <option value="bas">Stock bas</option>
+          <option value="suffisant">Suffisant</option>
+        </Select>
+        {articleFiltreActif && <Button size="sm" variant="ghost" onClick={() => setFiltreArticle({ recherche: "", type: "", niveau: "" })}>Réinitialiser</Button>}
+      </div>
 
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
@@ -171,7 +217,10 @@ function EtatStock() {
             </tr>
           </thead>
           <tbody>
-            {stock?.articles.map((a) => (
+            {stock && articlesFiltres.length === 0 && (
+              <tr><td colSpan={8} className="px-5 py-8 text-center text-secondaire">Aucun article ne correspond aux filtres.</td></tr>
+            )}
+            {articlesFiltres.map((a) => (
               <tr key={a.code} className="border-b border-bordure last:border-0">
                 <td className="px-5 py-3">
                   <div className="font-semibold">{a.article}</div>
@@ -191,6 +240,7 @@ function EtatStock() {
           </tbody>
         </table>
       </div>
+      {stock && <div className="mt-2 text-[13px] text-secondaire">{articlesFiltres.length} article(s){articleFiltreActif && ` sur ${stock.articles.length}`}</div>}
       <p className="mt-2 text-[12px] text-attenue">
         Restant = stock initial + mouvements manuels − consommé. Le stock baisse dès qu&apos;une commande usine passe à l&apos;état « Livrée », et remonte si elle revient en arrière. Les accessoires viennent du Paramétrage.
         Le toron est le même fil quel que soit le système : son stock reste commun, mais la consommation de chaque système s&apos;affiche en dessous dès qu&apos;il y en a plusieurs.
@@ -207,10 +257,32 @@ function EtatStock() {
       </div>
 
       <div className="mt-6 rounded-xl border border-bordure bg-white p-6">
-        <h3 className="mb-3 text-[15px] font-bold">Derniers mouvements manuels</h3>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-[15px] font-bold">Derniers mouvements manuels</h3>
+          {stock && stock.mouvements.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Input className="h-9 w-56" placeholder="Rechercher (article, motif, auteur)" aria-label="Rechercher un mouvement"
+                value={filtreMvt.recherche} onChange={(e) => setFiltreMvt({ ...filtreMvt, recherche: e.target.value })} />
+              <Select className="h-9 w-36" aria-label="Sens du mouvement" value={filtreMvt.sens} onChange={(e) => setFiltreMvt({ ...filtreMvt, sens: e.target.value })}>
+                <option value="">Tous les sens</option>
+                <option value="entree">Entrée</option>
+                <option value="sortie">Sortie</option>
+                <option value="correction">Correction</option>
+              </Select>
+              <Select className="h-9 w-48" aria-label="Article du mouvement" value={filtreMvt.article} onChange={(e) => setFiltreMvt({ ...filtreMvt, article: e.target.value })}>
+                <option value="">Tous les articles</option>
+                {articlesMouvements.map((a) => <option key={a} value={a}>{a}</option>)}
+              </Select>
+              {mvtFiltreActif && <Button size="sm" variant="ghost" onClick={() => setFiltreMvt({ recherche: "", sens: "", article: "" })}>Réinitialiser</Button>}
+            </div>
+          )}
+        </div>
         {stock?.mouvements.length === 0 && <div className="text-[13px] text-attenue">Aucun mouvement manuel.</div>}
+        {stock && stock.mouvements.length > 0 && mouvementsFiltres.length === 0 && (
+          <div className="text-[13px] text-attenue">Aucun mouvement ne correspond aux filtres.</div>
+        )}
         <ul className="divide-y divide-bordure text-[13px]">
-          {stock?.mouvements.map((m, i) => (
+          {mouvementsFiltres.map((m, i) => (
             <li key={i} className="flex flex-wrap gap-x-4 gap-y-1 py-2">
               <span className="font-display text-secondaire">{formatDate(m.date)}</span>
               <span className="font-semibold">{m.article}</span>
@@ -220,6 +292,9 @@ function EtatStock() {
             </li>
           ))}
         </ul>
+        {stock && mvtFiltreActif && mouvementsFiltres.length > 0 && (
+          <div className="mt-2 text-[13px] text-secondaire">{mouvementsFiltres.length} mouvement(s) sur {stock.mouvements.length}</div>
+        )}
       </div>
 
       <Modal open={!!mvt} onOpenChange={(o) => !o && setMvt(null)} title="Nouveau mouvement manuel" description={`Entité ${entite}`}

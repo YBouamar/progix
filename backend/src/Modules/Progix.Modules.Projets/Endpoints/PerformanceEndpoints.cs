@@ -60,14 +60,21 @@ public static class PerformanceEndpoints
                 if (aff.Count > 0) premiere = Math.Min(premiere, aff.Min(a => a.Debut.Year));
                 var noms = (await users.ParRolesAsync([Roles.Ingenieur, Roles.IngenieurChef])).ToDictionary(u => u.Id, u => u.Nom);
                 foreach (var a in aff) noms.TryAdd(a.UserId, a.UserNom);
-                int Projets(Guid id, DateOnly du, DateOnly au) =>
-                    du > jour ? 0 : aff.Where(a => a.UserId == id && a.Debut <= au && (a.Fin ?? jour) >= du).Select(a => a.ProjetId).Distinct().Count();
-                ingenieurs = noms.Select(n => new
+                // Surface suivie : celle des dalles des projets de l'ingénieur sur l'année, le même ensemble que la colonne « Projets ».
+                var dalles = await db.Dalles.AsNoTracking().Where(d => vivants.Contains(d.ProjetId)).Select(d => new { d.ProjetId, d.Surface }).ToListAsync();
+                List<Guid> ProjetsSuivis(Guid id, DateOnly du, DateOnly au) =>
+                    du > jour ? [] : aff.Where(a => a.UserId == id && a.Debut <= au && (a.Fin ?? jour) >= du).Select(a => a.ProjetId).Distinct().ToList();
+                ingenieurs = noms.Select(n =>
                 {
-                    id = n.Key, nom = n.Value,
-                    mois = Enumerable.Range(1, 12).Select(m => Projets(n.Key, new DateOnly(an, m, 1), new DateOnly(an, m, 1).AddMonths(1).AddDays(-1))).ToArray(),
-                    total = Projets(n.Key, new DateOnly(an, 1, 1), new DateOnly(an, 12, 31)),
-                    enCours = aff.Where(a => a.UserId == n.Key && a.Fin == null).Select(a => a.ProjetId).Distinct().Count(),
+                    var projetsAnnee = ProjetsSuivis(n.Key, new DateOnly(an, 1, 1), new DateOnly(an, 12, 31));
+                    return new
+                    {
+                        id = n.Key, nom = n.Value,
+                        mois = Enumerable.Range(1, 12).Select(m => ProjetsSuivis(n.Key, new DateOnly(an, m, 1), new DateOnly(an, m, 1).AddMonths(1).AddDays(-1)).Count).ToArray(),
+                        total = projetsAnnee.Count,
+                        surface = dalles.Where(d => projetsAnnee.Contains(d.ProjetId)).Sum(d => d.Surface),
+                        enCours = aff.Where(a => a.UserId == n.Key && a.Fin == null).Select(a => a.ProjetId).Distinct().Count(),
+                    };
                 }).OrderByDescending(x => x.total).ThenBy(x => x.nom).ToList();
             }
 

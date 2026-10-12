@@ -36,20 +36,27 @@ export default function Performance() {
       {v.dessinateurs && (
         <Tableau titre="Dessinateurs : dalles finies" aide="Une dalle est finie quand l'étape « Plans d'exécution » est validée. Elle compte pour le dessinateur affecté à la dalle, au mois de cette validation."
           lignes={v.dessinateurs} moisCourant={v.moisCourant} colonneTotal={`Total ${v.annee}`}
-          extra={["Surface étudiée", (l) => `${formatNombre(l.surface ?? 0)} m²`]} sommeAnnuelle />
+          extra={[{ label: "Surface étudiée", rendre: (l) => `${formatNombre(l.surface ?? 0)} m²`, somme: sommeSurface }]} sommeAnnuelle />
       )}
       {v.ingenieurs && (
-        <Tableau titre="Ingénieurs : projets suivis" aide="Un projet compte pour un ingénieur chaque mois où il y est affecté. Le total de l'année compte chaque projet une seule fois."
+        <Tableau titre="Ingénieurs : projets suivis" aide="Un projet compte pour un ingénieur chaque mois où il y est affecté. Le total de l'année compte chaque projet une seule fois. La surface suivie est celle des dalles des mêmes projets."
           lignes={v.ingenieurs} moisCourant={v.moisCourant} colonneTotal={`Projets ${v.annee}`}
-          extra={["En cours", (l) => String(l.enCours ?? 0)]} />
+          extra={[
+            { label: "En cours", rendre: (l) => String(l.enCours ?? 0) },
+            { label: "Surface suivie", rendre: (l) => `${formatNombre(l.surface ?? 0)} m²`, somme: sommeSurface },
+          ]} sommeAnnuelle />
       )}
     </div>
   );
 }
 
+const sommeSurface = (lignes: Ligne[]) => `${formatNombre(lignes.reduce((s, l) => s + (l.surface ?? 0), 0))} m²`;
+
+type Extra = { label: string; rendre: (l: Ligne) => string; somme?: (lignes: Ligne[]) => string };
+
 function Tableau({ titre, aide, lignes, moisCourant, colonneTotal, extra, sommeAnnuelle }: {
   titre: string; aide: string; lignes: Ligne[]; moisCourant: number | null; colonneTotal: string;
-  extra: [string, (l: Ligne) => string]; sommeAnnuelle?: boolean;
+  extra: Extra[]; sommeAnnuelle?: boolean;
 }) {
   const max = Math.max(1, ...lignes.flatMap((l) => l.mois));
   return (
@@ -65,11 +72,11 @@ function Tableau({ titre, aide, lignes, moisCourant, colonneTotal, extra, sommeA
               <th className="px-6 py-2.5 font-semibold">Nom</th>
               {MOIS.map((m, i) => <th key={m} className={cn("px-2 py-2.5 text-right font-semibold", moisCourant === i + 1 && "text-marine")}>{m}</th>)}
               <th className="border-l border-bordure px-3 py-2.5 text-right font-semibold">{colonneTotal}</th>
-              <th className="px-6 py-2.5 text-right font-semibold">{extra[0]}</th>
+              {extra.map((ex) => <th key={ex.label} className="px-6 py-2.5 text-right font-semibold">{ex.label}</th>)}
             </tr>
           </thead>
           <tbody>
-            {lignes.length === 0 && <tr><td colSpan={15} className="px-6 py-6 text-center text-secondaire">Aucune personne à afficher.</td></tr>}
+            {lignes.length === 0 && <tr><td colSpan={14 + extra.length} className="px-6 py-6 text-center text-secondaire">Aucune personne à afficher.</td></tr>}
             {lignes.map((l) => (
               <tr key={l.id} className="border-t border-bordure">
                 <td className="whitespace-nowrap px-6 py-2.5 font-semibold">{l.nom}</td>
@@ -80,7 +87,7 @@ function Tableau({ titre, aide, lignes, moisCourant, colonneTotal, extra, sommeA
                   </td>
                 ))}
                 <td className="border-l border-bordure px-3 py-2.5 text-right font-display font-bold">{l.total}</td>
-                <td className="whitespace-nowrap px-6 py-2.5 text-right font-display">{extra[1](l)}</td>
+                {extra.map((ex) => <td key={ex.label} className="whitespace-nowrap px-6 py-2.5 text-right font-display">{ex.rendre(l)}</td>)}
               </tr>
             ))}
           </tbody>
@@ -90,7 +97,7 @@ function Tableau({ titre, aide, lignes, moisCourant, colonneTotal, extra, sommeA
                 <td className="px-6 py-2.5">Total</td>
                 {MOIS.map((_, i) => <td key={i} className="px-2 py-2.5 text-right font-display">{lignes.reduce((s, l) => s + l.mois[i], 0)}</td>)}
                 <td className="border-l border-bordure px-3 py-2.5 text-right font-display font-bold">{lignes.reduce((s, l) => s + l.total, 0)}</td>
-                <td className="whitespace-nowrap px-6 py-2.5 text-right font-display">{formatNombre(lignes.reduce((s, l) => s + (l.surface ?? 0), 0))} m²</td>
+                {extra.map((ex) => <td key={ex.label} className="whitespace-nowrap px-6 py-2.5 text-right font-display">{ex.somme?.(lignes) ?? ""}</td>)}
               </tr>
             </tfoot>
           )}

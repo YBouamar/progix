@@ -7,7 +7,7 @@ public static class Etapes
 {
     /// <param name="ValidationAvant">Vrai quand les deux validations précèdent la saisie (mise en tension, injection) ;
     /// faux quand elles suivent la réalisation (commande usine).</param>
-    /// <param name="ValidationChantier">Vrai quand le responsable des chantiers valide aussi, en plus des validations technique et administrative (mise en tension).</param>
+    /// <param name="ValidationChantier">Vrai quand le responsable des chantiers valide aussi, en plus des validations technique et administrative (mise en tension, injection).</param>
     public sealed record Definition(int Numero, string Label, bool DoubleValidation, string[] Roles, bool ValidationAvant = false, bool ValidationChantier = false);
 
     private static readonly string[] Dessin = [Roles.DessinateurChef, Roles.Dessinateur];
@@ -35,7 +35,7 @@ public static class Etapes
         new(7, "Coulage du béton", false, Chantier),
         new(8, "Rapport d'écrasement", false, [.. Chantier, .. Ingenierie]),
         new(9, "Mise en tension", true, Chantier, ValidationAvant: true, ValidationChantier: true),
-        new(10, "Injection", true, Chantier, ValidationAvant: true),
+        new(10, "Injection", true, Chantier, ValidationAvant: true, ValidationChantier: true),
         new(11, "Réception finale", false, [.. Chantier, Roles.ResponsableAdministratif]),
     ];
 
@@ -51,13 +51,13 @@ public class EtapeDalle : Entity
     public DateTime? FaitLe { get; set; }
     public string? Remarque { get; set; }
 
-    // Commande usine, mise en tension et injection : validation technique puis administrative.
+    // Commande usine, mise en tension et injection : validation technique (chef de projet) et administrative (responsable administratif).
     public string? ValidationTechniquePar { get; set; }
     public DateTime? ValidationTechniqueLe { get; set; }
     public string? ValidationAdministrativePar { get; set; }
     public DateTime? ValidationAdministrativeLe { get; set; }
 
-    // Mise en tension : le responsable des chantiers valide aussi.
+    // Mise en tension et injection : le responsable des chantiers valide aussi.
     public string? ValidationChantierPar { get; set; }
     public DateTime? ValidationChantierLe { get; set; }
 
@@ -66,7 +66,7 @@ public class EtapeDalle : Entity
     public bool Terminee => FaitLe != null && (!Etapes.Get(Numero).DoubleValidation || Validee);
 }
 
-/// <summary>Trace des déverrouillages d'étape, réservés au directeur.</summary>
+/// <summary>Trace des déverrouillages d'étape, réservés au directeur et au chef de projet.</summary>
 public class EtapeTrace : Entity
 {
     public Guid DalleId { get; set; }

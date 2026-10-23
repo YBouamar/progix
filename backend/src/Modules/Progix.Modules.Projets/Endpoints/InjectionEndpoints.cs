@@ -111,7 +111,7 @@ public static partial class InjectionEndpoints
         if (dalle.EtapesFaites >= Etapes.Injection) return "L'injection est validée : la fiche est figée.";
         if (dalle.EtapesFaites < Etapes.Injection - 1) return "L'injection n'est pas encore en cours.";
         var e = await db.Etapes.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == dalle.Id && x.Numero == Etapes.Injection);
-        return e?.Validee == true ? null : "La validation technique et la validation administrative sont requises avant l'injection.";
+        return e?.Validee == true ? null : "Les validations technique, administrative et du responsable des chantiers sont requises avant l'injection.";
     }
 
     /// <summary>Ce qui manque dans la fiche pour valider l'étape 10, ou null.</summary>

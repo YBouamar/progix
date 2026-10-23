@@ -270,7 +270,7 @@ class Demo:
         def valider(n):
             cp.post(f"{base}/etapes/{n}/valider", {"type": "technique"})
             ra.post(f"{base}/etapes/{n}/valider", {"type": "administrative"})
-            if n == 9: resp.post(f"{base}/etapes/{n}/valider", {"type": "chantier"})
+            if n in (9, 10): resp.post(f"{base}/etapes/{n}/valider", {"type": "chantier"})
 
         def photo(n, qui):
             qui.fichier("photo_etape", did, f"photo-etape-{n}-{ref}.png", png(90 + 15 * n, 120 + 10 * j, 150), "image/png", str(n))

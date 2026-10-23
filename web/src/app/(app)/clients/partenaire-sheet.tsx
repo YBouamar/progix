@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { FORM_VIDE, type Compteur, type PartenaireForm } from "./types";
 
 type Doublon = { doublon: boolean; id: string | null; nom: string | null };
+type Probable = { id: string; nom: string; ville: string | null; motif: string };
 
 export function PartenaireSheet({ id, ecriture, types, typeInitial, onClose, onSaved }: {
   id: string | null; ecriture: boolean; types: Compteur[]; typeInitial?: string; onClose: () => void; onSaved: (cree?: { id: string; nom: string }) => void;
@@ -49,6 +50,20 @@ export function PartenaireSheet({ id, ecriture, types, typeInitial, onClose, onS
     }, 350);
     return () => clearTimeout(t);
   }, [cle, f.nature, id, ecriture]);
+
+  // Doublons probables (même nom ou même téléphone), pour toutes les catégories : un avertissement, pas un blocage.
+  const [probables, setProbables] = useState<Probable[]>([]);
+  const nomSaisi = (f.nature !== "physique" ? f.raisonSociale : `${f.prenom} ${f.nomFamille}`).trim();
+  const telSaisi = f.telephone.trim();
+  useEffect(() => {
+    if (!ecriture || (nomSaisi.length < 3 && telSaisi.length < 9)) { setProbables([]); return; }
+    const t = setTimeout(() => {
+      const p = new URLSearchParams({ nom: nomSaisi, telephone: telSaisi });
+      if (id) p.set("sauf", id);
+      api<Probable[]>(`/partenaires/doublons-probables?${p}`).then(setProbables).catch(() => setProbables([]));
+    }, 400);
+    return () => clearTimeout(t);
+  }, [nomSaisi, telSaisi, id, ecriture]);
 
   const set = <K extends keyof PartenaireForm>(k: K, v: PartenaireForm[K]) => setF((x) => ({ ...x, [k]: v }));
   const err = (k: string) => erreurs[k]?.[0];
@@ -135,6 +150,14 @@ export function PartenaireSheet({ id, ecriture, types, typeInitial, onClose, onS
             {doublon?.doublon && (
               <div role="alert" className="mt-3 rounded-lg bg-orange-fond px-4 py-3 text-orange-texte">
                 Cet identifiant est déjà utilisé par <strong>{doublon.nom}</strong>. Enregistrement impossible.
+              </div>
+            )}
+            {!doublon?.doublon && probables.length > 0 && (
+              <div role="status" className="mt-3 rounded-lg bg-orange-fond px-4 py-3 text-orange-texte">
+                Doublon possible, vérifiez avant d&apos;enregistrer :
+                <ul className="mt-1 list-disc pl-5">
+                  {probables.map((x) => <li key={x.id}><strong>{x.nom}</strong>{x.ville ? ` (${x.ville})` : ""} : {x.motif}</li>)}
+                </ul>
               </div>
             )}
           </section>

@@ -65,6 +65,20 @@ public static class PartenairesEndpoints
             return Results.Ok(new { doublon = existant is not null, id = existant?.Id, nom = existant?.NomAffiche });
         });
 
+        // Doublons probables, toutes catégories : même nom (sans accents, casse ni ponctuation) ou même téléphone.
+        // Simple avertissement : seuls l'ICE et la CIN bloquent l'enregistrement.
+        g.MapGet("/doublons-probables", async (PartenairesDbContext db, string? nom, string? telephone, Guid? sauf) =>
+        {
+            var n = NomNormalise(nom);
+            var t = Chiffres(telephone);
+            if (n.Length < 3 && t.Length < 9) return Results.Ok(Array.Empty<object>());
+            var tous = await db.Partenaires.AsNoTracking().Where(p => p.Id != sauf).ToListAsync();
+            return Results.Ok(tous
+                .Select(p => new { p, nom = n.Length >= 3 && NomNormalise(p.NomAffiche) == n, tel = t.Length >= 9 && Chiffres(p.Telephone) == t })
+                .Where(x => x.nom || x.tel).Take(5)
+                .Select(x => new { id = x.p.Id, nom = x.p.NomAffiche, ville = x.p.Ville, motif = x.nom && x.tel ? "même nom et même téléphone" : x.nom ? "même nom" : "même téléphone" }));
+        });
+
         g.MapPost("/", async (PartenaireInput input, PartenairesDbContext db) =>
         {
             var erreurs = Valider(input);
@@ -113,6 +127,17 @@ public static class PartenairesEndpoints
     }
 
     private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+
+    /// <summary>Nom comparable : minuscules, sans accents, lettres et chiffres seulement.</summary>
+    private static string NomNormalise(string? s) => new((s ?? "").ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD)
+        .Where(char.IsLetterOrDigit).Where(c => c < 128).ToArray());
+
+    /// <summary>Téléphone comparable : ses 9 derniers chiffres, pour ignorer l'indicatif (+212, 0).</summary>
+    private static string Chiffres(string? s)
+    {
+        var c = new string((s ?? "").Where(char.IsAsciiDigit).ToArray());
+        return c.Length > 9 ? c[^9..] : c;
+    }
 
     private static IResult Conflit(Partenaire d) => Results.Conflict(new
     {

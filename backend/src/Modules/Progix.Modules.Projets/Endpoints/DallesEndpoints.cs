@@ -48,13 +48,17 @@ public static class DallesEndpoints
             return Results.Ok(Dto(d, projet.Code));
         }).RequireAuthorization(Policies.Commercial);
 
-        g.MapPut("/{did:guid}", async (Guid id, Guid did, DalleInput input, ProjetsDbContext db) =>
+        g.MapPut("/{did:guid}", async (Guid id, Guid did, DalleInput input, ProjetsDbContext db, IDevisLookup devis) =>
         {
             var projet = await db.Projets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
             var d = await db.Dalles.FirstOrDefaultAsync(x => x.Id == did && x.ProjetId == id);
             if (projet is null || d is null) return Results.NotFound();
             if (projet.Supprime) return ProjetsEndpoints.Conflit("Un projet supprimé est en lecture seule.");
             var erreurs = Valider(input);
+            // Toute modification de surface d'une dalle chiffrée dans un devis envoyé ou validé impose une nouvelle version de ce devis.
+            if (!erreurs.ContainsKey("surface") && Math.Round(input.Surface, 2) != d.Surface
+                && await devis.DevisSurAutreSurfaceAsync(d.Id, Math.Round(input.Surface, 2)) is { } engage)
+                erreurs["surface"] = [$"La surface est chiffrée dans le devis {engage} : créez d'abord une nouvelle version de ce devis, puis modifiez la surface."];
             if (erreurs.Count > 0) return Results.ValidationProblem(erreurs);
             Appliquer(d, input);
             d.UpdatedAt = DateTime.UtcNow;

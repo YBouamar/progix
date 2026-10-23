@@ -19,9 +19,11 @@ public static class SuiviEndpoints
 {
     private static bool Direction(ClaimsPrincipal u) => u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ChefProjet);
     private static bool PeutRealiser(ClaimsPrincipal u, Etapes.Definition e) => Direction(u) || e.Roles.Any(u.IsInRole);
-    private static bool PeutValiderTechnique(ClaimsPrincipal u) => Direction(u);
-    private static bool PeutValiderChantier(ClaimsPrincipal u) => Direction(u) || u.IsInRole(Roles.ResponsableChantier);
-    private static bool PeutValiderAdministratif(ClaimsPrincipal u) => Direction(u) || u.IsInRole(Roles.ResponsableAdministratif);
+    // Chaque validation a son rôle : technique = chef de projet, administrative = responsable administratif, chantier = responsable des chantiers.
+    // Le directeur peut donner toutes les validations.
+    private static bool PeutValiderTechnique(ClaimsPrincipal u) => u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ChefProjet);
+    private static bool PeutValiderChantier(ClaimsPrincipal u) => u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ResponsableChantier);
+    private static bool PeutValiderAdministratif(ClaimsPrincipal u) => u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ResponsableAdministratif);
 
     public static void Map(IEndpointRouteBuilder app)
     {

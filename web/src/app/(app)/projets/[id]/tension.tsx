@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 type Cable = { cable: string; systeme?: string | null; sens?: string | null; longueur: number | null; theorique: number; a25: number | null; a100: number | null; b25: number | null; b100: number | null };
-type Vue = { modifiable: boolean; verrou: string | null; proposes?: boolean; mmParMetre: number; borneBasse: number; borneHaute: number; forceKn: number | null; cr: string | null; cmp: string | null; cables: Cable[] };
+type Vue = { modifiable: boolean; verrou: string | null; proposes?: boolean; mmParMetre: number; borneBasse: number; borneHaute: number; groupeBas: number; groupeHaut: number; forceKn: number | null; cr: string | null; cmp: string | null; cables: Cable[] };
 type Ligne = { cable: string; lon: string; theo: string; a25: string; a100: string; b25: string; b100: string };
 
 const fr = (n: number | null) => (n === null || n === undefined ? "" : String(n).replace(".", ","));
@@ -17,7 +17,7 @@ const mm = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 
 const pct = (n: number) => `${n > 0 ? "+" : ""}${n.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
 const CELL = "h-8 w-full min-w-14 rounded-md border border-bordure-forte bg-white px-2 text-right font-display text-[13px] focus:border-marine focus:outline-none disabled:border-transparent disabled:bg-transparent";
 
-/** Fiche de mise en tension : lectures à 25 % et 100 % de chaque côté, allongement total comparé à 0,95 et 1,1 fois Ao. */
+/** Fiche de mise en tension : lectures à 25 % et 100 % de chaque côté. Tolérance EN 13670 : ± 15 % de Ao par câble, ± 5 % pour le groupe. */
 export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId: string }) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [lignes, setLignes] = useState<Ligne[]>([]);
@@ -38,7 +38,8 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
 
   // Calcul en direct, identique à celui du serveur.
   const calcul = useMemo(() => {
-    const bas = vue?.borneBasse ?? 0.95, haut = vue?.borneHaute ?? 1.1;
+    const bas = vue?.borneBasse ?? 0.85, haut = vue?.borneHaute ?? 1.15;
+    const gBas = vue?.groupeBas ?? 0.95, gHaut = vue?.groupeHaut ?? 1.05;
     let theo = 0, mes = 0, hors = 0, manque = 0, n = 0;
     const rows = lignes.map((l) => {
       const t = lireNombre(l.theo);
@@ -55,7 +56,7 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
       return { dA, dB, min, max, m, conforme, moy: dB === null ? dA : Math.round(((dA + dB) / 2) * 10) / 10 };
     });
     const ecart = theo > 0 ? Math.round(((mes - theo) / theo) * 1000) / 10 : null;
-    return { rows, theo, mes, ecart, hors, manque, moyenne: n > 0 ? mes / n : null, conforme: theo > 0 ? mes >= theo * bas && mes <= theo * haut : null };
+    return { rows, theo, mes, ecart, hors, manque, moyenne: n > 0 ? mes / n : null, conforme: theo > 0 ? mes >= theo * gBas && mes <= theo * gHaut : null };
   }, [lignes, vue]);
 
   // Système et orientation de chaque tendon, tels que définis dans la commande usine.
@@ -99,7 +100,7 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
       <div className="text-[13px] font-bold">Fiche de mise en tension</div>
       <p className="mt-0.5 text-[12px] text-secondaire">
         De chaque côté, Δ = lecture à 100 % moins lecture à 25 %. Allongement du câble = Δ côté A + Δ côté B ; le côté B reste vide si le câble est tendu d&apos;un seul côté.
-        Il doit se situer entre {String(vue.borneBasse).replace(".", ",")} et {String(vue.borneHaute).replace(".", ",")} fois l&apos;allongement théorique Ao. Hors de ces bornes, une investigation est à mener.
+        Tolérance EN 13670 : chaque câble entre {fr(vue.borneBasse)} et {fr(vue.borneHaute)} fois l&apos;allongement théorique Ao, le groupe entre {fr(vue.groupeBas)} et {fr(vue.groupeHaut)} fois la somme des Ao. Hors de ces bornes, une investigation est à mener.
         Ao = longueur × {vue.mmParMetre.toLocaleString("fr-FR")} mm par mètre (réglé dans le Paramétrage), modifiable câble par câble.
       </p>
 
@@ -124,8 +125,8 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
                 <th colSpan={3} className="border-b border-l border-bordure px-1 py-1 text-center font-semibold">Côté B</th>
                 <th rowSpan={2} className="border-l border-bordure px-2 py-1 text-right align-bottom font-semibold">Total</th>
                 <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">Moyenne</th>
-                <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">0,95 Ao</th>
-                <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">1,1 Ao</th>
+                <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">{fr(vue.borneBasse)} Ao</th>
+                <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">{fr(vue.borneHaute)} Ao</th>
                 <th rowSpan={2} className="px-2 py-1 align-bottom font-semibold">Verdict</th>
                 {!lecture && <th rowSpan={2} />}
               </tr>

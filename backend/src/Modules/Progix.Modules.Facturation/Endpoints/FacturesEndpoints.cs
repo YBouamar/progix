@@ -64,6 +64,24 @@ public static class FacturesEndpoints
             return f is null ? Results.NotFound() : Results.Ok(Dto(f, true));
         });
 
+        // Situation financière du projet. Reste dû = commandé (devis validés, TTC) moins avoirs moins encaissé.
+        // Le reste par facture (facturé moins avoirs moins encaissé) reste affiché à côté, comme le reste à facturer.
+        g.MapGet("/situation", async (Guid projetId, FacturationDbContext db, IDevisLookup devis) =>
+        {
+            var commande = (await devis.ValidesAsync(projetId)).Sum(d => d.TotalTTC);
+            var factures = await db.Factures.AsNoTracking().Include(f => f.Encaissements).Include(f => f.Avoirs).Where(f => f.ProjetId == projetId).ToListAsync();
+            var facture = factures.Sum(f => f.TotalTTC);
+            var avoirs = factures.Sum(f => f.Avoirs_TTC);
+            var encaisse = factures.Sum(f => f.Regle);
+            return Results.Ok(new
+            {
+                commande, facture, avoirs, encaisse, effetsEnAttente = factures.Sum(f => f.EffetsEnAttente),
+                resteDu = commande - avoirs - encaisse,
+                resteAFacturer = Math.Max(0, commande - facture),
+                resteSurFactures = factures.Where(f => !f.Annulee).Sum(f => Math.Max(0, f.Reste)),
+            });
+        });
+
         // Tout ce qu'il faut pour préparer une facture : client, devis validés, bons non facturés chiffrés, acomptes déjà émis.
         g.MapGet("/preparation", async (Guid projetId, FacturationDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IDevisLookup devis) =>
         {

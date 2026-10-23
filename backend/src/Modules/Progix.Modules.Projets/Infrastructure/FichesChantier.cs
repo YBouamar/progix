@@ -54,12 +54,12 @@ public class FichesChantier(ProjetsDbContext db) : IFichesChantier
             var hors = mesures.Count(m => m.Conforme == false);
             var entete = await db.FichesTension.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == dalleId, ct);
             return Fiche("FICHE DE MISE EN TENSION", [L("PH", emplacement), L("Force", $"{N(entete?.ForceKn ?? prm.ForceKn)} kN"), L("CR", entete?.Cr), L("CMP", entete?.Cmp), L("Nombre de câbles", mesures.Count.ToString())],
-                ["Tendon", "Ordre", "A 25 %", "A 100 %", "Δ A", "B 25 %", "B 100 %", "Δ B", "Total", "Moyenne", "0,95 Ao", "Ao", "1,1 Ao", "Conf."],
+                ["Tendon", "Ordre", "A 25 %", "A 100 %", "Δ A", "B 25 %", "B 100 %", "Δ B", "Total", "Moyenne", $"{N(MesureTension.BorneBasse)} Ao", "Ao", $"{N(MesureTension.BorneHaute)} Ao", "Conf."],
                 mesures.Select(m => (IReadOnlyList<string>)[m.Cable, (m.Ordre + 1).ToString(), N(m.A25), N(m.A100), N(m.DeltaA), N(m.B25), N(m.B100), N(m.DeltaB), N(m.Mesure), N(m.Moyenne), N(m.Min), N(m.Theorique), N(m.Max),
                     m.Conforme is null ? "" : m.Conforme.Value ? "Oui" : "Non"]).ToList(),
                 [L("Allongements", "en millimètres ; Δ = lecture à 100 % moins lecture à 25 % ; total = Δ A + Δ B ; moyenne = moyenne des deux côtés"),
                  L("Groupe", $"{N(mes)} mm mesurés pour {N(theo)} mm théoriques{(ecart is null ? "" : $", écart {(ecart > 0 ? "+" : "")}{N(ecart, "0.0")} %")}"),
-                 L("Règle", $"allongement compris entre {N(MesureTension.BorneBasse)} et {N(MesureTension.BorneHaute)} fois Ao"),
+                 L("Règle", $"EN 13670 : câble seul entre {N(MesureTension.BorneBasse)} et {N(MesureTension.BorneHaute)} fois Ao, groupe entre {N(MesureTension.GroupeBas)} et {N(MesureTension.GroupeHaut)} fois la somme des Ao"),
                  L("Câbles hors tolérance", hors.ToString())]);
         }
 

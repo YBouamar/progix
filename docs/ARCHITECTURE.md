@@ -1,150 +1,91 @@
 # Architecture de PROGIX
 
-Document de référence technique et métier. Constat établi à partir du code le 2026-10-06.
+**Dernière mise à jour** : 2026-10-22 (constat établi à partir du code, sans exécution).
 
 ## 1. Vue d'ensemble
 
 ```
-Navigateur (PWA, tablette)
-   │  HTTPS, cookie JWT HttpOnly
-   ▼
-web/ (Next.js)  ──────────────►  backend/src/Progix.Api (ASP.NET Core 8)
-                                     │
-                                     ├── Identity      (comptes, JWT)
-                                     ├── Partenaires   (clients, partenaires)
-                                     ├── Projets       (projets, dalles, suivi de chantier, logistique, performance)
-                                     ├── Devis         (devis, signature, import)
-                                     ├── Facturation   (factures, avoirs, livraisons, contrats, trésorerie, PDF)
-                                     └── Fichiers      (stockage MinIO, envois)
-                                     │
-            ┌────────────────────────┼────────────────────────┐
-         PostgreSQL 16           Redis (cache)           MinIO (fichiers)
-     (1 schéma par module)                              Hangfire (tâches)
+Navigateur ou tablette (PWA)
+   |  HTTPS, cookie JWT HttpOnly
+   v
+web/ (Next.js 15, port 3000)  -- /api/* -->  backend/src/Progix.Api (ASP.NET Core 8, port 8080)
+                                               |-- Identity     schéma identity
+                                               |-- Partenaires  schéma partenaires
+                                               |-- Projets      schéma projets
+                                               |-- Devis        schéma devis
+                                               |-- Fichiers     schéma fichiers
+                                               |-- Facturation  schéma facturation
+                                               |
+                        PostgreSQL 16 (+ schéma hangfire)   Redis   MinIO (bucket progix)   SMTP
 ```
 
-Monolithe modulaire : un seul processus API, mais chaque module a son Domain, son DbContext, son schéma et ses endpoints. Les modules communiquent par leurs contrats (`Progix.SharedKernel/Contracts.cs`) et leurs classes `Lookup`, pas en lisant les tables des autres.
+Monolithe modulaire : un seul processus API ; chaque module a son Domain, son DbContext, son schéma, sa table d'historique de migrations (`__ef_migrations` dans son schéma) et ses endpoints. Les modules communiquent par les interfaces de `Progix.SharedKernel/Contracts.cs`.
 
-## 2. Backend
+## 2. Démarrage de l'API (`Progix.Api/Program.cs`)
 
-### 2.1 Démarrage (`Progix.Api/Program.cs`)
+1. Enregistrement des six modules (`IModule.AddServices`).
+2. Redis (cache distribué, préfixe `progix:`), Hangfire (stockage PostgreSQL, schéma `hangfire`), Swagger, ProblemDetails.
+3. `InitializeAsync` de chaque module : migrations, données de référence, compte directeur, comptes de démonstration si `Seed:DemoUsers`. Jusqu'à 15 essais espacés de 3 s si PostgreSQL n'est pas prêt.
+4. Swagger et tableau de bord Hangfire seulement en développement.
+5. `/api/health`, puis les endpoints de chaque module.
+6. Tâche récurrente quotidienne à 3 h : `PurgeFichiers` efface du stockage les fichiers supprimés depuis plus d'un mois.
+7. Notifications : `NotificationsDirection` (Progix.Api/Notifications/Courriels.cs) met en file Hangfire un courriel MailKit (5 essais) vers les directeurs actifs.
 
-1. Chargement des six modules (`IModule`) et de leurs services.
-2. Redis (cache distribué), Hangfire (stockage PostgreSQL, schéma `hangfire`), Swagger (uniquement en développement).
-3. Initialisation de chaque module : migrations, données de référence, compte directeur. Reprise jusqu'à 15 fois si PostgreSQL n'est pas prêt.
-4. Mapping des endpoints `/api/...` de chaque module.
-5. Tâche quotidienne à 3 h : `PurgeFichiers` efface du stockage les fichiers supprimés depuis plus d'un mois.
+## 3. Modules et modèle de données
 
-### 2.2 Modules
-
-| Module | Rôle | Endpoints principaux | Migrations |
+| Module | Tables (schéma) | Migrations | Routes principales |
 |---|---|---|---|
-| Identity | Comptes, connexion, JWT, rôles | `/api/auth`, `/api/users` | 1 |
-| Partenaires | Clients et partenaires, attestations d'exonération | `/api/partenaires` | 2 |
-| Projets | Projets, dalles, étapes de chantier, équipe, commandes usine, tension, injection, rapports d'écrasement, auto-contrôle, logistique, stock, répartition, performance, tableau de bord | `/api/projets/...`, `/api/logistique`, `/api/repartition`, `/api/parametres/tension`, `/api/parametres/accessoires`, `/api/parametres/coulis` | 24 |
-| Devis | Devis, états, signature, import | `/api/devis/...` | 5 |
-| Fichiers | Stockage, pièces jointes, catégories, envois | `/api/fichiers` | 3 |
-| Facturation | Factures, avoirs, bons de livraison, contrats, courriers, encaissements, dépenses, trésorerie, entités, PDF, signatures | `/api/factures`, `/api/livraisons`, `/api/parametres/entites`, `/api/parametres/categories-depense` | 19 |
+| Identity | `users`, `roles` + tables Identity | 1 (2026-10-04) | `/api/auth` (login, logout, me, change-password), `/api/users`, `/api/roles` |
+| Partenaires | `partenaires`, `contacts` | 2 | `/api/partenaires` (liste, compteurs, doublon, archive) |
+| Projets | `projets`, `dalles`, `etapes`, `etape_traces`, `versions_plans`, `rapports_ecrasement`, `commandes_usine`, `accessoires`, `articles_stock`, `mouvements_stock`, `fiches_auto_controle`, `fiches_tension`, `mesures_tension`, `fiches_injection`, `parametres_tension`, `parametres_coulis`, `affectations`, `projet_partenaires`, `remarques`, `remarque_traces`, `compteurs` | 24 (jusqu'au 2026-10-06) | `/api/projets/...` (dalles, etapes, commande, tension, injection, versions, rapports, auto-contrôle, équipe, partenaires, remarques), `/api/logistique`, `/api/repartition`, `/api/performance`, `/api/parametres/{tension,accessoires,coulis}` |
+| Devis | `devis`, `lignes`, `evenements`, `parametres`, `compteurs` | 5 | `/api/devis` (tableau de bord, CRUD brouillon, envoyer, valider, annuler, signer, nouvelle-version, import), `/api/parametres/devis` |
+| Fichiers | `fichiers` | 3 | `/api/fichiers` (dépôt par morceaux, catégories, suppression logique) |
+| Facturation | `bons_livraison`, `lignes_livraison`, `factures`, `lignes_facture`, `avoirs`, `encaissements`, `depenses`, `categories_depense`, `entites`, `contrats`, `courriers`, `signatures_fiches`, `compteurs` | 19 | `/api/factures`, `/api/livraisons`, `/api/avoirs`, `/api/encaissements`, `/api/tresorerie`, `/api/depenses`, `/api/tableau-de-bord/finances`, contrats, courriers, fiches, PDF, `/api/parametres/{entites,categories-depense}` |
 
-Nombre de routes HTTP (comptage des `Map*` dans le code, indicatif) : Projets ≈ 61, Facturation ≈ 53, Devis ≈ 15, Identity ≈ 11, Partenaires ≈ 7, Fichiers ≈ 6.
+Toutes les entités héritent de `Entity` (`Id` Guid, `CreatedAt`, `UpdatedAt`). Les listes imbriquées (lignes de commande, échéances, systèmes, points de contrôle, câbles d'injection) sont stockées en JSON dans leur ligne parente (**À confirmer** sur le mapping exact, non relu pour chaque cas).
 
-Chaque module contient :
-- `Domain/` : entités et règles (ex. `Projet.cs`, `Etape.cs`, `Devis.cs`, `Calcul.cs`, `Facture.cs`).
-- `Application/` : DTO et logique d'application (présent dans Identity, Partenaires, Projets).
-- `Infrastructure/` : DbContext, migrations, numérotation, stockage, PDF de dépendance, lookups.
-- `Endpoints/` : routes minimales (`MapGroup`).
-- `Pdf/` (Facturation) : génération des documents (contrat, courrier, fiche, exports de trésorerie, montants en lettres).
+Relations principales (par identifiant, sans clé étrangère entre schémas) :
 
-### 2.3 Numérotation
+```
+Partenaire 1--n Projet (ClientId)          Projet 1--n Dalle 1--n EtapeDalle (n = 1..11)
+Projet 1--n ProjetPartenaire (bet, bct, architecte, laboratoire)
+Dalle 1--1 CommandeUsine, FicheTension + n MesureTension, FicheInjection, FicheAutoControle
+Dalle 1--n VersionPlan (lettre A, B, C...), RapportEcrasement
+Projet 1--n DevisEntete (Numero commun à toutes les versions) 1--n LigneDevis (une par dalle)
+Projet 1--n BonLivraison 1--n LigneLivraison (une dalle sur un seul BL)
+Facture 1--n LigneFacture, Encaissement, Avoir ; BonLivraison n--1 Facture
+```
 
-Les numéros de devis, de factures, de courriers et de bordereaux sont générés côté serveur (`NumerotationDevis.cs`, `NumerotationCourriers.cs`, `NumerotationLivraisons.cs`). Ne jamais les calculer côté client.
+## 4. Contrats entre modules (`Contracts.cs`)
 
-### 2.4 Sécurité
+`IPartenairesLookup`, `IUtilisateursLookup` (dont vérification du mot de passe pour signer), `IDevisLookup` (devis validés et prix net par dalle), `IProjetsLookup`, `IProjetsStatut` (passage En étude / retour Créé), `IReaffectationEntite` (renumérotation de tous les documents), `IContexteFichiers` (droits de dépôt par contexte), `IFichiersLookup`, `IVerificationDocuments` (QR code), `IDevisDocuments`, `IFichesChantier`, `IEncoursProjet` (rappel avant injection), `INotificationsDirection`.
 
-- Politiques dans `Progix.SharedKernel/Roles.cs` : `Commercial`, `Devis`, `GestionUtilisateurs`, etc. Les listes de rôles par domaine (`RolesDevis`, `RolesLogistique`, `RolesDirection`, `RolesCommercial`) y sont définies.
-- Le champ `VoitMontants` des rôles contrôle la visibilité des montants.
-- Tableau de bord Hangfire : sans authentification, activé uniquement en développement.
-- Le cookie HttpOnly est posé par l'API ; le front ne stocke pas le jeton.
+## 5. Flux principaux
 
-## 3. Rôles
+1. **Commercial** : client (contrôle de doublon) puis projet (code `APT-2026-00018`) puis dalles puis devis brouillon, envoyé, signé, validé (le projet passe En étude) puis contrat puis facture d'acompte éventuelle.
+2. **Chantier** : pour chaque dalle, étapes 1 à 11 dans l'ordre ; le projet passe En réalisation dès qu'une dalle a terminé l'étape 3, Terminé quand toutes ses dalles ont terminé l'étape 11.
+3. **Logistique** : la commande usine (étape 4) est saisie ou importée, validée (technique puis administrative), puis suivie : validée, en fabrication, livrée (le stock est consommé), reçue.
+4. **Livraison et facturation** : BL sur des dalles dont la commande usine est faite ; facture de livraison au prix net du devis validé le plus récent, acompte déduit au prorata ; encaissements signés par mot de passe, reçus `REC-` ; avoirs pour toute correction.
+5. **Trésorerie** : journal mensuel des encaissements, remboursements et dépenses ; un effet compte à son échéance.
+6. **Alertes** : courriel aux directeurs après réception de dalle (6), mise en tension (9), injection (10) et chaque paiement.
 
-| Code | Libellé | Accès (menu) |
-|---|---|---|
-| `directeur` | Directeur | Tout |
-| `chef_projet` | Chef de projet | Tout ; contrôle de toutes les étapes |
-| `responsable_administratif` | Responsable administratif | Tableau de bord, projets, devis, clients, livraisons, facturation, trésorerie |
-| `administrateur` | Administrateur | Idem responsable administratif |
-| `agent_commercial` | Agent commercial | Tableau de bord, projets |
-| `ingenieur_chef` | Ingénieur en chef | Tableau de bord, projets, devis, répartition des ingénieurs, performance |
-| `ingenieur` | Ingénieur | Tableau de bord, projets, devis |
-| `dessinateur_chef` | Dessinateur en chef | Tableau de bord, projets, répartition des dessinateurs, performance |
-| `dessinateur` | Dessinateur | Tableau de bord, projets |
-| `responsable_logistique` | Responsable logistique | Tableau de bord, projets, logistique, paramétrage |
-| `responsable_chantier` | Responsable chantier | Tableau de bord, projets |
-| `chef_chantier` | Chef de chantier | Tableau de bord, projets |
+## 6. Frontend (`web/src`)
 
-Source : `web/src/lib/nav.ts` (menus). Les droits d'action réels sont dans les endpoints et `Roles.cs`.
+- `app/login`, `app/verification/[jeton]` (public), `app/(app)/layout.tsx` (coque, menu par rôle, bandeau hors ligne).
+- Écrans : tableau de bord (direction, commercial, logistique, personnel), projets (liste, fiche à onglets : informations, dalles et suivi, commercial, courriers, dépenses, intervenants, documents...), devis, clients, livraisons, facturation, trésorerie, logistique (et fiche `logistique/[dalleId]`), répartition des ingénieurs et des dessinateurs, performance, paramétrage.
+- `[...slug]/page.tsx` affiche « Écran en cours de développement » pour toute route inconnue.
+- `lib/api.ts` (fetch `/api` avec cookie, `ApiError`), `lib/auth.tsx`, `lib/nav.ts`, `lib/utils.ts`. PWA : `public/sw.js`, `components/hors-ligne.tsx`.
 
-## 4. Règles métier clés
+## 7. Environnement Docker
 
-### 4.1 Projet
+| Fichier | Usage |
+|---|---|
+| `docker-compose.yml` | postgres, redis, minio (ports 5432, 9000, 9001), api (8080), web (3000) ; profils `demo` (script Python) et `analyse` (Metabase sur 3001) |
+| `docker-compose.override.yml` | chargé d'office en local : `Dockerfile.dev`, code monté, `dotnet watch`, `next dev` |
+| `docker-compose.prod.yml` | production : Caddy (80/443, HTTPS automatique), aucun autre port exposé, secrets obligatoires depuis `.env`, pas de comptes de démonstration |
 
-Statuts, dans l'ordre : `cree` (Créé) → `etude` (En étude) → `realisation` (En réalisation) → `termine` (Terminé). Définis dans `Projet.cs`.
+Volumes : `pgdata`, `miniodata` (+ `caddydata`, `caddyconfig` en production).
 
-Un projet a un type de construction (`immeuble` par défaut) et une entité juridique (`Entites.Apt` par défaut).
+## 8. Déploiement cible
 
-### 4.2 Suivi de chantier d'une dalle (11 étapes, ordre strict)
-
-| N° | Étape | Double validation | Rôles autorisés |
-|---|---|---|---|
-| 1 | Plans d'exécution | non | dessinateur_chef, dessinateur |
-| 2 | Validation BCT | non | ingénieurs, responsable administratif, administrateur |
-| 3 | Réception du coffrage | non | responsable chantier, chef de chantier |
-| 4 | Commande usine | oui, **après** la réalisation | responsable logistique |
-| 5 | Pose de la précontrainte | non | chantier |
-| 6 | Réception de dalle | non | chantier |
-| 7 | Coulage du béton | non | chantier |
-| 8 | Rapport d'écrasement | non | chantier + ingénieurs |
-| 9 | Mise en tension | oui, **avant** la saisie + validation chantier | chantier |
-| 10 | Injection | oui, **avant** la saisie | chantier |
-| 11 | Réception finale | non | chantier + responsable administratif |
-
-Le chef de projet et le directeur contrôlent toutes les étapes. Définition : `Progix.Modules.Projets/Domain/Etape.cs`.
-
-Validation technique puis administrative pour la commande usine, la mise en tension et l'injection.
-
-### 4.3 Devis
-
-Calcul des montants dans `Devis/Domain/Calcul.cs`. Signature électronique via `SignatureDevis` (migration de 2026-10-06). Visibilité des montants restreinte aux rôles `VoitMontants`.
-
-### 4.4 Facturation
-
-Entités : factures, avoirs (avec annulation), encaissements (règlements, reçus de paiement), bons de livraison, contrats, courriers, dépenses (liées à une dalle ou au projet), bordereaux (numérotation, bordereaux communs), signatures de fiches et de documents, acompte exprimé en montant.
-
-### 4.5 Fichiers
-
-Suppression logique puis purge définitive après un mois (tâche Hangfire quotidienne). Stockage MinIO, bucket `progix`.
-
-### 4.6 Hors ligne
-
-PWA (`web/public/sw.js`, `web/src/components/hors-ligne.tsx`). Lecture seule des écrans déjà ouverts. Les saisies, validations et signatures exigent le réseau ; rien n'est mis en file d'attente. Les PDF et fichiers joints ne sont pas gardés hors ligne. Les données locales sont effacées à la déconnexion.
-
-## 5. Frontend
-
-- `web/src/app/login/` : connexion.
-- `web/src/app/(app)/layout.tsx` : coque commune (menu selon le rôle, bandeau hors ligne).
-- `web/src/app/(app)/<écran>/page.tsx` : un dossier par écran (projets, devis, clients, livraisons, facturation, trésorerie, logistique, performance, paramétrage, répartition des ingénieurs et dessinateurs, tableau de bord).
-- `projets/[id]/` : un fichier par onglet du projet (dalles, étapes, commande, tension, injection, versions, rapports d'écrasement, auto-contrôle, dépenses, contrats, courriers, équipe, partenaires, remarques, suivi, fiche de signature).
-- `verification/[jeton]/` : page publique de vérification de document (sans connexion).
-- `components/ui/` : composants de base (bouton, champ, badge, modale, panneau latéral).
-- `lib/api.ts` : client HTTP ; `lib/auth.tsx` : contexte de session ; `lib/nav.ts` : menus par rôle.
-
-Pour les écrans non livrés, `[...slug]/page.tsx` affiche « Écran en cours de développement ».
-
-## 6. Données et environnements
-
-| Environnement | Fichiers | Particularités |
-|---|---|---|
-| Développement | `docker-compose.yml`, `appsettings.json` | Secrets de développement, Swagger et Hangfire ouverts, données de démonstration disponibles |
-| Production | `docker-compose.prod.yml`, `deploiement/`, `.env` (sur le serveur) | Caddy (HTTPS automatique), base et stockage fermés à Internet, pas de comptes de démonstration, sauvegarde nocturne (`deploiement/sauvegarde.sh`) |
-
-Données de démonstration : `scripts/donnees-demo.py` passe uniquement par l'API. Il ne s'exécute qu'une fois (il s'arrête si le premier projet fictif existe).
+VPS Contabo, domaine `progix.bacybrains.com` (cible donnée dans le cadrage, absente des fichiers du dépôt). Procédure générique dans [DEPLOIEMENT.md](../DEPLOIEMENT.md) : rsync du code, `.env` depuis `deploiement/env.production.exemple`, `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`, sauvegarde nocturne `deploiement/sauvegarde.sh` (14 jours, sur le même serveur).

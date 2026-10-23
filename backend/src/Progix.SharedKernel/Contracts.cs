@@ -43,10 +43,17 @@ public interface IDevisLookup
     Task<IReadOnlyList<DevisValide>> ValidesAsync(Guid projetId, CancellationToken ct = default);
     /// <summary>Projets apportés par un agent commercial : ceux dont un devis non annulé le désigne.</summary>
     Task<IReadOnlyList<Guid>> ProjetsDuCommercialAsync(Guid userId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Devis envoyé, expiré ou validé (dernière version, non annulée) qui chiffre la dalle sur une autre surface : « DEV-00001-2026 v2 », ou null.
+    /// Une modification de surface impose alors une nouvelle version du devis.
+    /// </summary>
+    Task<string?> DevisSurAutreSurfaceAsync(Guid dalleId, decimal surface, CancellationToken ct = default);
 }
 
 /// <param name="PrixNet">Prix net au m² par dalle : prix du devis moins la remise au m².</param>
-public record DevisValide(Guid Id, string Numero, int Version, DateTime ValideLe, decimal NetHT, IReadOnlyDictionary<Guid, decimal> PrixNet);
+/// <param name="TotalTTC">Montant TTC du devis : c'est le « commandé » du reste dû.</param>
+public record DevisValide(Guid Id, string Numero, int Version, DateTime ValideLe, decimal NetHT, IReadOnlyDictionary<Guid, decimal> PrixNet, decimal TotalTTC = 0);
 
 /// <summary>Accès en lecture aux projets et à leurs dalles pour les autres modules.</summary>
 public interface IProjetsLookup

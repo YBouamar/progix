@@ -12,9 +12,19 @@ public class DevisLookup(DevisDbContext db) : IDevisLookup
             .Where(d => d.ProjetId == projetId && d.Etat == EtatsDevis.Valide).OrderByDescending(d => d.ValideLe).ToListAsync(ct);
         // La remise finale au m² s'applique à toute la surface : le prix net d'une dalle est son prix moins la remise.
         return rows.Select(d => new DevisValide(d.Id, d.Numero, d.Version, d.ValideLe ?? d.CreatedAt, d.NetHT,
-            d.Lignes.ToDictionary(l => l.DalleId, l => Math.Max(0, l.PrixM2 - d.RemiseM2)))).ToList();
+            d.Lignes.ToDictionary(l => l.DalleId, l => Math.Max(0, l.PrixM2 - d.RemiseM2)), d.TotalTTC)).ToList();
     }
 
     public async Task<IReadOnlyList<Guid>> ProjetsDuCommercialAsync(Guid userId, CancellationToken ct = default) =>
         await db.Devis.AsNoTracking().Where(d => d.CommercialId == userId && d.Etat != Domain.EtatsDevis.Annule).Select(d => d.ProjetId).Distinct().ToListAsync(ct);
+
+    public async Task<string?> DevisSurAutreSurfaceAsync(Guid dalleId, decimal surface, CancellationToken ct = default)
+    {
+        // Un brouillon reprend la surface à jour ; un devis remplacé ou annulé ne compte plus.
+        var d = await db.Devis.AsNoTracking()
+            .Where(x => (x.Etat == EtatsDevis.Envoye || x.Etat == EtatsDevis.Expire || x.Etat == EtatsDevis.Valide)
+                        && x.Lignes.Any(l => l.DalleId == dalleId && l.Surface != surface))
+            .OrderByDescending(x => x.CreatedAt).FirstOrDefaultAsync(ct);
+        return d is null ? null : $"{d.Numero} v{d.Version}";
+    }
 }

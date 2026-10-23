@@ -106,8 +106,8 @@ public static class TensionEndpoints
         var theo = completes.Sum(x => x.Theorique);
         var mes = completes.Sum(x => x.Mesure!.Value);
         decimal? ecart = theo > 0 ? Math.Round((mes - theo) / theo * 100, 1) : null;
-        // Le groupe suit la même règle que chaque câble : entre 0,95 et 1,1 fois l'allongement théorique.
-        return new Synthese(theo, mes, ecart, theo > 0 ? mes >= theo * MesureTension.BorneBasse && mes <= theo * MesureTension.BorneHaute : null,
+        // EN 13670 : le groupe a sa propre tolérance, plus serrée que celle d'un câble seul (± 5 % contre ± 15 %).
+        return new Synthese(theo, mes, ecart, theo > 0 ? mes >= theo * MesureTension.GroupeBas && mes <= theo * MesureTension.GroupeHaut : null,
             completes.Count(x => x.Conforme == false), m.Count - completes.Count, m.Count);
     }
 
@@ -145,7 +145,7 @@ public static class TensionEndpoints
             modifiable = verrou is null && PeutSaisir(user),
             verrou,
             mmParMetre = parametres.MmParMetre, proposes,
-            borneBasse = MesureTension.BorneBasse, borneHaute = MesureTension.BorneHaute,
+            borneBasse = MesureTension.BorneBasse, borneHaute = MesureTension.BorneHaute, groupeBas = MesureTension.GroupeBas, groupeHaut = MesureTension.GroupeHaut,
             // La force se saisit par fiche ; elle est proposée à la valeur du Paramétrage.
             forceKn = entete?.ForceKn ?? parametres.ForceKn, cr = entete?.Cr, cmp = entete?.Cmp,
             cables = mesures.Select(m => new

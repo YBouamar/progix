@@ -19,6 +19,7 @@ import { ContratsProjet } from "./contrats";
 import { CourriersProjet } from "./courriers";
 import { PartenairesProjet } from "./partenaires";
 import { RemarquesProjet } from "./remarques";
+import { SituationProjet } from "./situation";
 import { TON_STATUT, type ProjetDetail, type Referentiel } from "../types";
 
 type Action = "bloquer" | "supprimer";
@@ -170,6 +171,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
       {onglet === "commercial" && (
         <>
           {voitMontants(user) && <DevisProjet key={`devis-${version}`} projetId={p.id} lectureSeule={p.supprime} />}
+          {peutGererCommercial(user) && voitMontants(user) && <SituationProjet key={`situation-${version}`} projetId={p.id} />}
           {peutGererCommercial(user) && <ContratsProjet key={`contrats-${version}`} projetId={p.id} />}
         </>
       )}

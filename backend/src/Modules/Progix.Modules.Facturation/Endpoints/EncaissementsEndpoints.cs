@@ -89,7 +89,7 @@ public static class EncaissementsEndpoints
                 {
                     new("Montant", DH(montant)), new("Mode", ModesPaiement.Libelles[input.Mode] + (reference is null ? "" : $" · {reference}")),
                     new("Client", f.ClientNom), new("Facture", $"{f.Numero} · reste {DH(Math.Max(0, f.Reste))}"), new("Projet", $"{f.ProjetCode} · {f.ProjetLibelle}"),
-                    new("Date du paiement", input.DatePaiement.ToString("dd/MM/yyyy")), new("Reçu", recu.NumeroRecu), new("Saisi par", user.UserName()),
+                    new("Date du paiement", input.DatePaiement.ToString("dd/MM/yyyy")), new("Reçu", recu.NumeroRecu ?? ""),new("Saisi par", user.UserName()),
                 };
                 if (input.Mode == ModesPaiement.Effet && input.EcheanceEffet is { } ech) lignes.Add(new("Échéance de l'effet", ech.ToString("dd/MM/yyyy")));
                 await notifications.SignalerAsync($"Nouveau paiement · {DH(montant)} · {f.ClientNom}", $"Nouveau paiement de {DH(montant)}", lignes, $"/facturation");

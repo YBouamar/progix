@@ -1,69 +1,91 @@
-# PROGIX — contexte pour Claude
+# PROGIX : contexte pour Claude
 
-Système d'information métier pour les dalles en béton précontraint par post-tension (suivi du devis à la réception finale, facturation, trésorerie, logistique, chantier).
+Système d'information métier d'une entreprise marocaine de dalles en béton précontraint par post-tension : clients et partenaires, devis, contrats, livraisons, factures, paiements, trésorerie, suivi de chantier en 11 étapes par dalle, commandes usine, stock, signatures électroniques, courriels aux directeurs.
 
-**Langue** : l'application, les commentaires, les noms de domaine et la documentation sont en **français**. Répondre et écrire le code métier en français, en gardant la convention déjà en place.
+Ce dépôt est une **refonte complète**. L'ancienne version (Next.js, Supabase, Vercel) est abandonnée : ne rien reprendre de Supabase ni de Vercel.
 
-## Documents de suivi (à lire selon le besoin)
+**Langue** : application, code métier, commentaires, documentation et réponses en **français**. **Pas de tiret long** dans les fichiers.
 
-- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) : modules, flux, rôles, règles métier clés.
-- [docs/AVANCEMENT.md](docs/AVANCEMENT.md) : état de chaque module et écran.
-- [TODO.md](TODO.md) : tâches de développement à faire, par priorité.
-- [README.md](README.md) et [DEPLOIEMENT.md](DEPLOIEMENT.md) : démarrage et mise en production.
+## Début de session (obligatoire)
 
-Quand une tâche est terminée, cocher l'entrée dans `TODO.md` et mettre à jour l'état concerné dans `docs/AVANCEMENT.md`.
+1. Lire [docs/PROGRESS.md](docs/PROGRESS.md) (état réel, bloquants, écarts code / règles métier).
+2. Lire [docs/NEXT_STEPS.md](docs/NEXT_STEPS.md) (prochaines étapes priorisées).
+3. Avant toute modification **fonctionnelle ou d'architecture** : consulter [docs/BUSINESS_RULES.md](docs/BUSINESS_RULES.md) et [docs/DECISIONS.md](docs/DECISIONS.md). Si le code contredit une règle, le signaler dans PROGRESS.md au lieu de trancher seul.
 
-## Stack
+Autres références : [docs/PROJECT.md](docs/PROJECT.md) (périmètre, rôles), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) (modules, données, flux), [README.md](README.md), [DEPLOIEMENT.md](DEPLOIEMENT.md).
+`TODO.md` et `docs/AVANCEMENT.md` sont les anciens fichiers de suivi (2026-10-06), remplacés par PROGRESS.md et NEXT_STEPS.md : ne plus les tenir à jour.
 
-- **Backend** : ASP.NET Core 8 (C#), monolithe modulaire. Hôte dans `backend/src/Progix.Api`, modules dans `backend/src/Modules/Progix.Modules.*`.
-- **Frontend** : Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4. Code dans `web/src`.
-- **Données** : PostgreSQL 16, Entity Framework Core. Un schéma et un DbContext par module. Migrations appliquées au démarrage de l'API.
-- **Autres** : Redis (cache), MinIO (fichiers, compatible S3), Hangfire (tâches planifiées, tableau de bord en développement sur `/hangfire`), Metabase (analyse, facultatif).
-- **Auth** : ASP.NET Identity, JWT dans un cookie HttpOnly, politiques d'autorisation dans `Progix.SharedKernel`.
+## Fin de session
+
+Lancer `/handoff` : réécrit PROGRESS.md, met à jour NEXT_STEPS.md et DECISIONS.md, propose d'éventuels ajouts à ce fichier, sans toucher au code.
+
+## Stack réellement en place
+
+- **Backend** : ASP.NET Core 8 (C#, `net8.0`), monolithe modulaire. Hôte `backend/src/Progix.Api`, noyau `backend/src/Progix.SharedKernel`, modules `backend/src/Modules/Progix.Modules.*` (Identity, Partenaires, Projets, Devis, Fichiers, Facturation).
+- **Données** : PostgreSQL 16, EF Core 8 (Npgsql). Un DbContext et un schéma par module. Migrations appliquées au démarrage de l'API.
+- **Frontend** : Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS 4, composants maison de style shadcn/ui (Radix, cva, `web/src/components/ui/`). PWA lecture seule hors ligne.
+- **Services** : Redis (enregistré, pas encore utilisé dans le code), MinIO (S3, bucket `progix`), Hangfire (purge des fichiers, envoi des courriels), Metabase (profil `analyse`, facultatif), MailKit (SMTP).
+- **Documents** : PDFsharp-MigraDoc (PDF), ClosedXML (Excel), QRCoder (QR de vérification).
+- **Auth** : ASP.NET Identity, JWT (12 h) dans un cookie HttpOnly, rôles et politiques dans `Progix.SharedKernel/Roles.cs`.
+- **Tests** : xUnit (`backend/tests/Progix.Tests`, règles de domaine sans base de données). Intégration continue : `.github/workflows/ci.yml` (build, tests, lint, build web).
+- **Absents pour l'instant** : application mobile React Native + Expo, tests frontend, tests d'intégration avec base.
 
 ## Commandes
 
 ```bash
-# Tout l'environnement (Postgres, Redis, MinIO, API, web)
+# Environnement complet (Postgres, Redis, MinIO, API, web). docker-compose.override.yml est chargé
+# automatiquement : code monté, dotnet watch et next dev, rechargement à chaud.
 docker compose up --build
-
-# Données de démonstration (une seule fois)
+# Images figées, comme en production
+docker compose -f docker-compose.yml up --build
+# Données de démonstration (une seule fois, passe par l'API)
 docker compose --profile demo run --rm demo
+# Metabase sur http://localhost:3001
+docker compose --profile analyse up -d
 
 # Frontend seul
-cd web && npm run dev      # serveur de développement
-cd web && npm run build    # build de production, sert aussi de contrôle de types
-cd web && npm run lint
+cd web && npm ci && npm run dev     # npm run build sert aussi de contrôle de types ; npm run lint
 
-# Backend seul
+# Backend seul (SDK .NET 8 requis)
 dotnet build backend/Progix.sln
+dotnet test backend/Progix.sln          # tests xUnit de backend/tests/Progix.Tests
 dotnet run --project backend/src/Progix.Api
 
-# Nouvelle migration EF Core (exemple, module Projets)
+# Nouvelle migration (exemple : module Projets)
 dotnet ef migrations add NomDeLaMigration --project backend/src/Modules/Progix.Modules.Projets --startup-project backend/src/Progix.Api
 ```
 
-Attention : `docker compose down -v` efface la base et le stockage.
+Adresses en développement : web http://localhost:3000, Swagger http://localhost:8080/swagger, Hangfire http://localhost:8080/hangfire, console MinIO http://localhost:9001. Comptes de démonstration : voir README.
+
+Sur le poste Windows actuel : pas de SDK .NET 8 ni de Python. Builder le backend dans un conteneur (Git Bash, depuis `backend/`) :
+`MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/src" -w /src mcr.microsoft.com/dotnet/sdk:8.0 dotnet test Progix.sln` (build + tests).
+Scripts de vérification de l'API : Node (`fetch`), pas Python. Après plusieurs modifications d'un même fichier C#, `dotnet watch` peut afficher des erreurs transitoires : `docker compose restart api`.
+
+**Danger** : `docker compose down -v` efface la base et le stockage.
 
 ## Conventions
 
-- **Un module = Domain, Application, Infrastructure, Endpoints**, plus une classe `XxxModule` qui implémente `IModule` (`Progix.SharedKernel/IModule.cs`) et est enregistrée dans `Program.cs`.
-- **Routes API** sous `/api/...`, regroupées par `MapGroup`. Les identifiants de route sont typés (`{id:guid}`, `{n:int}`).
-- **Codes de rôle** en snake_case français (`chef_projet`, `responsable_administratif`…), définis dans `Progix.SharedKernel/Roles.cs`. Ne jamais écrire un code de rôle en dur dans un module : utiliser la constante ou le tableau de rôles.
-- **Statuts et étapes** : les statuts de projet et les 11 étapes de suivi d'une dalle sont des constantes de domaine (`Projet.cs`, `Etape.cs`). Ne pas changer leur ordre ni leur numéro sans migration de données.
-- **Migrations** : ne jamais modifier une migration déjà committée ou déjà appliquée ; en ajouter une nouvelle.
-- **Schéma PostgreSQL** : chaque module écrit dans son propre schéma (identity, partenaires, projets, devis, fichiers, facturation). Ne pas créer de table dans le schéma d'un autre module ; passer par son `Lookup` ou son contrat.
-- **Frontend** : les écrans sont dans `web/src/app/(app)/`. La navigation par rôle est dans `web/src/lib/nav.ts`. Les appels API passent par `web/src/lib/api.ts`. Les composants UI génériques sont dans `web/src/components/ui/`.
-- **Pas de tests automatisés** pour l'instant (aucun projet de test, aucun CI). Vérifier les changements avec `npm run build` / `npm run lint` côté web et `dotnet build` côté API, puis par l'usage dans l'écran concerné.
+- **Module** = `Domain/`, `Application/` (si besoin), `Infrastructure/` (DbContext, migrations, numérotation, lookups), `Endpoints/`, plus une classe `XxxModule : IModule` enregistrée dans `Program.cs`.
+- **Communication entre modules** : uniquement par les interfaces de `Progix.SharedKernel/Contracts.cs` (`IProjetsLookup`, `IPartenairesLookup`, `IDevisLookup`, `IReaffectationEntite`, `INotificationsDirection`...). Jamais de lecture des tables d'un autre module, jamais de table dans le schéma d'un autre module.
+- **Routes** : minimal API sous `/api/...`, regroupées par `MapGroup`, identifiants typés (`{id:guid}`, `{n:int}`), autorisation par politique (`Policies.*`) ou par rôles.
+- **Erreurs métier** : `Results.Conflict(new { message })` (helper `Conflit`) avec un message en français prêt à afficher ; erreurs de saisie par `Results.ValidationProblem`.
+- **Nommage** : classes, propriétés et méthodes en français (`NumeroSuivantAsync`, `EtapesFaites`, `PeutSaisir`, `Verrou`, `Refus`). Codes de rôle en snake_case français. Tables en snake_case.
+- **Rôles** : ne jamais écrire un code de rôle en dur ; utiliser `Roles.*` ou les tableaux de `Policies`.
+- **Statuts et étapes** : constantes de domaine (`StatutsProjet` dans `Projet.cs`, `Etapes` dans `Etape.cs`). Ne pas changer ordre ni numéros sans migration de données.
+- **Numérotation** : toujours côté serveur, par compteur en base, par entité et par an. Jamais côté client.
+- **Documents émis** (facture, avoir, BL, contrat, courrier, reçu) : ne se modifient ni ne se suppriment ; ils s'annulent avec un motif tracé.
+- **Frontend** : écrans dans `web/src/app/(app)/`, un fichier par onglet dans `projets/[id]/`. Menus par rôle dans `web/src/lib/nav.ts`. Appels API via `web/src/lib/api.ts`. Formats français via `web/src/lib/utils.ts` (`formatDH`, `formatDate`, `lireNombre`, `filtrerDecimal`).
+- **Commentaires** : brefs, en français, expliquant la règle métier (style `/// <summary>` côté C#).
 
-## Ne pas toucher sans demande explicite
+## Règles strictes
 
-- `_to_delete/` : archives de l'historique du projet (74 fichiers). Ne rien supprimer sans accord.
-- `deploiement/`, `docker-compose.prod.yml`, `.env` : configuration de production. Ne jamais écrire de secret dans un fichier suivi.
-- Les valeurs de `backend/src/Progix.Api/appsettings.json` (clé JWT, mots de passe de développement) sont des valeurs de développement. Ne pas les réutiliser en production.
+- Ne jamais modifier une migration committée ou appliquée : en ajouter une nouvelle.
+- Ne jamais écrire de secret dans un fichier suivi. `.env`, `deploiement/`, `docker-compose.prod.yml` : configuration de production, ne pas toucher sans demande explicite.
+- Les valeurs de `backend/src/Progix.Api/appsettings.json` (clé JWT, mots de passe) sont des valeurs de développement.
+- Monnaie unique : dirham (DH). Aucun champ pays, aucune devise étrangère.
+- Ne pas inventer une règle métier : ce qui n'est pas dans BUSINESS_RULES.md se demande.
+- Commits : seulement sur demande. Le dépôt git existe (remote `origin` : github.com/YBouamar/progix).
 
-## Points d'attention
+## Vérifier un changement
 
-- Le dépôt n'est **pas un dépôt git** pour l'instant : pas d'historique ni de diff disponibles.
-- Le dossier `Écran en cours de développement` (`web/src/app/(app)/[...slug]/page.tsx`) s'affiche pour toute route non définie.
-- Les comptes de démonstration (mot de passe commun dans le README) n'existent pas en production.
+`dotnet test backend/Progix.sln` (API, à compléter d'un test pour toute règle métier ajoutée ou modifiée), `npm run build` et `npm run lint` (web), puis l'usage dans l'écran concerné avec les données de démonstration. Classes internes testables : `InternalsVisibleTo Progix.Tests` dans les modules Projets et Facturation.

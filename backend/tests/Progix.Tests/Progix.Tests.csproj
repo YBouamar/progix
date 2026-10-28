@@ -30,6 +30,7 @@
     <ProjectReference Include="..\..\src\Modules\Progix.Modules.Devis\Progix.Modules.Devis.csproj" />
     <ProjectReference Include="..\..\src\Modules\Progix.Modules.Projets\Progix.Modules.Projets.csproj" />
     <ProjectReference Include="..\..\src\Modules\Progix.Modules.Facturation\Progix.Modules.Facturation.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Progix.Modules.Partenaires\Progix.Modules.Partenaires.csproj" />
   </ItemGroup>
 
 </Project>

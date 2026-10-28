@@ -1,6 +1,6 @@
 // Service worker de PROGIX : consultation hors ligne des écrans déjà ouverts.
 // Lecture seule : aucune saisie n'est mise en file d'attente, une action sans réseau échoue clairement.
-const VERSION = "progix-v1";
+const VERSION = "progix-v2";
 const STATIQUE = VERSION + "-statique";
 const DONNEES = VERSION + "-donnees";
 

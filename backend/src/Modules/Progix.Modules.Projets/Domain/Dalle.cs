@@ -19,7 +19,11 @@ public class Dalle : Entity
     /// <summary>Niveau : négatif pour les sous-sols, 0 pour le rez-de-chaussée, positif pour les étages.</summary>
     public int Niveau { get; set; }
     public string? Detail { get; set; }
+    /// <summary>Surface en m² ; 0 tant qu'elle reste à renseigner (dalle créée par niveaux, en attente des fichiers ADAPT).</summary>
     public decimal Surface { get; set; }
+
+    /// <summary>Dernier import des exports ADAPT : ratios et câbles repris par les devis.</summary>
+    public AdaptDalle? Adapt { get; set; }
 
     /// <summary>Un seul dessinateur par dalle.</summary>
     public Guid? DessinateurId { get; set; }
@@ -39,7 +43,11 @@ public class Dalle : Entity
 
     public string Suffixe => $"{Numero:00}{Version}";
 
-    public static string NiveauLabel(int n) => n switch
+    /// <summary>Libellé du niveau, tel que paramétré ; à défaut, libellé calculé.</summary>
+    public static string NiveauLabel(int n) => NiveauxDalle.Libelle(n);
+
+    /// <summary>Libellé calculé : sert à créer la liste des niveaux au premier démarrage.</summary>
+    public static string NiveauParDefaut(int n) => n switch
     {
         0 => "Rez-de-chaussée",
         -1 => "1er sous-sol",

@@ -34,8 +34,12 @@ public record UtilisateurFiche(Guid Id, string Nom, string Role);
 /// <summary>Résumé d'un partenaire : nom, type et contact principal.</summary>
 public record PartenaireFiche(Guid Id, string Nom, string Type, string? Contact, bool ExonereTva);
 
-/// <summary>Identité légale d'un client. <c>Manques</c> liste les mentions obligatoires absentes pour facturer.</summary>
-public record PartenaireLegal(Guid Id, string Nom, string Nature, string? Identifiants, string? Adresse, bool ExonereTva, IReadOnlyList<string> Manques);
+/// <summary>
+/// Identité légale d'un client. <c>Manques</c> liste les mentions obligatoires absentes pour facturer (ICE, registre de commerce) ;
+/// <c>ManquesContrat</c> celles absentes pour établir un contrat (en plus : identifiant fiscal, patente).
+/// </summary>
+public record PartenaireLegal(Guid Id, string Nom, string Nature, string? Identifiants, string? Adresse, bool ExonereTva, IReadOnlyList<string> Manques,
+    IReadOnlyList<string>? ManquesContrat = null);
 
 /// <summary>Accès en lecture aux devis validés pour la facturation.</summary>
 public interface IDevisLookup
@@ -114,13 +118,33 @@ public interface IProjetsStatut
 
     /// <summary>Un projet « En étude » revient à « Créé » quand il n'a plus aucun devis validé.</summary>
     Task RevenirCreeAsync(Guid projetId, CancellationToken ct = default);
+
+    /// <summary>
+    /// Surface d'une dalle modifiée depuis un devis en brouillon : la dalle reste la seule source de la surface.
+    /// Renvoie le motif de refus (projet supprimé, surface invalide, dalle chiffrée dans un autre devis émis), ou null si la surface est enregistrée.
+    /// </summary>
+    Task<string?> ModifierSurfaceDalleAsync(Guid projetId, Guid dalleId, decimal surface, CancellationToken ct = default);
+
+    /// <summary>Reprise : le commercial choisi jusqu'ici sur un devis devient celui du projet, si le projet n'en a pas encore.</summary>
+    Task DefinirCommercialSiAbsentAsync(Guid projetId, Guid commercialId, string commercialNom, CancellationToken ct = default);
 }
 
+/// <param name="CommercialId">Agent commercial du projet, choisi sur le projet ; les devis le reprennent.</param>
 public record ProjetResume(Guid Id, string Code, string Libelle, string Entite, Guid ClientId, string TypeConstruction,
-    bool Supprime, IReadOnlyList<DalleResume> Dalles, bool Bloque = false, string? Ville = null);
+    bool Supprime, IReadOnlyList<DalleResume> Dalles, bool Bloque = false, string? Ville = null,
+    Guid? CommercialId = null, string? CommercialNom = null, string? TypeLabel = null);
 
 /// <param name="Conforme">Avis de conformité d'une dalle réalisée : vrai, faux, ou null tant qu'il n'est pas donné.</param>
-public record DalleResume(Guid Id, string Reference, string Emplacement, decimal Surface, int EtapesFaites = 0, bool? Conforme = null);
+/// <param name="SurfaceCommande">Surface totale saisie sur la commande usine : celle du bon de livraison et de la facture.</param>
+public record DalleResume(Guid Id, string Reference, string Emplacement, decimal Surface, int EtapesFaites = 0, bool? Conforme = null,
+    AdaptResume? Adapt = null, decimal? SurfaceCommande = null);
+
+/// <summary>Données ADAPT d'une dalle, telles qu'un devis les reprend.</summary>
+public record AdaptResume(decimal RatioActif, decimal RatioPassif, IReadOnlyList<SystemeAdaptResume> Systemes);
+
+/// <param name="Ancrages">Nombre de câbles du type d'ancrage.</param>
+/// <param name="Gaine">Cumul de Strand Length, en mètres.</param>
+public record SystemeAdaptResume(int Torons, int Ancrages, decimal Gaine);
 
 /// <summary>
 /// Vérification publique d'un document signé, atteinte par son QR code. Chaque module qui signe des documents
@@ -176,6 +200,20 @@ public interface INotificationsDirection
 {
     /// <param name="lien">Chemin dans PROGIX à ouvrir depuis le courriel, par exemple /projets/{id}.</param>
     Task SignalerAsync(string sujet, string titre, IReadOnlyList<KeyValuePair<string, string>> lignes, string? lien, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Types d'ancrage (systèmes) existants : S1, S2, S3, S4, S7, S9, S12, S15. Le nombre est celui des torons du système.
+/// Seuls ces types se saisissent sur un devis ou une commande usine ; un type déjà enregistré sur un document reste accepté.
+/// </summary>
+public static class SystemesAncrage
+{
+    public static readonly IReadOnlyList<int> Torons = [1, 2, 3, 4, 7, 9, 12, 15];
+
+    public static bool Existe(int torons) => Torons.Contains(torons);
+
+    /// <summary>Liste lisible pour les messages : « S1, S2, S3, S4, S7, S9, S12, S15 ».</summary>
+    public static string Liste => string.Join(", ", Torons.Select(t => $"S{t}"));
 }
 
 /// <summary>Entités émettrices des documents.</summary>

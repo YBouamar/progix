@@ -3,10 +3,10 @@
 import { useAuth } from "@/lib/auth";
 import { Fragment, use, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp, Plus, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Plus, Printer, Trash2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useRouter } from "next/navigation";
-import { cn, formatDate, formatDateHeure, formatDH, formatNombre, lireNombre } from "@/lib/utils";
+import { cn, filtrerDecimal, formatDate, formatDateHeure, formatDH, formatNombre, lireNombre } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,12 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { SignatureDoc } from "@/components/signature-doc";
 import { Documents } from "@/components/documents";
 import { ImportDevis, type LigneImport } from "./import";
-import { forfaitPour, LABEL_TYPE, TON_ETAT, type DevisDetail } from "../types";
+import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 
 type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; sys: Record<number, { a: string; g: string }> };
 type EcheanceForm = { label: string; pct: string; retenue: boolean };
 type Form = {
-  dateDevis: string; duree: string; commercialId: string; remise: string; motif: string;
+  dateDevis: string; duree: string; ingenieurId: string; remise: string; motif: string;
   echeances: EcheanceForm[]; contrat: string; lignes: LigneForm[]; systemes: number[];
 };
 
@@ -30,7 +30,7 @@ const CELL = "h-8 w-full min-w-0 rounded-md border border-bordure-forte bg-white
 function versForm(d: DevisDetail): Form {
   const systemes = [...new Set(d.lignes.flatMap((l) => l.systemes.map((s) => s.torons)))].sort((a, b) => a - b);
   return {
-    dateDevis: d.dateDevis, duree: String(d.dureeValidite), commercialId: d.commercialId ?? "",
+    dateDevis: d.dateDevis, duree: String(d.dureeValidite), ingenieurId: d.ingenieurId ?? "",
     remise: fr(d.remiseM2) || "0", motif: d.remiseMotif ?? "",
     echeances: d.echeances.map((e) => ({ label: e.label, pct: fr(e.pourcentage), retenue: e.retenue })),
     contrat: d.modalitesContrat ?? "", systemes,
@@ -46,7 +46,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const [d, setD] = useState<DevisDetail | null>(null);
   const [f, setF] = useState<Form | null>(null);
   const [importOuvert, setImportOuvert] = useState(false);
-  const [commerciaux, setCommerciaux] = useState<{ id: string; nom: string }[]>([]);
+  const [ingenieurs, setIngenieurs] = useState<{ id: string; nom: string }[]>([]);
   const [ouvert, setOuvert] = useState<string | null>(null);
   const [nouveauSys, setNouveauSys] = useState("");
   const [erreurs, setErreurs] = useState<Record<string, string[]>>({});
@@ -59,7 +59,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   useEffect(() => {
     api<DevisDetail>(`/devis/${id}`).then((r) => { setD(r); setF(versForm(r)); })
       .catch((e) => setMessage({ ok: false, texte: e instanceof ApiError && e.status === 404 ? "Devis introuvable." : "Chargement impossible." }));
-    api<{ id: string; nom: string }[]>("/devis/commerciaux").then(setCommerciaux).catch(() => undefined);
+    api<{ id: string; nom: string }[]>("/devis/ingenieurs").then(setIngenieurs).catch(() => undefined);
   }, [id]);
 
   // Calcul en direct, identique à celui du serveur.
@@ -70,7 +70,8 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     if (!f || !d) return null;
     const lignes = f.lignes.map((l) => ({ l, s: lireNombre(l.surface), ra: lireNombre(l.ra), rp: lireNombre(l.rp) }));
     const surfaceTotale = lignes.reduce((a, x) => a + x.s, 0);
-    const forfait = forfaitPour(d.typeConstruction, surfaceTotale);
+    // Brouillon : forfait de la grille en vigueur selon la surface totale ; devis émis : forfait figé à son calcul.
+    const forfait = d.etat === "brouillon" && d.tranchesForfait.length > 0 ? forfaitDe(d.tranchesForfait, surfaceTotale) : d.forfait;
     let totalHT = 0, actif = 0, passif = 0;
     const rows = lignes.map(({ l, s, ra, rp }) => {
       let sa = 0, sg = 0;
@@ -88,7 +89,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
       totalHT += montant; actif += ra * s; passif += rp * s;
       detail.push([`Somme ÷ surface : ${ent(sa + sg)} ÷ ${ent(s, 2)}`, ent(quotient, 2)]);
       detail.push([`Ratio actif : ${ent(ra, 1)} × 12 × 1,05`, ent(act, 2)]);
-      detail.push([`Forfait ${LABEL_TYPE[d.typeConstruction]?.toLowerCase() ?? ""}`, ent(forfait, 2)]);
+      detail.push([`Forfait (surface totale de ${ent(surfaceTotale, 2)} m²)`, ent(forfait, 2)]);
       detail.push([`ENT(${ent(brut, 2)}) + 1`, `${ent(prix)} DH/m²`, true]);
       detail.push([`Montant HT : ${ent(s, 2)} m² × ${ent(prix)} DH`, formatDH(montant), true]);
       detail.push([`Acier actif : ${ent(ra, 1)} kg/m² × ${ent(s, 2)} m²`, `${ent(ra * s)} kg`]);
@@ -109,7 +110,9 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     return <div><Retour /><div className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{message?.texte ?? "Chargement..."}</div></div>;
   }
 
-  const lecture = d.etat !== "brouillon";
+  // Lecture seule : devis émis, ou rôle qui consulte seulement (administrateur).
+  const lecture = d.etat !== "brouillon" || !d.actions.modifier;
+  const lectureTechnique = lecture;
   const maj = (patch: Partial<Form>) => { setF({ ...f, ...patch }); setModifie(true); setMessage(null); };
   // Report des lignes importées dans le brouillon : ratios et systèmes de chaque dalle reconnue, les autres dalles restent telles quelles.
   const importer = (lignes: LigneImport[]) => {
@@ -130,9 +133,11 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     majLigne(l.id, { sys: { ...l.sys, [t]: { a: l.sys[t]?.a ?? "", g: l.sys[t]?.g ?? "", [k]: v } } });
   const majEch = (i: number, patch: Partial<EcheanceForm>) => maj({ echeances: f.echeances.map((e, j) => (j === i ? { ...e, ...patch } : e)) });
 
+  // Types d'ancrage existants (S1, S2, S3, S4, S7, S9, S12, S15) pas encore dans la grille.
+  const typesLibres = d.typesAncrage.filter((t) => !f.systemes.includes(t));
   const ajouterSysteme = () => {
     const n = parseInt(nouveauSys, 10);
-    if (n >= 1 && n <= 99 && !f.systemes.includes(n)) maj({ systemes: [...f.systemes, n].sort((a, b) => a - b) });
+    if (d.typesAncrage.includes(n) && !f.systemes.includes(n)) maj({ systemes: [...f.systemes, n].sort((a, b) => a - b) });
     setNouveauSys("");
   };
   const retirerSysteme = (t: number) => maj({
@@ -160,7 +165,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     setEnvoi(true); setErreurs({}); setMessage(null);
     try {
       const corps = JSON.stringify({
-        dateDevis: f.dateDevis, dureeValidite: parseInt(f.duree, 10) || 0, commercialId: f.commercialId || null,
+        dateDevis: f.dateDevis, dureeValidite: parseInt(f.duree, 10) || 0, ingenieurId: f.ingenieurId || null,
         remiseM2: lireNombre(f.remise), remiseMotif: f.motif,
         echeances: f.echeances.map((e) => ({ label: e.label, pourcentage: lireNombre(e.pct), retenue: e.retenue })),
         modalitesContrat: f.contrat,
@@ -204,30 +209,42 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           <span className="mr-auto text-[13px] text-secondaire">
             {d.info}{d.alerte && <span className="font-semibold text-orange-texte"> · {d.alerte}</span>}
             {d.annuleMotif && <> · Motif : {d.annuleMotif}</>}
-            {lecture && " · Lecture seule"}
+            {lecture && (d.etat === "brouillon" ? " · Consultation seule pour votre rôle" : " · Lecture seule")}
           </span>
+          {d.actions.trame && <a href={`/api/devis/${d.id}/import/modele`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold hover:bg-fond"><FileDown size={14} />Trame de calcul Excel</a>}
           {d.actions.modifier && <Button size="sm" variant="outline" onClick={() => setImportOuvert(true)}>Importer depuis Excel</Button>}
+          {d.actions.modifier && d.lignes.some((l) => l.adapt) && (
+            <Button size="sm" variant="outline" disabled={envoi || modifie}
+              title={modifie ? "Enregistrez d'abord le brouillon" : "Ratios, types d'ancrage, ancrages et gaines repris des fichiers ADAPT importés sur les dalles"}
+              onClick={() => transition("adapt")}>Reprendre les données ADAPT</Button>
+          )}
+          {/* Impression du brouillon pour relecture avant l'envoi : document de travail non signé, tel qu'enregistré. */}
+          {d.etat === "brouillon" && (modifie
+            ? <Button size="sm" variant="outline" disabled title="Enregistrez d'abord le brouillon : le PDF reprend la version enregistrée"><Printer size={14} />Imprimer le brouillon</Button>
+            : <a href={`/api/devis/${d.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold hover:bg-fond"><Printer size={14} />Imprimer le brouillon</a>)}
           {d.actions.envoyer && <Button size="sm" disabled={envoi || modifie} title={modifie ? "Enregistrez d'abord le brouillon" : undefined} onClick={() => transition("envoyer")}>Marquer envoyé</Button>}
           {d.actions.valider && <Button size="sm" disabled={envoi} onClick={() => transition("valider")}>Valider le devis</Button>}
           {d.actions.nouvelleVersion && <Button size="sm" variant="outline" disabled={envoi} onClick={() => transition("nouvelle-version")}>Nouvelle version</Button>}
-          {d.actions.annuler && <Button size="sm" variant="outline" disabled={envoi} onClick={() => setAnnulation("")}>Annuler le devis</Button>}
+          {d.actions.rejeter && <Button size="sm" variant="outline" disabled={envoi} onClick={() => setAnnulation("")}>Rejeter le devis</Button>}
         </div>
         {d.etat !== "brouillon" && (
           <SignatureDoc<DevisDetail> signePar={d.signePar} signeLe={d.signeLe} quoi="le devis" url={`/devis/${d.id}`} peutSigner={d.signable}
-            raison="Devis non signé : il ne peut pas encore être imprimé ni envoyé. La signature revient à l'administrateur, au responsable administratif, au chef de projet ou au directeur."
+            raison="Devis non signé : il ne peut pas encore être imprimé ni envoyé. La signature revient au responsable administratif, au chef de projet ou au directeur."
             onSigne={(r) => { setD(r); setF(versForm(r)); }} />
         )}
         {importOuvert && <ImportDevis devisId={d.id} onClose={() => setImportOuvert(false)} onImporter={importer} />}
         <Documents compact key={`plans-${d.etat}`} contexte="plan_principe" cibleId={d.id} lectureSeule={d.etat !== "brouillon"} titre="Plans de principe joints au devis"
           aide="Ils accompagnent le devis remis au client. Dépôt possible tant que le devis est en brouillon." />
-        {d.etat === "brouillon" && <p className="mt-3 text-[12px] text-secondaire">Un brouillon ne s&apos;imprime pas : marquez le devis comme envoyé, puis signez-le pour obtenir le PDF.</p>}
+        {d.etat === "brouillon" && <p className="mt-3 text-[12px] text-secondaire">Le brouillon s&apos;imprime pour relecture, marqué « BROUILLON » et sans signature. Pour le devis à remettre au client : marquez-le comme envoyé, puis signez-le.</p>}
         {lecture && message && !message.ok && <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{message.texte}</div>}
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <Field label="Commercial">
-            <Select disabled={lecture} value={f.commercialId} onChange={(e) => maj({ commercialId: e.target.value })}>
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+          <Field label="Commercial du projet"><Input disabled value={d.commercial ?? "Aucun"} title="Le commercial se choisit sur la fiche du projet." /></Field>
+          <Field label="Ingénieur du devis">
+            <Select disabled={lecture} value={f.ingenieurId} onChange={(e) => maj({ ingenieurId: e.target.value })}>
               <option value="">Non renseigné</option>
-              {commerciaux.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              {ingenieurs.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+              {d.ingenieurId && !ingenieurs.some((c) => c.id === d.ingenieurId) && <option value={d.ingenieurId}>{d.ingenieur} (inactif)</option>}
             </Select>
           </Field>
           <Field label="Date du devis"><Input type="date" disabled={lecture} value={f.dateDevis} onChange={(e) => maj({ dateDevis: e.target.value })} /></Field>
@@ -235,7 +252,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
             <Input inputMode="numeric" disabled={lecture} value={f.duree} onChange={(e) => maj({ duree: e.target.value })} />
           </Field>
           <Field label="Échéance, calculée"><Input disabled value={echeance} /></Field>
-          <Field label="Type et forfait"><Input disabled value={`${LABEL_TYPE[d.typeConstruction] ?? ""} · ${calcul.forfait} DH/m²`} /></Field>
+          <Field label="Type et forfait"><Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²`} title="Forfait de la grille du Paramétrage, selon la surface totale du devis." /></Field>
         </div>
       </div>
 
@@ -243,13 +260,17 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         <div className="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
           <div>
             <h3 className="text-[15px] font-bold">Calcul du prix par dalle</h3>
-            <p className="text-[13px] text-secondaire">Le numéro d&apos;un système est son nombre de torons : ajoutez-en un en saisissant ce nombre. La surface vient de la dalle du projet.</p>
+            <p className="text-[13px] text-secondaire">
+              Ajoutez les types d&apos;ancrage utilisés (S4 compte 4 torons). La surface modifiée ici est enregistrée sur la dalle du projet, comme depuis la fiche des dalles.
+            </p>
           </div>
-          {!lecture && (
+          {!lectureTechnique && typesLibres.length > 0 && (
             <div className="flex items-center gap-2">
-              <Input className="h-9 w-40" inputMode="numeric" placeholder="Nombre de torons" value={nouveauSys}
-                onChange={(e) => setNouveauSys(e.target.value)} onKeyDown={(e) => e.key === "Enter" && ajouterSysteme()} />
-              <Button size="sm" variant="outline" onClick={ajouterSysteme}><Plus size={14} />Ajouter un système</Button>
+              <Select className="h-9 w-48" aria-label="Type d'ancrage à ajouter" value={nouveauSys} onChange={(e) => setNouveauSys(e.target.value)}>
+                <option value="">Type d&apos;ancrage...</option>
+                {typesLibres.map((t) => <option key={t} value={t}>S{t}</option>)}
+              </Select>
+              <Button size="sm" variant="outline" disabled={!nouveauSys} onClick={ajouterSysteme}><Plus size={14} />Ajouter le type d&apos;ancrage</Button>
             </div>
           )}
         </div>
@@ -263,9 +284,9 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                 <th rowSpan={2} className="px-2 py-2 text-right font-semibold">Ratio passif</th>
                 {f.systemes.map((t) => (
                   <th key={t} colSpan={2} className="border-l border-bordure px-2 py-2 text-center font-semibold">
-                    <span className="font-display text-texte">S{t}</span> · {t} toron{t > 1 ? "s" : ""}
-                    {!lecture && (
-                      <button onClick={() => retirerSysteme(t)} aria-label={`Retirer le système S${t}`} className="ml-1 cursor-pointer align-middle text-attenue hover:text-rouge-texte"><X size={13} /></button>
+                    Type d&apos;ancrage <span className="font-display text-texte">S{t}</span>
+                    {!lectureTechnique && (
+                      <button onClick={() => retirerSysteme(t)} aria-label={`Retirer le type d'ancrage S${t}`} className="ml-1 cursor-pointer align-middle text-attenue hover:text-rouge-texte"><X size={13} /></button>
                     )}
                   </th>
                 ))}
@@ -293,13 +314,13 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                         <div className="font-display font-bold text-marine">{l.reference}</div>
                         <div className="text-[12px] text-secondaire">{l.emplacement}</div>
                       </td>
-                      <td className="w-24 px-1 py-2"><input className={CELL} disabled aria-label={`Surface, dalle ${l.reference}`} value={l.surface} /></td>
-                      <td className="w-20 px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Ratio actif, dalle ${l.reference}`} value={l.ra} onChange={(e) => majLigne(l.id, { ra: e.target.value })} /></td>
-                      <td className="w-20 px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Ratio passif, dalle ${l.reference}`} value={l.rp} onChange={(e) => majLigne(l.id, { rp: e.target.value })} /></td>
+                      <td className="w-24 px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Surface, dalle ${l.reference}`} value={l.surface} onChange={(e) => majLigne(l.id, { surface: filtrerDecimal(e.target.value) })} /></td>
+                      <td className="w-20 px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio actif, dalle ${l.reference}`} value={l.ra} onChange={(e) => majLigne(l.id, { ra: e.target.value })} /></td>
+                      <td className="w-20 px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio passif, dalle ${l.reference}`} value={l.rp} onChange={(e) => majLigne(l.id, { rp: e.target.value })} /></td>
                       {f.systemes.map((t) => (
                         <Fragment key={t}>
-                          <td className="w-20 border-l border-bordure px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Ancrages S${t}, dalle ${l.reference}`} value={l.sys[t]?.a ?? ""} onChange={(e) => majSys(l, t, "a", e.target.value)} /></td>
-                          <td className="w-24 px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Gaine S${t}, dalle ${l.reference}`} value={l.sys[t]?.g ?? ""} onChange={(e) => majSys(l, t, "g", e.target.value)} /></td>
+                          <td className="w-20 border-l border-bordure px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ancrages S${t}, dalle ${l.reference}`} value={l.sys[t]?.a ?? ""} onChange={(e) => majSys(l, t, "a", e.target.value)} /></td>
+                          <td className="w-24 px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Gaine S${t}, dalle ${l.reference}`} value={l.sys[t]?.g ?? ""} onChange={(e) => majSys(l, t, "g", e.target.value)} /></td>
                         </Fragment>
                       ))}
                       <td className="whitespace-nowrap border-l border-bordure px-3 py-2 text-right font-display font-bold">{ent(r.prix)} DH</td>
@@ -331,7 +352,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         </div>
         {voitFormules && (
           <p className="border-t border-bordure px-6 py-3 text-[12px] text-attenue">
-            Prix au m² = ENT( (Σ ancrages × 100 × torons + Σ gaines × 3 × torons) / surface + ratio actif × 12 × 1,05 + forfait ) + 1
+            Prix au m² = ENT( (Σ ancrages × 100 × n + Σ gaines × 3 × n) / surface + ratio actif × 12 × 1,05 + forfait ) + 1, où n est le nombre de torons du type d&apos;ancrage (S4 : n = 4)
           </p>
         )}
       </div>
@@ -417,12 +438,12 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         </ul>
       </div>
 
-      <Modal open={annulation !== null} onOpenChange={(o) => !o && setAnnulation(null)} title="Annuler le devis"
-        description="Le devis passe à l'état Annulé et ne pourra plus être modifié."
+      <Modal open={annulation !== null} onOpenChange={(o) => !o && setAnnulation(null)} title="Rejeter le devis"
+        description="Le devis passe à l'état Rejeté et ne pourra plus être modifié."
         footer={
           <>
             <Button variant="outline" onClick={() => setAnnulation(null)}>Retour</Button>
-            <Button variant="danger" disabled={envoi || !annulation?.trim()} onClick={() => transition("annuler", { motif: annulation })}>Annuler le devis</Button>
+            <Button variant="danger" disabled={envoi || !annulation?.trim()} onClick={() => transition("annuler", { motif: annulation })}>Rejeter le devis</Button>
           </>
         }>
         <label className="block">

@@ -61,6 +61,8 @@ Sur le poste Windows actuel : pas de SDK .NET 8 ni de Python. Builder le backend
 `MSYS_NO_PATHCONV=1 docker run --rm -v "$(pwd -W):/src" -w /src mcr.microsoft.com/dotnet/sdk:8.0 dotnet test Progix.sln` (build + tests).
 Scripts de vérification de l'API : Node (`fetch`), pas Python. Après plusieurs modifications d'un même fichier C#, `dotnet watch` peut afficher des erreurs transitoires : `docker compose restart api`.
 
+En développement, le service worker de la PWA peut servir d'anciens fichiers JavaScript (non versionnés par `next dev`) : recharger avec Ctrl+Maj+R pour voir un changement d'écran.
+
 **Danger** : `docker compose down -v` efface la base et le stockage.
 
 ## Conventions

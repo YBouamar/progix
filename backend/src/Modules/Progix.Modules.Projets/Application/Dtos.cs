@@ -7,7 +7,7 @@ public record ProjetListItem(Guid Id, string Code, string Libelle, string Client
 public record ProjetDetail(Guid Id, string Code, string Libelle, string Entite, string EntiteLabel,
     Guid ClientId, string Client, Guid? ProprietaireId, string? ProprietaireLibre, string Proprietaire,
     string? Adresse, string? Ville, DateOnly DateCreation,
-    string TypeConstruction, string TypeLabel, string Forfait, string? Description,
+    string TypeConstruction, string TypeLabel, Guid? CommercialId, string? Commercial, string? Description,
     string Statut, string StatutLabel,
     bool Bloque, string? BlocageMotif, string? BlocagePar, DateTime? BlocageLe,
     bool Supprime, string? SuppressionMotif, string? SuppressionPar, DateTime? SuppressionLe,
@@ -15,7 +15,7 @@ public record ProjetDetail(Guid Id, string Code, string Libelle, string Entite, 
 
 public record ProjetInput(string Libelle, Guid ClientId, Guid? ProprietaireId, string? ProprietaireLibre,
     string Entite, string TypeConstruction, string? Description,
-    string? Adresse, string? Ville, DateOnly? DateCreation);
+    string? Adresse, string? Ville, DateOnly? DateCreation, Guid? CommercialId = null);
 
 public record MotifInput(string? Motif);
 

@@ -28,10 +28,10 @@ Rôles définis dans le code (`Progix.SharedKernel/Roles.cs`). « Voit les monta
 | `directeur` | Directeur | oui | Contrôle tout. Seul à bloquer ou débloquer un projet, seul à gérer les utilisateurs. Reçoit les courriels. |
 | `chef_projet` | Chef de projet | oui | Réalise toutes les étapes, donne la validation technique, supprime et restaure les projets. |
 | `responsable_administratif` | Responsable administratif | oui | Chef des administrateurs. Validation administrative des étapes, annulations, attestations. |
-| `administrateur` | Administrateur | oui | Partie commerciale (clients, devis, livraisons, factures, trésorerie). |
-| `agent_commercial` | Agent commercial | non | Désigné (facultativement) sur un devis ; voit les projets qu'il a apportés. |
+| `administrateur` | Administrateur | oui | Partie commerciale (clients, livraisons, factures, trésorerie) ; devis en consultation seule. |
+| `agent_commercial` | Agent commercial | non | Commercial (facultatif) d'un projet, choisi à sa création ; voit ses projets. |
 | `ingenieur_chef` | Ingénieur en chef | oui | Répartition des ingénieurs, performance. |
-| `ingenieur` | Ingénieur | oui | Validation BCT, rapports d'écrasement, devis. |
+| `ingenieur` | Ingénieur | oui | Validation BCT, rapports d'écrasement, devis (ingénieur du devis, trame de calcul) ; ingénieur de réalisation quand il est affecté au projet. |
 | `dessinateur_chef` | Dessinateur en chef | non | Répartition des dessinateurs, plans d'exécution. |
 | `dessinateur` | Dessinateur | non | Plans d'exécution (étape 1). |
 | `responsable_logistique` | Responsable logistique | non | Commande usine (étape 4), suivi logistique, stock, paramétrage des accessoires. |

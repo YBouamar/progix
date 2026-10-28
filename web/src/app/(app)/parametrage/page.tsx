@@ -10,6 +10,8 @@ import { EntitesParam } from "./entites";
 import { UtilisateursParam } from "./utilisateurs";
 import { CoulisParam, DevisParam } from "./defauts";
 import { CategoriesDepenseParam } from "./categories-depense";
+import { ForfaitsParam } from "./forfaits";
+import { TypesConstructionParam } from "./types-construction";
 
 type Params = {
   forceKn: number; sectionMm2: number; moduleMpa: number; pertesPct: number; mmParMetre: number;
@@ -49,8 +51,10 @@ export default function ParametragePage() {
     <Field label={label}><Input inputMode="decimal" disabled={!p.modifiable} value={f[k]} onChange={(e) => { setF({ ...f, [k]: e.target.value }); setMessage(null); }} /></Field>
   );
 
+  // Toute la largeur : les blocs larges (utilisateurs, entités) s'étendent sur deux colonnes, les autres se rangent deux par deux.
+  // Un bloc que le rôle ne voit pas ne rend rien : son emplacement vide est masqué (empty:hidden).
   return (
-    <div className="max-w-3xl">
+    <div className="grid items-start gap-5 xl:grid-cols-2">
       <div className="rounded-xl border border-bordure bg-white p-6">
         <h2 className="text-[15px] font-bold">Mise en tension : allongement théorique</h2>
         <p className="mt-1 text-[13px] text-secondaire">
@@ -80,13 +84,14 @@ export default function ParametragePage() {
           </div>
         ) : <p className="mt-4 text-[13px] text-secondaire">Consultation seule : ces paramètres sont modifiés par le directeur ou le chef de projet.</p>}
       </div>
-      <UtilisateursParam />
-      <EntitesParam />
-      <AccessoiresParam />
-      <CategoriesDepenseParam />
-      <DevisParam />
-      <CoulisParam />
-
+      <div className="empty:hidden"><TypesConstructionParam /></div>
+      <div className="empty:hidden xl:col-span-2"><UtilisateursParam /></div>
+      <div className="empty:hidden xl:col-span-2"><EntitesParam /></div>
+      <div className="empty:hidden"><AccessoiresParam /></div>
+      <div className="empty:hidden"><CategoriesDepenseParam /></div>
+      <div className="empty:hidden"><ForfaitsParam /></div>
+      <div className="empty:hidden"><DevisParam /></div>
+      <div className="empty:hidden"><CoulisParam /></div>
     </div>
   );
 }

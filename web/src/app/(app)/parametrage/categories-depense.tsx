@@ -31,7 +31,7 @@ export function CategoriesDepenseParam() {
   }
 
   return (
-    <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
+    <div className="rounded-xl border border-bordure bg-white p-6">
       <h2 className="text-[15px] font-bold">Dépenses de dalle : catégories</h2>
       <p className="mt-1 text-[13px] text-secondaire">
         Chaque dépense de dalle se classe dans une de ces catégories. Les dépenses déjà saisies gardent leur catégorie, même si elle est retirée ici.

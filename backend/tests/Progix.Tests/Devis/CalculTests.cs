@@ -11,15 +11,29 @@ public class CalculTests
         Systemes = [new SystemeLigne { Torons = 4, Ancrages = 10, Gaine = 200 }],
     };
 
+    /// <summary>Grille de l'exemple métier : de 0 à 100 m² = 120, de 101 à 2 000 m² = 100, au-delà = 90 (DH/m²).</summary>
+    private static readonly List<TrancheForfait> Grille =
+        [new() { APartirDe = 2001, Prix = 90 }, new() { APartirDe = 0, Prix = 120 }, new() { APartirDe = 101, Prix = 100 }];
+
+    private static readonly List<TrancheForfait> Simple = [new() { APartirDe = 0, Prix = 100 }];
+
     [Theory]
-    [InlineData("immeuble", 9999.99, 100)]
-    [InlineData("immeuble", 10000, 85)]
-    [InlineData("villa", 50000, 120)]
-    [InlineData("radier", 10, 120)]
-    [InlineData("dallage", 10, 50)]
-    [InlineData("inconnu", 10, 100)]
-    public void Forfait_selon_le_type_et_la_surface(string type, decimal surface, decimal attendu) =>
-        Assert.Equal(attendu, Calcul.Forfait(type, surface));
+    [InlineData(0, 120)]
+    [InlineData(100, 120)]
+    [InlineData(100.5, 120)]
+    [InlineData(101, 100)]
+    [InlineData(2000, 100)]
+    [InlineData(2001, 90)]
+    [InlineData(50000, 90)]
+    public void Forfait_selon_la_tranche_de_surface_totale(decimal surface, decimal attendu) =>
+        Assert.Equal(attendu, Calcul.Forfait(Grille, surface));
+
+    [Fact]
+    public void Grille_vide_donne_la_grille_d_origine()
+    {
+        Assert.Equal(100, Calcul.Forfait([], 9999));
+        Assert.Equal(85, Calcul.Forfait([], 10000));
+    }
 
     [Fact]
     public void Prix_au_m2_partie_entiere_plus_un()
@@ -35,7 +49,7 @@ public class CalculTests
     public void Recalculer_applique_remise_et_tva()
     {
         var d = new DevisEntete { RemiseM2 = 10, Lignes = [Ligne()] };
-        Calcul.Recalculer(d, "immeuble", exonereTva: false);
+        Calcul.Recalculer(d, Simple, exonereTva: false);
         Assert.Equal(100, d.SurfaceTotale);
         Assert.Equal(100, d.Forfait);
         Assert.Equal(29100, d.TotalHT);
@@ -49,7 +63,7 @@ public class CalculTests
     public void Client_exonere_tva_a_zero()
     {
         var d = new DevisEntete { Lignes = [Ligne()] };
-        Calcul.Recalculer(d, "immeuble", exonereTva: true);
+        Calcul.Recalculer(d, Simple, exonereTva: true);
         Assert.True(d.ExonereTva);
         Assert.Equal(0, d.Tva);
         Assert.Equal(d.NetHT, d.TotalTTC);
@@ -59,9 +73,19 @@ public class CalculTests
     public void Remise_plafonnee_au_total_ht()
     {
         var d = new DevisEntete { RemiseM2 = 100000, Lignes = [Ligne()] };
-        Calcul.Recalculer(d, "immeuble", exonereTva: false);
+        Calcul.Recalculer(d, Simple, exonereTva: false);
         Assert.Equal(d.TotalHT, d.RemiseTotale);
         Assert.Equal(0, d.TotalTTC);
+    }
+
+    [Fact]
+    public void Toutes_les_dalles_prennent_le_forfait_de_la_surface_totale()
+    {
+        // Deux dalles de 60 m² : 120 m² au total, donc 100 DH/m² pour chacune, et non 120.
+        var d = new DevisEntete { Lignes = [Ligne(surface: 60, ratioActif: 0), Ligne(surface: 60, ratioActif: 0)] };
+        Calcul.Recalculer(d, Grille, exonereTva: false);
+        Assert.Equal(100, d.Forfait);
+        Assert.All(d.Lignes, l => Assert.Equal(Calcul.PrixM2(l, 100), l.PrixM2));
     }
 
     [Fact]

@@ -17,6 +17,8 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
     public DbSet<ArticleStock> ArticlesStock => Set<ArticleStock>();
     public DbSet<MouvementStock> MouvementsStock => Set<MouvementStock>();
     public DbSet<Accessoire> Accessoires => Set<Accessoire>();
+    public DbSet<NiveauDalle> Niveaux => Set<NiveauDalle>();
+    public DbSet<TypeConstructionParam> TypesConstruction => Set<TypeConstructionParam>();
     public DbSet<CommandeUsine> CommandesUsine => Set<CommandeUsine>();
     public DbSet<FicheInjection> FichesInjection => Set<FicheInjection>();
     public DbSet<FicheAutoControle> FichesAutoControle => Set<FicheAutoControle>();
@@ -43,7 +45,8 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             b.Property(p => p.ProprietaireLibre).HasMaxLength(200);
             b.Property(p => p.Adresse).HasMaxLength(300);
             b.Property(p => p.Ville).HasMaxLength(100);
-            b.Property(p => p.TypeConstruction).HasMaxLength(20);
+            b.Property(p => p.TypeConstruction).HasMaxLength(40);
+            b.Property(p => p.CommercialNom).HasMaxLength(200);
             b.Property(p => p.Description).HasMaxLength(2000);
             b.Property(p => p.Statut).HasMaxLength(20);
             b.Property(p => p.BlocageMotif).HasMaxLength(500);
@@ -65,6 +68,7 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             b.Property(d => d.ConformiteRemarque).HasMaxLength(500);
             b.Property(d => d.ConformitePar).HasMaxLength(200);
             b.Property(d => d.Surface).HasPrecision(12, 2);
+            b.OwnsOne(d => d.Adapt, a => { a.ToJson(); a.OwnsMany(x => x.Systemes); });
             b.HasIndex(d => new { d.ProjetId, d.Numero }).IsUnique();
             b.HasOne<Projet>().WithMany().HasForeignKey(d => d.ProjetId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -124,10 +128,24 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             b.Property(a => a.Libelle).HasMaxLength(100);
             b.Property(a => a.Unite).HasMaxLength(20);
         });
+        builder.Entity<TypeConstructionParam>(b =>
+        {
+            b.ToTable("types_construction");
+            b.Property(t => t.Code).HasMaxLength(40);
+            b.Property(t => t.Libelle).HasMaxLength(60);
+            b.HasIndex(t => t.Code).IsUnique();
+        });
+        builder.Entity<NiveauDalle>(b =>
+        {
+            b.ToTable("niveaux");
+            b.Property(n => n.Libelle).HasMaxLength(60);
+            b.HasIndex(n => n.Valeur).IsUnique();
+        });
         builder.Entity<CommandeUsine>(b =>
         {
             b.ToTable("commandes_usine");
             b.HasIndex(c => c.DalleId).IsUnique();
+            b.Property(c => c.Surface).HasPrecision(12, 2);
             b.Ignore(c => c.Consommee);
             b.Property(c => c.SuiviPar).HasMaxLength(200);
             b.OwnsMany(c => c.Lignes, l => l.ToJson());

@@ -23,4 +23,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Progix.Tests" />
+  </ItemGroup>
+
 </Project>

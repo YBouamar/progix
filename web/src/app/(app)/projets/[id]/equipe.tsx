@@ -74,7 +74,10 @@ export function EquipeProjet({ projetId, lectureSeule }: { projetId: string; lec
       <h3 className="mb-4 text-[15px] font-bold">Équipe</h3>
       {erreur && <div role="alert" className="mb-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{erreur}</div>}
       <div className="grid gap-6 sm:grid-cols-2">
-        <Bloc titre="Ingénieurs" fonction="ingenieur" membres={equipe.ingenieurs} candidats={equipe.candidats.ingenieurs} droit={equipe.droits.ingenieurs} />
+        <div>
+          <Bloc titre="Ingénieur de réalisation" fonction="ingenieur" membres={equipe.ingenieurs} candidats={equipe.candidats.ingenieurs} droit={equipe.droits.ingenieurs} />
+          <p className="mt-2 text-[12px] text-attenue">Un seul à la fois : en affecter un autre clôt l&apos;affectation du précédent, gardée dans l&apos;historique. L&apos;ingénieur qui établit un devis se choisit sur le devis.</p>
+        </div>
         <Bloc titre="Chefs de chantier" fonction="chef_chantier" membres={equipe.chefsChantier} candidats={equipe.candidats.chefsChantier} droit={equipe.droits.chefsChantier} />
       </div>
     </div>

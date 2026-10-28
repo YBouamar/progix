@@ -31,5 +31,11 @@ public class DevisModule : IModule
         var db = scope.ServiceProvider.GetRequiredService<DevisDbContext>();
         await db.Database.MigrateAsync(ct);
         await Infrastructure.NumerotationDevis.ReprendreAsync(db, scope.ServiceProvider.GetRequiredService<IProjetsLookup>(), ct);
+        // Reprise : le commercial se choisit désormais sur le projet. Celui du devis le plus récent (non rejeté) devient celui du projet qui n'en a pas.
+        var statut = scope.ServiceProvider.GetRequiredService<IProjetsStatut>();
+        var commerciaux = await db.Devis.AsNoTracking().Where(d => d.CommercialId != null && d.Etat != Domain.EtatsDevis.Annule)
+            .OrderByDescending(d => d.CreatedAt).Select(d => new { d.ProjetId, d.CommercialId, d.CommercialNom }).ToListAsync(ct);
+        foreach (var c in commerciaux.DistinctBy(c => c.ProjetId))
+            await statut.DefinirCommercialSiAbsentAsync(c.ProjetId, c.CommercialId!.Value, c.CommercialNom ?? "", ct);
     }
 }

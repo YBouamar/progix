@@ -39,6 +39,31 @@ public class CommandeUsineTests
     public void Tendon_invalide_refuse(decimal longueur, int torons, string sens, int ancrages) =>
         Assert.NotNull(ImportTendons.Refus([new TendonInput("1", torons, sens, longueur, ancrages)]));
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [InlineData(7)]
+    [InlineData(9)]
+    [InlineData(12)]
+    [InlineData(15)]
+    public void Types_d_ancrage_existants_acceptes(int torons) => Assert.Null(ImportTendons.Refus([new TendonInput("1", torons, "X", 10, 2)]));
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(6)]
+    [InlineData(19)]
+    public void Autre_type_d_ancrage_refuse(int torons) =>
+        Assert.StartsWith($"Type d'ancrage S{torons} inconnu", ImportTendons.Refus([new TendonInput("1", torons, "X", 10, 2)]));
+
+    [Fact]
+    public void Type_deja_enregistre_sur_la_commande_reste_accepte() =>
+        Assert.Null(ImportTendons.Refus([new TendonInput("1", 5, "X", 10, 2)], new HashSet<int> { 5 }));
+
+    [Fact]
+    public void Liste_des_types_d_ancrage() => Assert.Equal("S1, S2, S3, S4, S7, S9, S12, S15", Progix.SharedKernel.SystemesAncrage.Liste);
+
     [Fact]
     public void Gaine_et_metres_de_toron()
     {
@@ -78,5 +103,20 @@ public class CommandeUsineTests
     [InlineData(-2, "2ème sous-sol")]
     [InlineData(1, "1er étage")]
     [InlineData(3, "3ème étage")]
-    public void Libelle_de_niveau(int niveau, string attendu) => Assert.Equal(attendu, Dalle.NiveauLabel(niveau));
+    public void Libelle_de_niveau(int niveau, string attendu) => Assert.Equal(attendu, Dalle.NiveauParDefaut(niveau));
+
+    [Fact]
+    public void Libelle_de_niveau_parametre_sinon_par_defaut()
+    {
+        // Les libellés paramétrés remplacent ceux calculés ; une valeur absente de la liste garde son libellé par défaut.
+        NiveauxDalle.Charger([new NiveauDalle { Valeur = 41, Libelle = "Mezzanine" }, new NiveauDalle { Valeur = 0, Libelle = "RDC" }]);
+        try
+        {
+            Assert.Equal("Mezzanine", Dalle.NiveauLabel(41));
+            Assert.Equal("RDC", Dalle.NiveauLabel(0));
+            Assert.Equal("2ème étage", Dalle.NiveauLabel(2));
+        }
+        finally { NiveauxDalle.Charger([]); }
+        Assert.Equal("Rez-de-chaussée", Dalle.NiveauLabel(0));
+    }
 }

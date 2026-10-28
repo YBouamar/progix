@@ -18,19 +18,35 @@ public static class StatutsProjet
     };
 }
 
+/// <summary>
+/// Type de construction proposé à la création d'un projet, paramétrable. Le projet garde le code, qui ne change jamais ;
+/// un type porté par un projet ne se supprime pas, il se désactive. Le forfait ne dépend plus du type (grille unique du devis).
+/// </summary>
+public class TypeConstructionParam : Entity
+{
+    public string Code { get; set; } = "";
+    public string Libelle { get; set; } = "";
+    public int Ordre { get; set; }
+    public bool Actif { get; set; } = true;
+
+    /// <summary>Types créés au premier démarrage : ceux proposés jusqu'ici.</summary>
+    public static readonly (string Code, string Libelle)[] ParDefaut = [("immeuble", "Immeuble"), ("villa", "Villa"), ("radier", "Radier"), ("dallage", "Dallage")];
+}
+
+/// <summary>Libellés des types de construction en mémoire, chargés au démarrage du module et rechargés à chaque enregistrement du paramétrage.</summary>
 public static class TypesConstruction
 {
-    public sealed record Definition(string Code, string Label, string Forfait);
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Libelles = new();
 
-    public static readonly IReadOnlyList<Definition> All =
-    [
-        new("immeuble", "Immeuble", "100 DH/m², puis 85 DH/m² à partir de 10 000 m²"),
-        new("villa", "Villa", "120 DH/m²"),
-        new("radier", "Radier", "120 DH/m²"),
-        new("dallage", "Dallage", "50 DH/m²"),
-    ];
+    public static string Libelle(string code) =>
+        Libelles.TryGetValue(code, out var l) ? l : TypeConstructionParam.ParDefaut.FirstOrDefault(t => t.Code == code).Libelle ?? code;
 
-    public static Definition? Find(string code) => All.FirstOrDefault(t => t.Code == code);
+    public static void Charger(IEnumerable<TypeConstructionParam> types)
+    {
+        var liste = types.ToList();
+        foreach (var t in liste) Libelles[t.Code] = t.Libelle;
+        foreach (var c in Libelles.Keys.Except(liste.Select(t => t.Code))) Libelles.TryRemove(c, out _);
+    }
 }
 
 public class Projet : Entity
@@ -53,6 +69,12 @@ public class Projet : Entity
 
     public string TypeConstruction { get; set; } = "immeuble";
     public string? Description { get; set; }
+
+    /// <summary>Agent commercial du projet, facultatif, choisi à la création. Les devis du projet le reprennent.</summary>
+    public Guid? CommercialId { get; set; }
+    public string? CommercialNom { get; set; }
+    /// <summary>Vrai une fois le commercial choisi ou repris des anciens devis : la reprise ne repasse pas sur un choix fait depuis.</summary>
+    public bool CommercialRepris { get; set; }
     public string Statut { get; set; } = StatutsProjet.Cree;
 
     // « Bloqué » est un marqueur en plus du statut.

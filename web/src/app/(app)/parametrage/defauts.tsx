@@ -37,7 +37,7 @@ export function DevisParam() {
     } catch (e) { setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Enregistrement impossible." }); }
   };
   return (
-    <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
+    <div className="rounded-xl border border-bordure bg-white p-6">
       <h2 className="text-[15px] font-bold">Devis : valeurs proposées</h2>
       <p className="mt-1 text-[13px] text-secondaire">Reprises à la création de chaque devis, où elles restent modifiables. Les devis déjà créés ne changent pas.</p>
       <div className="mt-4 max-w-xs"><Field label="Durée de validité, en jours"><Input inputMode="numeric" disabled={!v.modifiable} value={duree} onChange={(e) => { setDuree(e.target.value); setMessage(null); }} /></Field></div>
@@ -89,7 +89,7 @@ export function CoulisParam() {
     <Field label={label}><Input disabled={!v.modifiable} inputMode={decimal ? "decimal" : "text"} value={f[k]} onChange={(e) => { setF({ ...f, [k]: e.target.value }); setMessage(null); }} /></Field>
   );
   return (
-    <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
+    <div className="rounded-xl border border-bordure bg-white p-6">
       <h2 className="text-[15px] font-bold">Injection : composition du coulis</h2>
       <p className="mt-1 text-[13px] text-secondaire">Composition pour une gâchée, proposée sur chaque nouvelle fiche d&apos;injection, où elle reste modifiable.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">

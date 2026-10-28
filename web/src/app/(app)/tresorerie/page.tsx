@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
+import { SaisiePaiement } from "../projets/[id]/paiements";
 
 type Kpi = { encaisse: number; depenses: number; solde: number };
 type Mouvement = { id: string; date: string; type: string; libelle: string; objet: string; entite: string; mode: string; modeLabel: string; montant: number; factureId: string | null; saisiPar: string; recu: string | null };
@@ -206,87 +207,34 @@ function NouvelleDepense({ entite, onClose, onFaite }: { entite: string; onClose
   );
 }
 
-type AEncaisser = { id: string; numero: string; entite: string; clientId: string; client: string; projet: string; echeance: string; aCouvrir: number };
+type ProjetOption = { id: string; code: string; libelle: string; client: string };
 
+/** Encaissement depuis la trésorerie : choix du projet, puis paiement réparti entre ses dalles. */
 function Encaisser({ onClose, onFait }: { onClose: () => void; onFait: () => void }) {
-  const [factures, setFactures] = useState<AEncaisser[] | null>(null);
-  const [clientId, setClientId] = useState("");
-  const [factureId, setFactureId] = useState("");
-  const [date, setDate] = useState(iso(new Date()));
-  const [mode, setMode] = useState("virement");
-  const [montant, setMontant] = useState("");
-  const [reference, setReference] = useState("");
-  const [banque, setBanque] = useState("");
-  const [echeanceEffet, setEcheanceEffet] = useState("");
-  const [especes, setEspeces] = useState<{ plafond: number; deja: number; disponible: number } | null>(null);
-  const [erreur, setErreur] = useState("");
-  const [envoi, setEnvoi] = useState(false);
-  const [motDePasse, setMotDePasse] = useState("");
-
-  useEffect(() => { api<AEncaisser[]>("/factures/a-encaisser").then(setFactures).catch(() => setFactures([])); }, []);
-  const clients = Array.from(new Map((factures ?? []).map((f) => [f.clientId, f.client])).entries());
-  const duClient = (factures ?? []).filter((f) => f.clientId === clientId);
-  const facture = duClient.find((f) => f.id === factureId);
-  useEffect(() => { setFactureId(duClient.length === 1 ? duClient[0].id : ""); }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setMontant(facture ? String(facture.aCouvrir).replace(".", ",") : ""); }, [factureId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [recherche, setRecherche] = useState("");
+  const [options, setOptions] = useState<ProjetOption[]>([]);
+  const [projet, setProjet] = useState<ProjetOption | null>(null);
   useEffect(() => {
-    if (mode !== "especes" || !date || !factureId) { setEspeces(null); return; }
-    api<{ plafond: number; deja: number; disponible: number }>(`/factures/${factureId}/especes?date=${date}`).then(setEspeces).catch(() => setEspeces(null));
-  }, [mode, date, factureId]);
+    const t = setTimeout(() => {
+      api<{ items: ProjetOption[] }>(`/projets?pageSize=8${recherche.trim() ? `&q=${encodeURIComponent(recherche.trim())}` : ""}`).then((r) => setOptions(r.items)).catch(() => setOptions([]));
+    }, 200);
+    return () => clearTimeout(t);
+  }, [recherche]);
 
-  const m = lireNombre(montant) ?? 0;
-  const depasse = mode === "especes" && !!especes && m > especes.disponible;
-  const libelleRef = mode === "cheque" ? "Numéro du chèque" : mode === "effet" ? "Numéro de l'effet" : "Référence du virement";
-  const enregistrer = async () => {
-    setEnvoi(true); setErreur("");
-    try {
-      await api(`/factures/${factureId}/encaissements`, { method: "POST", body: JSON.stringify({ datePaiement: date, mode, montant: m, reference, banque, echeanceEffet: mode === "effet" && echeanceEffet ? echeanceEffet : null, motDePasse }) });
-      onFait();
-    } catch (e) { setErreur(e instanceof ApiError ? e.message : "Enregistrement impossible."); setEnvoi(false); }
-  };
-
+  if (projet) return <SaisiePaiement projetId={projet.id} titre={`Encaisser un paiement · ${projet.code}`} onClose={onClose} onFait={onFait} />;
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()} title="Encaisser un paiement" description="Un règlement porte sur une seule facture.">
-      {factures && factures.length === 0 ? <p className="text-secondaire">Aucune facture en attente de règlement.</p> : (
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Client" required className="col-span-2">
-            <Select value={clientId} onChange={(e) => setClientId(e.target.value)}>
-              <option value="">Choisir un client</option>{clients.map(([id, nom]) => <option key={id} value={id}>{nom}</option>)}
-            </Select>
-          </Field>
-          <Field label="Facture" required className="col-span-2">
-            <Select value={factureId} disabled={!clientId} onChange={(e) => setFactureId(e.target.value)}>
-              <option value="">Choisir une facture</option>
-              {duClient.map((f) => <option key={f.id} value={f.id}>{f.numero} ({f.entite}) · {f.projet} · reste dû {formatDH(f.aCouvrir)}</option>)}
-            </Select>
-          </Field>
-          <Field label="Date du paiement"><Input type="date" max={iso(new Date())} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-          <Field label="Mode de paiement">
-            <Select value={mode} onChange={(e) => setMode(e.target.value)}><option value="virement">Virement</option><option value="cheque">Chèque</option><option value="especes">Espèces</option><option value="effet">Effet</option></Select>
-          </Field>
-          <Field label="Montant, en DH" required><Input inputMode="decimal" value={montant} onChange={(e) => setMontant(e.target.value)} /></Field>
-          {mode !== "especes" && <Field label={libelleRef} required={mode === "cheque" || mode === "effet"}><Input value={reference} onChange={(e) => setReference(e.target.value)} /></Field>}
-          {mode === "effet" && <Field label="Échéance de l'effet" required><Input type="date" value={echeanceEffet} onChange={(e) => setEcheanceEffet(e.target.value)} /></Field>}
-          {mode !== "especes" && <Field label="Banque" className={mode === "effet" ? "" : "col-span-2"}><Input value={banque} onChange={(e) => setBanque(e.target.value)} /></Field>}
-        </div>
-      )}
-      {factures && factures.length > 0 && (
-        <div className="mt-3">
-          <Field label="Votre mot de passe" required><Input type="password" autoComplete="current-password" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>
-          <p className="mt-1 text-[12px] text-attenue">Il signe électroniquement le reçu de paiement, qui porte votre nom, la date et un QR code de vérification.</p>
-        </div>
-      )}
-      {mode === "especes" && especes && (
-        <div className={cn("mt-3 rounded-lg px-4 py-3 text-[13px]", depasse ? "bg-rouge-fond text-rouge-texte" : "bg-orange-fond text-orange-texte")}>
-          <div className="font-semibold">{depasse ? "Plafond espèces dépassé, encaissement refusé." : `Plafond espèces : ${formatDH(especes.plafond)} par client et par mois.`}</div>
-          Ce client a déjà réglé {formatDH(especes.deja)} en espèces ce mois. Reste possible en espèces : {formatDH(especes.disponible)}.{depasse ? " Choisissez un autre mode de paiement ou réduisez le montant." : ""}
-        </div>
-      )}
-      {erreur && <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-3 text-[13px] text-rouge-texte">{erreur}</div>}
-      <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outline" onClick={onClose}>Fermer</Button>
-        <Button disabled={envoi || !factureId || m <= 0 || depasse || !motDePasse} onClick={enregistrer}>Enregistrer l&apos;encaissement</Button>
-      </div>
+    <Sheet open onOpenChange={(o) => !o && onClose()} title="Encaisser un paiement" description="Un paiement porte sur un projet et se répartit entre ses dalles.">
+      <Field label="Projet">
+        <Input autoFocus placeholder="Rechercher par code, libellé ou client" value={recherche} onChange={(e) => setRecherche(e.target.value)} />
+        <ul className="mt-2 divide-y divide-bordure rounded-lg border border-bordure">
+          {options.map((p) => (
+            <li key={p.id}><button type="button" onClick={() => setProjet(p)} className="flex w-full cursor-pointer items-center gap-3 px-3 py-2 text-left hover:bg-fond">
+              <span className="font-display font-bold text-marine">{p.code}</span><span className="flex-1 truncate">{p.libelle}</span><span className="text-[12px] text-secondaire">{p.client}</span>
+            </button></li>
+          ))}
+          {options.length === 0 && <li className="px-3 py-2 text-[13px] text-attenue">Aucun projet.</li>}
+        </ul>
+      </Field>
     </Sheet>
   );
 }

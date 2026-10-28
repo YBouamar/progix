@@ -64,7 +64,7 @@ public static class LivraisonsEndpoints
                     var prete = d.EtapesFaites >= EtapeCommandeUsine;
                     return new
                     {
-                        id = d.Id, reference = d.Reference, emplacement = d.Emplacement, surface = d.Surface,
+                        id = d.Id, reference = d.Reference, emplacement = d.Emplacement, surface = d.SurfaceCommande ?? d.Surface, surfaceCommande = d.SurfaceCommande,
                         livrable = bl is null && prete,
                         etat = bl is not null ? $"Déjà livrée · {bl}" : prete ? "Commande préparée" : "Commande non préparée",
                     };
@@ -93,14 +93,16 @@ public static class LivraisonsEndpoints
             if (dalles.FirstOrDefault(d => d.EtapesFaites < EtapeCommandeUsine) is { } pasPrete)
                 return Conflit($"La commande usine de la dalle {pasPrete.Reference} n'est pas encore préparée.");
             if (await db.LignesLivraison.AnyAsync(l => ids.Contains(l.DalleId))) return Conflit("Une dalle sélectionnée figure déjà sur un bon de livraison.");
+            // La surface livrée est celle saisie sur la commande usine ; une commande d'avant cette règle garde la surface de la dalle.
+            decimal Livree(DalleResume d) => d.SurfaceCommande ?? d.Surface;
 
             await using var tx = await db.Database.BeginTransactionAsync();
             var annee = input.DateLivraison.Year;
             var b = new BonLivraison
             {
                 Entite = projet.Entite, Numero = $"BL-{await db.NumeroSuivantAsync($"bl:{projet.Entite}:{annee}"):00000}-{annee}", ProjetId = projet.Id, DateLivraison = input.DateLivraison,
-                EmisPar = user.UserName(), Surface = dalles.Sum(d => d.Surface),
-                Lignes = dalles.Select((d, i) => new LigneLivraison { DalleId = d.Id, Ordre = i, Reference = d.Reference, Emplacement = d.Emplacement, Surface = d.Surface }).ToList(),
+                EmisPar = user.UserName(), Surface = dalles.Sum(Livree),
+                Lignes = dalles.Select((d, i) => new LigneLivraison { DalleId = d.Id, Ordre = i, Reference = d.Reference, Emplacement = d.Emplacement, Surface = Livree(d) }).ToList(),
             };
             db.BonsLivraison.Add(b);
             await db.SaveChangesAsync();

@@ -104,7 +104,8 @@ public static class ContratsEndpoints
         if (valides.Count == 0) return "Aucun devis validé pour ce projet : le contrat s'établit sur un devis validé.";
         var client = await partenaires.LegalAsync(p.ClientId);
         if (client is null) return "Client introuvable.";
-        return client.Manques.Count > 0 ? $"Fiche du client incomplète pour établir un contrat : il manque {string.Join(", ", client.Manques)}." : null;
+        var manques = client.ManquesContrat ?? client.Manques;
+        return manques.Count > 0 ? $"Fiche du client incomplète pour établir un contrat : il manque {string.Join(", ", manques)}." : null;
     }
 
     private static IResult Conflit(string message) => Results.Conflict(new { message });

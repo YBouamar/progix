@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, Upload } from "lucide-react";
 import { api, ApiError, type Paged } from "@/lib/api";
 import { peutGererCommercial, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PartenaireSheet } from "./partenaire-sheet";
+import { ImportPartenaires } from "./import";
 import type { Compteur, PartenaireListItem } from "./types";
 
 const PAGE = 20;
@@ -24,6 +25,7 @@ export default function ClientsPage() {
   const [data, setData] = useState<Paged<PartenaireListItem> | null>(null);
   const [erreur, setErreur] = useState("");
   const [fiche, setFiche] = useState<{ id: string | null } | null>(null);
+  const [importOuvert, setImport] = useState(false);
 
   useEffect(() => {
     const t = setTimeout(() => { setQ(saisie.trim()); setPage(1); }, 300);
@@ -71,7 +73,10 @@ export default function ClientsPage() {
           <Input className="pl-9" placeholder="Nom, ICE, CIN, ville" value={saisie} onChange={(e) => setSaisie(e.target.value)} />
         </div>
         {ecriture && (
-          <Button onClick={() => setFiche({ id: null })}><Plus size={16} />Nouveau</Button>
+          <>
+            <Button variant="outline" onClick={() => setImport(true)}><Upload size={16} />Importer</Button>
+            <Button onClick={() => setFiche({ id: null })}><Plus size={16} />Nouveau</Button>
+          </>
         )}
       </div>
 
@@ -127,6 +132,8 @@ export default function ClientsPage() {
           <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage(page + 1)}>Suivant</Button>
         </div>
       )}
+
+      {importOuvert && <ImportPartenaires onClose={() => setImport(false)} onImporte={charger} />}
 
       {fiche && (
         <PartenaireSheet id={fiche.id} ecriture={ecriture} types={compteurs}

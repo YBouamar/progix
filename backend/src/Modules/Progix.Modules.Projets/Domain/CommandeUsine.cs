@@ -13,6 +13,9 @@ public class CommandeUsine : Entity
     public List<LigneCommande> Lignes { get; set; } = [];
     public List<AccessoireCommande> Accessoires { get; set; } = [];
 
+    /// <summary>Surface totale en m², saisie avec la commande : imprimée sur le bon de livraison et facturée.</summary>
+    public decimal? Surface { get; set; }
+
     /// <summary>Nombre total de tendons, tenu à jour pour les contrôles.</summary>
     public int NbCables { get; set; }
 

@@ -15,10 +15,26 @@ public static class ModesPaiement
     };
 }
 
-/// <summary>Règlement reçu sur une facture. Il ne se modifie pas : une erreur s'annule avec un motif, puis se ressaisit.</summary>
+/// <summary>
+/// Règlement reçu sur un projet, ventilé entre ses dalles. Il ne se modifie pas : une erreur s'annule avec un motif, puis se ressaisit.
+/// Les factures ne reçoivent pas de règlement : leur statut se déduit des paiements de leurs dalles.
+/// </summary>
 public class Encaissement : Entity
 {
-    public Guid FactureId { get; set; }
+    /// <summary>Facture réglée, pour les règlements saisis avant le suivi par dalle seulement.</summary>
+    public Guid? FactureId { get; set; }
+    public Guid ProjetId { get; set; }
+    public string Entite { get; set; } = "";
+
+    // Projet et client figés à l'encaissement, repris sur le reçu.
+    public string ProjetCode { get; set; } = "";
+    public string ProjetLibelle { get; set; } = "";
+    public string ClientNom { get; set; } = "";
+    public string? ClientAdresse { get; set; }
+    public string? ClientIdentifiants { get; set; }
+
+    /// <summary>Ventilation du montant entre les dalles du projet ; la somme fait le montant.</summary>
+    public List<PaiementDalle> Dalles { get; set; } = [];
     public Guid ClientId { get; set; }
     public DateOnly DatePaiement { get; set; }
     public string Mode { get; set; } = ModesPaiement.Virement;
@@ -46,4 +62,12 @@ public class Encaissement : Entity
     public string? MotifAnnulation { get; set; }
     public string? AnnulePar { get; set; }
     public DateTime? AnnuleLe { get; set; }
+}
+
+/// <summary>Part d'un règlement affectée à une dalle.</summary>
+public class PaiementDalle
+{
+    public Guid DalleId { get; set; }
+    public string Reference { get; set; } = "";
+    public decimal Montant { get; set; }
 }

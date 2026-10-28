@@ -12,6 +12,7 @@ const ITEMS: Record<string, NavItem> = {
   repIng: { id: "repIng", label: "Répartition des ingénieurs", href: "/repartition/ingenieurs", pret: true, icon: "M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" },
   repDes: { id: "repDes", label: "Répartition des dessinateurs", href: "/repartition/dessinateurs", pret: true, icon: "M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6" },
   perf: { id: "perf", label: "Performance", href: "/performance", pret: true, icon: "M3 3v18h18M7 15l4-5 3 3 5-7" },
+  niveaux: { id: "niveaux", label: "Niveaux des dalles", href: "/niveaux", pret: true, icon: "M4 20h16M4 15h16M4 10h16M4 5h16" },
   param: { id: "param", label: "Paramétrage", href: "/parametrage", pret: true, icon: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4" },
 };
 

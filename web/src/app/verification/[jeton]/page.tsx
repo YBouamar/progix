@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import Image from "next/image";
 
 type Doc = { type: string; numero: string; entite: string; lignes: { label: string; valeur: string }[]; signePar: string; signeLe: string | null; annule: string | null };
 
@@ -25,7 +26,7 @@ export default function VerificationPage({ params }: { params: Promise<{ jeton: 
   return (
     <main className="flex min-h-screen items-start justify-center bg-fond px-4 py-10">
       <div className="w-full max-w-md rounded-xl border border-bordure bg-white p-6">
-        <div className="font-display text-lg font-bold text-marine">PROGIX</div>
+        <Image src="/marque/logo-horizontal.png" alt="PROGIX" width={160} height={48} className="h-auto w-40" />
         <h1 className="mt-1 font-display text-xl font-bold">Vérification d&apos;un document</h1>
         {etat === "chargement" && <p className="mt-4 text-secondaire">Vérification en cours...</p>}
         {etat === "erreur" && <p role="alert" className="mt-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">Vérification impossible pour le moment. Réessayez plus tard.</p>}

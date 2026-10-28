@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Plus } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { formatDate, formatDH } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,9 @@ import { TON_ETAT, type DevisDetail, type DevisListe } from "../../devis/types";
 
 export function DevisProjet({ projetId, lectureSeule }: { projetId: string; lectureSeule: boolean }) {
   const router = useRouter();
+  // L'administrateur consulte les devis sans en créer.
+  const { user } = useAuth();
+  const peutCreer = !lectureSeule && user?.role !== "administrateur";
   const [liste, setListe] = useState<DevisListe["items"]>([]);
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
@@ -35,7 +39,7 @@ export function DevisProjet({ projetId, lectureSeule }: { projetId: string; lect
     <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
       <div className="mb-3 flex items-center justify-between gap-3">
         <h3 className="text-[15px] font-bold">Devis</h3>
-        {!lectureSeule && <Button size="sm" variant="outline" disabled={envoi} onClick={creer}><Plus size={14} />Nouveau devis</Button>}
+        {peutCreer && <Button size="sm" variant="outline" disabled={envoi} onClick={creer}><Plus size={14} />Nouveau devis</Button>}
       </div>
       {erreur && <div role="alert" className="mb-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{erreur}</div>}
       {liste.length === 0 ? <div className="text-[13px] text-attenue">Aucun devis pour ce projet.</div> : (

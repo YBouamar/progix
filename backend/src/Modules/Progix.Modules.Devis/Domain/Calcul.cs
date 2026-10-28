@@ -7,17 +7,17 @@ namespace Progix.Modules.Devis.Domain;
 public static class Calcul
 {
     public const decimal TauxTva = 0.20m;
-    public const decimal SeuilImmeuble = 10000m;
 
-    /// <summary>Forfait en DH/m² selon le type de construction. Pour un immeuble, il dépend de la surface totale du devis.</summary>
-    public static decimal Forfait(string typeConstruction, decimal surfaceTotale) => typeConstruction switch
+    /// <summary>
+    /// Forfait en DH/m² : la tranche de la grille du Paramétrage qui contient la surface totale du devis
+    /// (la dernière tranche dont le seuil « à partir de » est atteint). Sous le premier seuil, la première tranche s'applique.
+    /// </summary>
+    public static decimal Forfait(IReadOnlyList<TrancheForfait> grille, decimal surfaceTotale)
     {
-        "immeuble" => surfaceTotale >= SeuilImmeuble ? 85m : 100m,
-        "villa" => 120m,
-        "radier" => 120m,
-        "dallage" => 50m,
-        _ => 100m,
-    };
+        var tranches = grille.OrderBy(t => t.APartirDe).ToList();
+        if (tranches.Count == 0) tranches = ParametresDevis.ForfaitsParDefaut();
+        return (tranches.LastOrDefault(t => t.APartirDe <= surfaceTotale) ?? tranches[0]).Prix;
+    }
 
     public static int PrixM2(LigneDevis l, decimal forfait)
     {
@@ -28,10 +28,10 @@ public static class Calcul
         return (int)Math.Floor(brut) + 1;
     }
 
-    public static void Recalculer(DevisEntete d, string typeConstruction, bool exonereTva)
+    public static void Recalculer(DevisEntete d, IReadOnlyList<TrancheForfait> grille, bool exonereTva)
     {
         d.SurfaceTotale = d.Lignes.Sum(l => l.Surface);
-        d.Forfait = Forfait(typeConstruction, d.SurfaceTotale);
+        d.Forfait = Forfait(grille, d.SurfaceTotale);
         foreach (var l in d.Lignes)
         {
             l.PrixM2 = PrixM2(l, d.Forfait);

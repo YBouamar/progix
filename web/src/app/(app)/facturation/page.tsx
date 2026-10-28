@@ -12,7 +12,7 @@ import { Sheet } from "@/components/ui/sheet";
 
 type Ligne = { libelle: string; surface: number | null; prixM2: number | null; montantHT: number };
 type Facture = {
-  id: string; numero: string; ancienNumero: string | null; entite: string; type: string; projetCode: string; projet: string;
+  id: string; numero: string; ancienNumero: string | null; entite: string; type: string; projetId: string; projetCode: string; projet: string;
   client: string; clientIdentifiants: string | null; clientAdresse: string | null; dateFacture: string; echeance: string; origine: string;
   totalHT: number; acompteDeduit: number; netHT: number; tauxTva: number; tva: number; totalTTC: number; regle: number;
   reste: number; statut: string; statutLabel: string; emisPar: string; emisLe: string; lignes: Ligne[] | null;
@@ -21,11 +21,11 @@ type Facture = {
 };
 type Avoir = { id: string; numero: string; ancienNumero: string | null; dateAvoir: string; motif: string; total: boolean; montantHT: number; tva: number; totalTTC: number; emisPar: string; signePar: string | null; signeLe: string | null; annule: boolean; motifAnnulation: string | null; annulePar: string | null };
 type AvoirListe = { id: string; numero: string; entite: string; dateAvoir: string; motif: string; total: boolean; totalTTC: number; annule: boolean; factureId: string; factureNumero: string; projet: string; client: string };
-const ANNULATION = ["responsable_administratif", "chef_projet", "directeur"];
+
 const ANNULATION_AVOIR = ["directeur", "chef_projet", "responsable_administratif"];
 type Encaissement = {
   id: string; datePaiement: string; mode: string; modeLabel: string; montant: number; reference: string | null; banque: string | null; numeroRecu: string | null; echeanceEffet: string | null; enAttente: boolean; remboursement: boolean;
-  saisiPar: string; annule: boolean; motifAnnulation: string | null; annulePar: string | null;
+  saisiPar: string; annule: boolean; motifAnnulation: string | null; annulePar: string | null; dalles?: { reference: string; montant: number }[];
 };
 const TON: Record<string, "neutre" | "orange" | "vert" | "rouge" | "violet"> = { impayee: "neutre", partielle: "orange", retard: "rouge", payee: "vert", annulee: "violet" };
 type Liste = {
@@ -190,7 +190,7 @@ export default function FacturationPage() {
             totalHT={ouverte.totalHT} acompte={ouverte.acompteDeduit} tauxTva={ouverte.tauxTva} acompteSeul={ouverte.type === "acompte"} />
           <SignatureDoc signePar={ouverte.signePar} signeLe={ouverte.signeLe} quoi="la facture" url={`/factures/${ouverte.id}`} onSigne={(f) => setOuverte(f)} />
           <Avoirs facture={ouverte} onChange={(f) => { setOuverte(f); charger(); }} />
-          <Reglements facture={ouverte} onChange={(f) => { setOuverte(f); charger(); }} />
+          <Reglements facture={ouverte} />
         </Sheet>
       )}
     </div>
@@ -247,10 +247,7 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
   const [recherche, setRecherche] = useState("");
   const [options, setOptions] = useState<ProjetOption[]>([]);
   const [prep, setPrep] = useState<Preparation | null>(null);
-  const [mode, setMode] = useState<"livraison" | "acompte">("livraison");
   const [choix, setChoix] = useState<string[]>([]);
-  const [devisId, setDevisId] = useState("");
-  const [montant, setMontant] = useState("");
   const [date, setDate] = useState(iso(new Date()));
   const [echeance, setEcheance] = useState(plus(iso(new Date()), 30));
   const [modeReglement, setModeReglement] = useState("virement");
@@ -266,23 +263,16 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
   }, [recherche, prep]);
 
   const choisir = (p: ProjetOption) => api<Preparation>(`/factures/preparation?projetId=${p.id}`)
-    .then((r) => { setPrep(r); setChoix([]); setDevisId(r.devis[0]?.id ?? ""); setErreur(""); }).catch(() => setErreur("Chargement impossible."));
+    .then((r) => { setPrep(r); setChoix([]); setErreur(""); }).catch(() => setErreur("Chargement impossible."));
 
   const calcul = useMemo(() => {
-    if (!prep) return { lignes: [] as Ligne[], totalHT: 0, acompte: 0, pct: 0 };
-    if (mode === "acompte") {
-      // Le montant saisi est TTC : le hors taxes et le taux sur le devis en découlent.
-      const d = prep.devis.find((x) => x.id === devisId), ttc = Math.max(0, lireNombre(montant));
-      const ht = d ? Math.round(ttc / (1 + prep.tauxTva / 100) * 100) / 100 : 0;
-      const p = d && d.netHT > 0 ? Math.round(ht / d.netHT * 10000) / 100 : 0;
-      return { lignes: d && ht > 0 ? [{ libelle: `Acompte de ${String(p).replace(".", ",")} % sur le devis ${d.numero}`, surface: null, prixM2: null, montantHT: ht }] : [], totalHT: ht, acompte: 0, pct: p };
-    }
+    if (!prep) return { lignes: [] as Ligne[], totalHT: 0, acompte: 0 };
     const bons = prep.bons.filter((b) => choix.includes(b.id));
     return {
       lignes: bons.flatMap((b) => b.lignes.map((l) => ({ libelle: `${l.reference} · ${l.emplacement}`, surface: l.surface, prixM2: l.prixM2, montantHT: l.montantHT }))),
-      totalHT: bons.reduce((s, b) => s + b.totalHT, 0), acompte: bons.reduce((s, b) => s + b.acompte, 0), pct: 0,
+      totalHT: bons.reduce((s, b) => s + b.totalHT, 0), acompte: bons.reduce((s, b) => s + b.acompte, 0),
     };
-  }, [prep, mode, choix, devisId, montant]);
+  }, [prep, choix]);
 
   async function emettre() {
     if (!prep) return;
@@ -290,15 +280,13 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
     try {
       onEmise(await api<Facture>("/factures", {
         method: "POST",
-        body: JSON.stringify({ projetId: prep.projetId, type: mode, bonIds: mode === "livraison" ? choix : null, devisId: mode === "acompte" ? devisId || null : null, acompteTTC: mode === "acompte" ? lireNombre(montant) : null, dateFacture: date, echeance, modeReglement }),
+        body: JSON.stringify({ projetId: prep.projetId, type: "livraison", bonIds: choix, dateFacture: date, echeance, modeReglement }),
       }));
     } catch (e) { setErreur(e instanceof ApiError ? e.message : "Émission impossible."); setEnvoi(false); }
   }
 
-  const devis = prep?.devis.find((d) => d.id === devisId);
-
   return (
-    <Sheet open onOpenChange={(o) => !o && onClose()} title="Nouvelle facture" description="1. Projet · 2. Bons de livraison ou acompte · 3. Aperçu avant émission"
+    <Sheet open onOpenChange={(o) => !o && onClose()} title="Nouvelle facture" description="1. Projet · 2. Bons de livraison · 3. Aperçu avant émission"
       footer={<><Button variant="outline" onClick={onClose}>Annuler</Button><Button disabled={envoi || !prep || !!prep.refus || calcul.lignes.length === 0} onClick={emettre}>Émettre la facture</Button></>}>
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
       {!prep ? (
@@ -321,14 +309,7 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
           </div>
           {prep.refus ? <div role="alert" className="rounded-lg bg-orange-fond px-4 py-3 text-orange-texte">{prep.refus}</div> : (
             <>
-              <div className="grid grid-cols-2 gap-1 rounded-lg border border-bordure-forte p-0.5">
-                {([["livraison", "Sur bons de livraison"], ["acompte", "Facture d'acompte"]] as const).map(([id, label]) => (
-                  <button key={id} type="button" aria-pressed={mode === id} onClick={() => setMode(id)} className={cn("h-9 cursor-pointer rounded-md text-[13px] font-semibold", mode === id ? "bg-marine text-white" : "text-secondaire")}>{label}</button>
-                ))}
-              </div>
-
-              {mode === "livraison" ? (
-                <div>
+              <div>
                   <div className="mb-1.5 text-[13px] font-semibold text-secondaire">Bons de livraison non facturés</div>
                   <ul className="divide-y divide-bordure rounded-lg border border-bordure">
                     {prep.bons.map((b) => {
@@ -346,23 +327,8 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
                     })}
                     {prep.bons.length === 0 && <li className="px-3 py-2 text-[13px] text-attenue">Aucun bon de livraison à facturer pour ce projet.</li>}
                   </ul>
-                  <p className="mt-1.5 text-[12px] text-attenue">Un bon de livraison ne peut être facturé qu&apos;une fois. Plusieurs bons peuvent être regroupés sur une facture. Le prix au m² est repris du devis validé, sans ressaisie.</p>
+                  <p className="mt-1.5 text-[12px] text-attenue">Une facture s&apos;établit uniquement à partir de bons de livraison. Un bon ne peut être facturé qu&apos;une fois ; plusieurs bons peuvent être regroupés sur une facture. Le prix au m² est repris du devis validé, la surface du bon (celle de la commande usine).</p>
                 </div>
-              ) : (
-                <div className="grid gap-4 sm:grid-cols-[1fr_200px]">
-                  <Field label="Devis validé">
-                    <Select value={devisId} onChange={(e) => setDevisId(e.target.value)}>
-                      {prep.devis.map((d) => <option key={d.id} value={d.id}>{d.numero} · version {d.version} · {formatDH(d.netHT)} HT</option>)}
-                    </Select>
-                  </Field>
-                  <Field label="Montant de l'acompte, TTC"><Input inputMode="decimal" placeholder="0,00" value={montant} onChange={(e) => setMontant(e.target.value)} /></Field>
-                  <p className="text-[12px] text-attenue sm:col-span-2">
-                    {calcul.totalHT > 0 && <b>Soit {formatNombre(calcul.pct)} % du devis, {formatDH(calcul.totalHT)} hors taxes. </b>}
-                    Une facture d&apos;acompte n&apos;est liée à aucun bon de livraison.
-                    {devis && devis.acompteDejaFacture > 0 && ` ${formatNombre(devis.acompteDejaFacture)} % d'acompte sont déjà facturés sur ce devis.`}
-                  </p>
-                </div>
-              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <Field label="Date de facture"><Input type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value) setEcheance(plus(e.target.value, 30)); }} /></Field>
@@ -382,7 +348,7 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
               <div>
                 <div className="mb-1.5 text-[13px] font-semibold text-secondaire">Aperçu avant émission</div>
                 <Apercu entite={prep.entite} numero="Numéro attribué à l'émission" date={date} echeance={echeance} client={prep.client} identifiants={prep.clientIdentifiants}
-                  projet={`${prep.code} · ${prep.libelle}`} lignes={calcul.lignes} totalHT={calcul.totalHT} acompte={calcul.acompte} tauxTva={prep.tauxTva} acompteSeul={mode === "acompte"} />
+                  projet={`${prep.code} · ${prep.libelle}`} lignes={calcul.lignes} totalHT={calcul.totalHT} acompte={calcul.acompte} tauxTva={prep.tauxTva} acompteSeul={false} />
                 <p className="mt-1.5 text-[12px] text-attenue">Une fois émise, la facture ne peut plus être modifiée ni supprimée. Une erreur se corrige par un avoir.</p>
               </div>
             </>
@@ -393,50 +359,9 @@ function Creation({ onClose, onEmise }: { onClose: () => void; onEmise: (f: Fact
   );
 }
 
-function Reglements({ facture, onChange }: { facture: Facture; onChange: (f: Facture) => void }) {
-  const [date, setDate] = useState(iso(new Date()));
-  const [mode, setMode] = useState("virement");
-  const [montant, setMontant] = useState("");
-  const [reference, setReference] = useState("");
-  const [banque, setBanque] = useState("");
-  const [echeanceEffet, setEcheanceEffet] = useState("");
-  const [motDePasse, setMotDePasse] = useState("");
-  const { user } = useAuth();
-  const peutAnnuler = !!user && ANNULATION.includes(user.role);
-  const [erreur, setErreur] = useState("");
-  const [envoi, setEnvoi] = useState(false);
-  const [especes, setEspeces] = useState<{ plafond: number; deja: number; disponible: number } | null>(null);
-  const [aAnnuler, setAAnnuler] = useState<string | null>(null);
-  const [motif, setMotif] = useState("");
-
-  const rembourse = facture.reste < 0;
-  const propose = rembourse ? -facture.reste : facture.aCouvrir;
-  useEffect(() => { setMontant(propose > 0 ? String(Math.round(propose * 100) / 100).replace(".", ",") : ""); setReference(""); setBanque(""); setErreur(""); }, [facture.id, propose]);
-  useEffect(() => {
-    if (mode !== "especes" || !date) { setEspeces(null); return; }
-    api<{ plafond: number; deja: number; disponible: number }>(`/factures/${facture.id}/especes?date=${date}`).then(setEspeces).catch(() => setEspeces(null));
-  }, [mode, date, facture.id, facture.regle]);
-
-  const enregistrer = async () => {
-    const m = lireNombre(montant);
-    if (!m || m <= 0) { setErreur("Saisissez un montant supérieur à zéro."); return; }
-    setEnvoi(true); setErreur("");
-    try {
-      onChange(await api<Facture>(`/factures/${facture.id}/${rembourse ? "remboursements" : "encaissements"}`, { method: "POST", body: JSON.stringify({ datePaiement: date, mode, montant: m, reference, banque, echeanceEffet: mode === "effet" && echeanceEffet ? echeanceEffet : null, motDePasse }) }));
-      setMotDePasse("");
-    } catch (e) { setErreur(e instanceof ApiError ? e.message : "Enregistrement impossible."); }
-    finally { setEnvoi(false); }
-  };
-  const annuler = async () => {
-    setErreur("");
-    try {
-      onChange(await api<Facture>(`/encaissements/${aAnnuler}/annuler`, { method: "POST", body: JSON.stringify({ motif }) }));
-      setAAnnuler(null); setMotif("");
-    } catch (e) { setErreur(e instanceof ApiError ? e.message : "Annulation impossible."); }
-  };
+/** Règlement d'une facture : imputé depuis les paiements de ses dalles, saisis sur le projet. */
+function Reglements({ facture }: { facture: Facture }) {
   const liste = facture.encaissements ?? [];
-  const libelleRef = mode === "cheque" ? "Numéro du chèque" : mode === "effet" ? "Numéro de l'effet" : mode === "virement" ? "Référence du virement" : "Référence";
-
   return (
     <div className="mt-6">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -444,71 +369,34 @@ function Reglements({ facture, onChange }: { facture: Facture; onChange: (f: Fac
         <Badge ton={TON[facture.statut] ?? "neutre"}>{facture.statutLabel}</Badge>
       </div>
       <div className="mb-4 grid grid-cols-3 gap-3 text-[13px]">
-        {([[facture.avoirsTTC > 0 ? "Dû après avoirs" : "Total TTC", facture.du, ""], ["Réglé", facture.regle, "text-vert-texte"], facture.reste < 0 ? ["À rembourser au client", -facture.reste, "text-rouge-texte"] : ["Reste à payer", facture.reste, facture.reste > 0 ? "" : "text-vert-texte"]] as [string, number, string][]).map(([l, v, c]) => (
+        {([[facture.avoirsTTC > 0 ? "Dû après avoirs" : "Total TTC", facture.du, ""], ["Réglé", facture.regle, "text-vert-texte"], ["Reste à payer", Math.max(0, facture.reste), facture.reste > 0 ? "" : "text-vert-texte"]] as [string, number, string][]).map(([l, v, c]) => (
           <div key={l} className="rounded-lg border border-bordure px-3 py-2"><div className="text-secondaire">{l}</div><div className={cn("font-display font-bold", c)}>{formatDH(v)}</div></div>
         ))}
       </div>
-
-      {facture.effetsEnAttente > 0 && <p className="mb-4 text-[12px] text-orange-texte">Effets en attente d&apos;échéance : {formatDH(facture.effetsEnAttente)}. Ils seront comptés comme encaissés à leur date d&apos;échéance. Reste à couvrir : {formatDH(Math.max(0, facture.aCouvrir))}.</p>}
-      {liste.length === 0 ? <p className="mb-4 text-[13px] text-secondaire">Aucun règlement enregistré.</p> : (
-        <ul className="mb-4 divide-y divide-bordure rounded-lg border border-bordure">
+      {facture.effetsEnAttente > 0 && <p className="mb-4 text-[12px] text-orange-texte">Effets en attente d&apos;échéance : {formatDH(facture.effetsEnAttente)}. Ils seront comptés comme réglés à leur date d&apos;échéance.</p>}
+      <p className="mb-3 text-[12px] text-secondaire">
+        Les paiements se saisissent sur le projet, par dalle (onglet « Devis et contrats », Paiements par dalle) ; ils sont imputés aux factures de leurs dalles, les plus anciennes d&apos;abord.{" "}
+        <a href={`/projets/${facture.projetId}#commercial`} className="font-semibold text-marine hover:underline">Ouvrir les paiements du projet</a>
+      </p>
+      {liste.length === 0 ? <p className="text-[13px] text-secondaire">Aucun paiement reçu sur les dalles de cette facture.</p> : (
+        <ul className="divide-y divide-bordure rounded-lg border border-bordure">
           {liste.map((e) => (
             <li key={e.id} className="px-3 py-2.5 text-[13px]">
               <div className="flex items-center justify-between gap-3">
                 <div className={cn(e.annule && "text-attenue line-through")}>
-                  <span className="font-display">{formatDate(e.datePaiement)}</span> · <span className="font-semibold">{e.remboursement ? `Remboursement au client, ${e.modeLabel.toLowerCase()}` : e.modeLabel}</span>
-                  {e.reference ? ` · ${e.reference}` : ""}{e.banque ? ` · ${e.banque}` : ""}{e.echeanceEffet ? ` · ${e.enAttente ? "en attente, encaissé à l'échéance du" : "encaissé à l'échéance du"} ${formatDate(e.echeanceEffet)}` : ""}
+                  <span className="font-display">{formatDate(e.datePaiement)}</span> · <span className="font-semibold">{e.remboursement ? `Remboursement, ${e.modeLabel.toLowerCase()}` : e.modeLabel}</span>
+                  {e.reference ? ` · ${e.reference}` : ""}{e.numeroRecu ? ` · ${e.numeroRecu}` : ""}
                 </div>
                 <div className="flex items-center gap-3">
                   <span className={cn("whitespace-nowrap font-display font-bold", e.annule && "text-attenue line-through", e.enAttente && "text-orange-texte")}>{formatDH(e.remboursement ? -e.montant : e.montant)}</span>
                   {e.numeroRecu && <a href={`/api/encaissements/${e.id}/recu`} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-marine hover:underline">Reçu</a>}
-                  {!e.annule && peutAnnuler && <button className="cursor-pointer text-[12px] font-semibold text-rouge-texte hover:underline" onClick={() => { setAAnnuler(e.id); setMotif(""); }}>Annuler</button>}
                 </div>
               </div>
-              <div className="text-[12px] text-attenue">
-                {e.numeroRecu ? `${e.numeroRecu} · signé par` : "Saisi par"} {e.saisiPar}{e.annule ? ` · annulé par ${e.annulePar} : ${e.motifAnnulation}` : ""}
-              </div>
-              {aAnnuler === e.id && (
-                <div className="mt-2 flex items-end gap-2">
-                  <Field label="Motif de l'annulation" required className="flex-1"><Input autoFocus value={motif} onChange={(ev) => setMotif(ev.target.value)} /></Field>
-                  <Button variant="outline" onClick={() => setAAnnuler(null)}>Fermer</Button>
-                  <Button disabled={!motif.trim()} onClick={annuler}>Confirmer</Button>
-                </div>
-              )}
+              {e.dalles && e.dalles.length > 0 && <div className="text-[12px] text-secondaire">{e.dalles.map((x) => `${x.reference} : ${formatDH(x.montant)}`).join(" · ")}</div>}
+              {e.annule && <div className="text-[12px] text-attenue">Annulé par {e.annulePar} : {e.motifAnnulation}</div>}
             </li>
           ))}
         </ul>
-      )}
-
-      {erreur && <div role="alert" className="mb-3 rounded-lg bg-rouge-fond px-4 py-3 text-[13px] text-rouge-texte">{erreur}</div>}
-      {(rembourse || (facture.aCouvrir > 0 && facture.statut !== "annulee")) && (
-        <div className="rounded-lg border border-bordure p-4">
-          <div className="mb-3 font-semibold">{rembourse ? "Enregistrer un remboursement au client" : "Enregistrer un règlement"}</div>
-          <div className="grid grid-cols-2 gap-3">
-            <Field label="Date du paiement"><Input type="date" max={iso(new Date())} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
-            <Field label="Mode">
-              <Select value={mode} onChange={(e) => setMode(e.target.value)}>
-                <option value="virement">Virement</option><option value="cheque">Chèque</option><option value="especes">Espèces</option>{!rembourse && <option value="effet">Effet</option>}
-              </Select>
-            </Field>
-            <Field label="Montant, en DH"><Input inputMode="decimal" value={montant} onChange={(e) => setMontant(e.target.value)} /></Field>
-            {mode !== "especes" && <Field label={libelleRef} required={mode === "cheque" || mode === "effet"}><Input value={reference} onChange={(e) => setReference(e.target.value)} /></Field>}
-            {mode === "effet" && <Field label="Échéance de l'effet" required><Input type="date" value={echeanceEffet} onChange={(e) => setEcheanceEffet(e.target.value)} /></Field>}
-            {mode !== "especes" && <Field label="Banque" className={mode === "effet" ? "" : "col-span-2"}><Input value={banque} onChange={(e) => setBanque(e.target.value)} /></Field>}
-          </div>
-          {mode === "especes" && especes && !rembourse && (
-            <p className={cn("mt-3 text-[12px]", especes.disponible <= 0 ? "font-semibold text-rouge-texte" : "text-secondaire")}>
-              Espèces : plafond de {formatDH(especes.plafond)} par client et par mois. Déjà encaissé ce mois : {formatDH(especes.deja)}, encore possible : {formatDH(especes.disponible)}.
-            </p>
-          )}
-          {(
-            <div className="mt-3">
-              <Field label="Votre mot de passe" required><Input type="password" autoComplete="current-password" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>
-              <p className="mt-1 text-[12px] text-attenue">Il signe électroniquement le reçu {rembourse ? "de remboursement" : "de paiement"}, qui porte votre nom, la date et un QR code de vérification.</p>
-            </div>
-          )}
-          <div className="mt-4 flex justify-end"><Button disabled={envoi || !motDePasse} onClick={enregistrer}>{rembourse ? "Enregistrer le remboursement" : "Enregistrer le règlement"}</Button></div>
-        </div>
       )}
     </div>
   );

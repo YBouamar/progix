@@ -11,18 +11,25 @@ namespace Progix.Modules.Devis.Endpoints;
 
 public record MotifInput(string? Motif);
 
-/// <summary>Cycle de vie du devis : envoi, validation, annulation, nouvelle version.</summary>
+/// <summary>Cycle de vie du devis : envoi, validation, rejet, nouvelle version.</summary>
 public record SignatureDevisInput(string? MotDePasse);
 
 public static class DevisEtatsEndpoints
 {
     public const int JoursAvantRelance = 7;
 
-    private static readonly string[] RolesValidation = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif, Roles.Administrateur];
+    private static readonly string[] RolesValidation = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif];
 
-    private static readonly string[] RolesAnnulationValide = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif];
+    /// <summary>Rejet d'un devis, quel que soit son état : responsable administratif, chef de projet, directeur.</summary>
+    private static readonly string[] RolesRejet = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif];
 
     public static bool PeutSigner(ClaimsPrincipal user) => RolesValidation.Any(user.IsInRole);
+
+    /// <summary>
+    /// Création et modification d'un devis (contenu, envoi, nouvelle version, import Excel) : tous les rôles du devis sauf l'administrateur,
+    /// qui consulte seulement les devis et leur PDF.
+    /// </summary>
+    public static bool PeutEcrire(ClaimsPrincipal user) => !user.IsInRole(Roles.Administrateur);
 
     private static DateOnly Aujourdhui => DateOnly.FromDateTime(DateTime.UtcNow);
 
@@ -32,7 +39,7 @@ public static class DevisEtatsEndpoints
         EtatsDevis.Envoye => $"Échéance le {d.Echeance:dd/MM/yyyy}",
         EtatsDevis.Expire => $"Expiré le {d.Echeance:dd/MM/yyyy}",
         EtatsDevis.Valide => $"Validé le {d.ValideLe:dd/MM/yyyy} par {d.ValidePar}",
-        EtatsDevis.Annule => $"Annulé le {d.AnnuleLe:dd/MM/yyyy}",
+        EtatsDevis.Annule => $"Rejeté le {d.AnnuleLe:dd/MM/yyyy}",
         EtatsDevis.Remplace => $"Remplacé le {d.RemplaceLe:dd/MM/yyyy}",
         _ => "",
     };
@@ -49,12 +56,13 @@ public static class DevisEtatsEndpoints
 
     public static object Actions(DevisEntete d, ClaimsPrincipal user, bool derniereVersion) => new
     {
-        modifier = d.Etat == EtatsDevis.Brouillon,
-        envoyer = d.Etat == EtatsDevis.Brouillon,
+        modifier = d.Etat == EtatsDevis.Brouillon && PeutEcrire(user),
+        // La trame de calcul se télécharge à tout moment ; elle se réimporte seulement dans un brouillon.
+        trame = PeutEcrire(user),
+        envoyer = d.Etat == EtatsDevis.Brouillon && PeutEcrire(user),
         valider = d.Etat == EtatsDevis.Envoye && RolesValidation.Any(user.IsInRole),
-        annuler = d.Etat is EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire
-                  || (d.Etat == EtatsDevis.Valide && RolesAnnulationValide.Any(user.IsInRole)),
-        nouvelleVersion = derniereVersion && d.Etat is EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide,
+        rejeter = d.Etat is EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide && RolesRejet.Any(user.IsInRole),
+        nouvelleVersion = derniereVersion && d.Etat is EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide && PeutEcrire(user),
     };
 
     public static void Map(IEndpointRouteBuilder app)
@@ -81,7 +89,10 @@ public static class DevisEtatsEndpoints
         g.MapPost("/envoyer", (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
             Transition(id, db, projets, partenaires, user, d =>
             {
+                if (!PeutEcrire(user)) return "Votre rôle permet de consulter les devis, pas de les envoyer.";
                 if (d.Etat != EtatsDevis.Brouillon) return "Seul un brouillon peut être envoyé.";
+                if (d.Lignes.FirstOrDefault(l => l.Surface <= 0) is { } sansSurface)
+                    return $"La dalle {sansSurface.Reference} n'a pas de surface : renseignez-la ou importez ses fichiers ADAPT avant l'envoi.";
                 if (d.Echeances.Sum(e => e.Pourcentage) != 100) return "Le total des modalités de paiement doit faire 100 % avant l'envoi.";
                 if (d.Echeance < Aujourdhui) return "L'échéance du devis est déjà passée : corrigez la date ou la durée de validité.";
                 d.Etat = EtatsDevis.Envoye;
@@ -106,14 +117,13 @@ public static class DevisEtatsEndpoints
         g.MapPost("/annuler", (Guid id, MotifInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IProjetsStatut statut, ClaimsPrincipal user) =>
             Transition(id, db, projets, partenaires, user, d =>
             {
-                if (d.Etat == EtatsDevis.Valide && !RolesAnnulationValide.Any(user.IsInRole))
-                    return "Un devis validé ne peut être annulé que par le directeur, le chef de projet ou le responsable administratif.";
-                if (d.Etat is not (EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide)) return "Ce devis ne peut plus être annulé.";
+                if (!RolesRejet.Any(user.IsInRole)) return "Un devis ne peut être rejeté que par le responsable administratif, le chef de projet ou le directeur.";
+                if (d.Etat is not (EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide)) return "Ce devis ne peut plus être rejeté.";
                 if (string.IsNullOrWhiteSpace(input.Motif)) return "Le motif est obligatoire.";
                 d.Etat = EtatsDevis.Annule;
                 d.AnnuleLe = DateTime.UtcNow;
                 d.AnnuleMotif = input.Motif.Trim();
-                Tracer(db, d, user, $"Devis annulé. Motif : {d.AnnuleMotif}");
+                Tracer(db, d, user, $"Devis rejeté. Motif : {d.AnnuleMotif}");
                 return null;
             }, async d =>
             {
@@ -124,6 +134,7 @@ public static class DevisEtatsEndpoints
         // Nouvelle version : copie en brouillon avec les dalles et surfaces à jour du projet ; l'ancienne version est remplacée.
         g.MapPost("/nouvelle-version", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
         {
+            if (!PeutEcrire(user)) return Results.Forbid();
             var d = await db.Devis.Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
             if (d is null) return Results.NotFound();
             if (d.Etat is not (EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide))
@@ -137,7 +148,7 @@ public static class DevisEtatsEndpoints
             var n = new DevisEntete
             {
                 Numero = d.Numero, Entite = d.Entite, Version = d.Version + 1, ProjetId = d.ProjetId, DateDevis = Aujourdhui, DureeValidite = d.DureeValidite,
-                CommercialId = d.CommercialId, CommercialNom = d.CommercialNom, RemiseM2 = d.RemiseM2, RemiseMotif = d.RemiseMotif,
+                CommercialId = projet.CommercialId, CommercialNom = projet.CommercialNom, IngenieurId = d.IngenieurId, IngenieurNom = d.IngenieurNom, RemiseM2 = d.RemiseM2, RemiseMotif = d.RemiseMotif,
                 Echeances = d.Echeances.Select(e => new Echeance { Label = e.Label, Pourcentage = e.Pourcentage, Retenue = e.Retenue }).ToList(),
                 ModalitesContrat = d.ModalitesContrat, CreePar = user.UserName(),
                 Evenements = [new EvenementDevis { Quoi = $"Version {d.Version + 1} créée à partir de la version {d.Version}", Qui = user.UserName() }],
@@ -152,7 +163,7 @@ public static class DevisEtatsEndpoints
                     };
                 }).ToList(),
             };
-            Calcul.Recalculer(n, projet.TypeConstruction, await DevisEndpoints.Exonere(projet, partenaires));
+            Calcul.Recalculer(n, (await db.ParametresAsync()).Forfaits, await DevisEndpoints.Exonere(projet, partenaires));
             d.Etat = EtatsDevis.Remplace;
             d.RemplaceLe = DateTime.UtcNow;
             Tracer(db, d, user, $"Remplacé par la version {n.Version}");

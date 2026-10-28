@@ -50,6 +50,13 @@ public static class EquipeEndpoints
             if (personne is null) return ProjetsEndpoints.Conflit("Cette personne ne peut pas être affectée à cette fonction.");
             if (await db.Affectations.AnyAsync(a => a.ProjetId == id && a.Fonction == input.Fonction && a.UserId == input.UserId && a.Fin == null))
                 return ProjetsEndpoints.Conflit($"{personne.Nom} est déjà sur ce projet.");
+            // Un seul ingénieur de réalisation à la fois : le nouveau remplace le précédent, dont l'affectation est close (l'historique reste).
+            if (input.Fonction == Fonctions.Ingenieur)
+                foreach (var ancien in await db.Affectations.Where(a => a.ProjetId == id && a.Fonction == Fonctions.Ingenieur && a.Fin == null).ToListAsync())
+                {
+                    ancien.Fin = DateOnly.FromDateTime(DateTime.UtcNow);
+                    ancien.UpdatedAt = DateTime.UtcNow;
+                }
             db.Affectations.Add(new Affectation
             {
                 ProjetId = id, Fonction = input.Fonction, UserId = personne.Id, UserNom = personne.Nom, Debut = DateOnly.FromDateTime(DateTime.UtcNow),

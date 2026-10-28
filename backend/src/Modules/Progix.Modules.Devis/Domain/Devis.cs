@@ -17,7 +17,8 @@ public static class EtatsDevis
         [Envoye] = "Envoyé",
         [Expire] = "Expiré",
         [Valide] = "Validé",
-        [Annule] = "Annulé",
+        // Le code reste « annule » (données existantes) ; l'état s'affiche « Rejeté ».
+        [Annule] = "Rejeté",
         [Remplace] = "Remplacé",
     };
 }
@@ -34,8 +35,13 @@ public class DevisEntete : Entity
     public string Etat { get; set; } = EtatsDevis.Brouillon;
     public DateOnly DateDevis { get; set; }
     public int DureeValidite { get; set; } = 30;
+    /// <summary>Commercial du projet, recopié sur le devis : il se choisit sur le projet, pas sur le devis.</summary>
     public Guid? CommercialId { get; set; }
     public string? CommercialNom { get; set; }
+
+    /// <summary>Ingénieur qui établit le devis (chiffrage technique). L'ingénieur de réalisation est celui de l'équipe du projet.</summary>
+    public Guid? IngenieurId { get; set; }
+    public string? IngenieurNom { get; set; }
 
     /// <summary>Remise finale au m², appliquée sur la surface totale.</summary>
     public decimal RemiseM2 { get; set; }
@@ -120,8 +126,14 @@ public class ParametresDevis
     public int DureeValidite { get; set; } = 30;
     public string? Modalites { get; set; }
     public List<Echeance> Echeances { get; set; } = [];
+
+    /// <summary>Grille unique des forfaits en DH/m², par tranche de surface totale du devis, tous types de construction confondus.</summary>
+    public List<TrancheForfait> Forfaits { get; set; } = [];
     public string? ModifiePar { get; set; }
     public DateTime? ModifieLe { get; set; }
+
+    /// <summary>Grille d'origine : la règle de l'immeuble jusqu'ici (100 DH/m², 85 DH/m² à partir de 10 000 m²), à ajuster dans le Paramétrage.</summary>
+    public static List<TrancheForfait> ForfaitsParDefaut() => [new() { APartirDe = 0, Prix = 100 }, new() { APartirDe = 10000, Prix = 85 }];
 
     public const string ModalitesParDefaut =
         "Délais des études : plan d'exécution en 5 jours par dalle après réception du plan de coffrage, des réservations et des hypothèses de charges.\n" +
@@ -133,6 +145,13 @@ public class ParametresDevis
         new() { Label = "De chaque dalle, à la livraison", Pourcentage = 60 },
         new() { Label = "Retenue de garantie, payable 6 mois après la livraison", Pourcentage = 10, Retenue = true },
     ];
+}
+
+/// <summary>Tranche de la grille des forfaits : à partir de cette surface totale (m²), le forfait vaut ce prix (DH/m²), jusqu'à la tranche suivante.</summary>
+public class TrancheForfait
+{
+    public decimal APartirDe { get; set; }
+    public decimal Prix { get; set; }
 }
 
 public class CompteurDevis

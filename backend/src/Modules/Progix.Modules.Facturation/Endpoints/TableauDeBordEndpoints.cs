@@ -20,8 +20,9 @@ public static class TableauDeBordEndpoints
             if (au < du) return Results.Conflict(new { message = "La fin de la période ne peut pas précéder son début." });
             var (pDu, pAu) = Precedente(du, au);
 
-            var factures = await db.Factures.AsNoTracking().Include(f => f.Avoirs).Include(f => f.Encaissements)
+            var factures = await db.Factures.AsNoTracking().Include(f => f.Avoirs)
                 .Where(f => string.IsNullOrEmpty(entite) || f.Entite == entite).ToListAsync();
+            await db.ImputerAsync(factures);
             var (mouvements, _) = await TresorerieEndpoints.Mouvements(db, pDu, au.AddDays(1), entite);
 
             object Periode(DateOnly a, DateOnly b)

@@ -56,9 +56,12 @@ public static class DepensesDalleEndpoints
             if (commercial)
             {
                 // Le facturé et l'encaissé ne sont montrés qu'aux rôles commerciaux.
-                var factures = await db.Factures.AsNoTracking().Include(f => f.Encaissements).Include(f => f.Avoirs).Where(f => f.ProjetId == id).ToListAsync();
+                var factures = await db.Factures.AsNoTracking().Include(f => f.Avoirs).Where(f => f.ProjetId == id).ToListAsync();
                 var facture = factures.Sum(f => f.Du);
-                synthese = new { facture, encaisse = factures.Sum(f => f.Regle), depenses = total, ecart = facture - total };
+                var jour = DateOnly.FromDateTime(DateTime.UtcNow);
+                var encaisse = (await db.Encaissements.AsNoTracking().Where(e => e.ProjetId == id && !e.Annule).ToListAsync())
+                    .Where(e => !e.EnAttente(jour)).Sum(e => e.Remboursement ? -e.Montant : e.Montant);
+                synthese = new { facture, encaisse, depenses = total, ecart = facture - total };
             }
             return Results.Ok(new
             {

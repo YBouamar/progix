@@ -3,12 +3,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { FileDown, Plus, Trash2, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { cn, formatNombre, lireNombre } from "@/lib/utils";
+import { cn, filtrerDecimal, formatNombre, formatSurface, lireNombre } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 type TendonVue = { numero: string; torons: number; sens: string; longueur: number; ancrages: number };
 type Vue = {
-  modifiable: boolean; verrou: string | null; tendons: TendonVue[];
+  modifiable: boolean; verrou: string | null; tendons: TendonVue[]; typesAncrage: number[]; surface: number | null; surfaceDalle: number;
   accessoires: { libelle: string; unite: string | null; quantite: number }[]; proposes: { libelle: string; unite: string | null }[];
 };
 type Ligne = { numero: string; torons: string; sens: string; longueur: string; ancrages: string };
@@ -25,6 +25,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
   const [vue, setVue] = useState<Vue | null>(null);
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [accessoires, setAccessoires] = useState<Accessoire[]>([]);
+  const [surface, setSurface] = useState("");
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [modifie, setModifie] = useState(false);
   const [importe, setImporte] = useState<{ nb: number; erreurs: string[] } | null>(null);
@@ -34,6 +35,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
   const charger = (r: Vue) => {
     setVue(r);
     setLignes(r.tendons.map(versLigne));
+    setSurface(r.surface ? String(r.surface).replace(".", ",") : "");
     // Tous les accessoires paramétrés sont proposés ; ceux de la commande gardent leur quantité.
     const saisis = r.accessoires.map((a) => ({ libelle: a.libelle, unite: a.unite, quantite: String(a.quantite) }));
     setAccessoires([...saisis, ...r.proposes.filter((p) => !r.accessoires.some((a) => a.libelle === p.libelle)).map((p) => ({ libelle: p.libelle, unite: p.unite, quantite: "" }))]);
@@ -70,6 +72,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
         body: JSON.stringify({
           tendons: lignes.map((l) => ({ numero: l.numero, torons: ent(l.torons), sens: l.sens, longueur: lireNombre(l.longueur), ancrages: ent(l.ancrages) })),
           accessoires: accessoires.map((a) => ({ libelle: a.libelle, unite: a.unite, quantite: ent(a.quantite) })),
+          surface: lireNombre(surface) || null,
         }),
       }));
       setMessage({ ok: true, texte: "Commande enregistrée." }); setImporte(null);
@@ -99,6 +102,16 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
       <div className="text-[13px] font-bold">Commande usine</div>
       {lecture && vue.verrou && <div className="mt-0.5 text-[12px] text-secondaire">{vue.verrou}</div>}
 
+      {/* Surface totale de la commande : imprimée sur le bon de livraison et facturée. */}
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        <label className="text-[13px] font-semibold" htmlFor={`surface-${dalleId}`}>Surface totale de la commande (m²){!lecture && <span className="text-rouge-texte"> *</span>}</label>
+        {lecture ? <span className="font-display font-bold">{vue.surface ? formatSurface(vue.surface) : "Non saisie"}</span> : (
+          <input id={`surface-${dalleId}`} className={cn(CELL, "w-32 text-right")} inputMode="decimal" placeholder={String(vue.surfaceDalle).replace(".", ",")}
+            value={surface} onChange={(e) => { setSurface(filtrerDecimal(e.target.value)); touche(); }} />
+        )}
+        <span className="text-[12px] text-secondaire">Reprise sur le bon de livraison et la facture. Surface de la dalle : {formatSurface(vue.surfaceDalle)}.</span>
+      </div>
+
       {!lecture && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-fond px-3 py-2">
           <input ref={fichier} type="file" accept=".json,.xlsx,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && importer(e.target.files[0])} />
@@ -121,7 +134,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
           <thead className="sticky top-0 z-10 bg-fond text-[11px] uppercase tracking-wide text-secondaire">
             <tr>
               <th className="px-2 py-1.5 font-semibold">N° tendon</th>
-              <th className="px-1 py-1.5 font-semibold">Système</th>
+              <th className="px-1 py-1.5 font-semibold">Type d&apos;ancrage</th>
               <th className="px-1 py-1.5 font-semibold">Orientation</th>
               <th className="px-1 py-1.5 text-right font-semibold">Longueur m</th>
               <th className="px-1 py-1.5 text-right font-semibold">Ancrages</th>
@@ -135,8 +148,10 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
               <tr key={i} className="border-t border-bordure">
                 <td className="w-28 px-2 py-1"><input className={cn(CELL, "font-bold text-marine")} disabled={lecture} aria-label={`Numéro du tendon, ligne ${i + 1}`} inputMode="numeric" value={l.numero} onChange={(e) => majLigne(i, { numero: e.target.value.replace(/\D/g, "") })} /></td>
                 <td className="w-24 px-1 py-1">
-                  <span className="flex items-center gap-1"><span className="font-display text-secondaire">S</span>
-                    <input className={CELL} disabled={lecture} inputMode="numeric" aria-label={`Système, tendon ${l.numero}`} value={l.torons} onChange={(e) => majLigne(i, { torons: e.target.value })} /></span>
+                  {/* Types d'ancrage existants ; un type déjà enregistré hors liste reste affiché. */}
+                  <select className={cn(CELL, "text-left")} disabled={lecture} aria-label={`Type d'ancrage, tendon ${l.numero}`} value={l.torons} onChange={(e) => majLigne(i, { torons: e.target.value })}>
+                    {[...new Set([...(vue?.typesAncrage ?? []), ...(l.torons ? [Number(l.torons)] : [])])].sort((a, b) => a - b).map((t) => <option key={t} value={String(t)}>S{t}</option>)}
+                  </select>
                 </td>
                 <td className="w-24 px-1 py-1">
                   <select className={CELL} disabled={lecture} aria-label={`Orientation, tendon ${l.numero}`} value={l.sens} onChange={(e) => majLigne(i, { sens: e.target.value })}><option value="X">X</option><option value="Y">Y</option></select>

@@ -126,14 +126,14 @@ public static class PartenairesEndpoints
         }).RequireAuthorization(Policies.Commercial);
     }
 
-    private static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
+    internal static string? Clean(string? s) => string.IsNullOrWhiteSpace(s) ? null : s.Trim();
 
     /// <summary>Nom comparable : minuscules, sans accents, lettres et chiffres seulement.</summary>
-    private static string NomNormalise(string? s) => new((s ?? "").ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD)
+    internal static string NomNormalise(string? s) => new((s ?? "").ToLowerInvariant().Normalize(System.Text.NormalizationForm.FormD)
         .Where(char.IsLetterOrDigit).Where(c => c < 128).ToArray());
 
     /// <summary>Téléphone comparable : ses 9 derniers chiffres, pour ignorer l'indicatif (+212, 0).</summary>
-    private static string Chiffres(string? s)
+    internal static string Chiffres(string? s)
     {
         var c = new string((s ?? "").Where(char.IsAsciiDigit).ToArray());
         return c.Length > 9 ? c[^9..] : c;
@@ -145,7 +145,7 @@ public static class PartenairesEndpoints
         id = d.Id,
     });
 
-    private static async Task<Partenaire?> TrouverDoublon(PartenairesDbContext db, string? ice, string? cin, Guid? sauf)
+    internal static async Task<Partenaire?> TrouverDoublon(PartenairesDbContext db, string? ice, string? cin, Guid? sauf)
     {
         if (ice is null && cin is null) return null;
         return await db.Partenaires.AsNoTracking()
@@ -153,7 +153,7 @@ public static class PartenairesEndpoints
             .FirstOrDefaultAsync(p => (ice != null && p.Ice == ice) || (cin != null && p.Cin == cin));
     }
 
-    private static Dictionary<string, string[]> Valider(PartenaireInput i)
+    internal static Dictionary<string, string[]> Valider(PartenaireInput i)
     {
         var e = new Dictionary<string, string[]>();
         if (!TypesPartenaire.Labels.ContainsKey(i.Type)) e["type"] = ["Type inconnu."];
@@ -178,7 +178,7 @@ public static class PartenairesEndpoints
         return e;
     }
 
-    private static void Appliquer(Partenaire p, PartenaireInput i)
+    internal static void Appliquer(Partenaire p, PartenaireInput i)
     {
         p.Type = i.Type;
         p.Nature = i.Nature;

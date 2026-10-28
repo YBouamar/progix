@@ -13,7 +13,7 @@ public record TendonInput(string? Numero, int Torons, string? Sens, decimal Long
 public record AccessoireInput(string? Libelle, int Quantite, string? Unite);
 public record AccessoireParamInput(Guid? Id, string? Libelle, bool Actif, string? Unite);
 public record AccessoiresParamInput(List<AccessoireParamInput>? Accessoires);
-public record CommandeInput(List<TendonInput>? Tendons, List<AccessoireInput>? Accessoires);
+public record CommandeInput(List<TendonInput>? Tendons, List<AccessoireInput>? Accessoires, decimal? Surface = null);
 
 /// <summary>Contenu de la commande usine d'une dalle (étape 4).</summary>
 public static class CommandeEndpoints
@@ -70,11 +70,13 @@ public static class CommandeEndpoints
             var tendons = input.Tendons ?? [];
             // Un accessoire laissé à 0 n'entre pas dans la commande.
             var accessoires = (input.Accessoires ?? []).Where(a => !string.IsNullOrWhiteSpace(a.Libelle) && a.Quantite != 0).ToList();
-            if (ImportTendons.Refus(tendons) is { } refus) return ProjetsEndpoints.Conflit(refus);
-            if (accessoires.Any(a => a.Quantite < 0)) return ProjetsEndpoints.Conflit("La quantité d'un accessoire ne peut pas être négative.");
-
             var c = await db.CommandesUsine.FirstOrDefaultAsync(x => x.DalleId == did);
+            if (ImportTendons.Refus(tendons, c?.Lignes.Select(l => l.Torons).ToHashSet()) is { } refus) return ProjetsEndpoints.Conflit(refus);
+            if (accessoires.Any(a => a.Quantite < 0)) return ProjetsEndpoints.Conflit("La quantité d'un accessoire ne peut pas être négative.");
+            if (input.Surface is not > 0) return ProjetsEndpoints.Conflit("Saisissez la surface totale de la commande (m²) : elle est reprise sur le bon de livraison et la facture.");
+
             if (c is null) db.CommandesUsine.Add(c = new CommandeUsine { DalleId = did });
+            c.Surface = Math.Round(input.Surface.Value, 2);
             c.Lignes = tendons.Select(t => new LigneCommande
             {
                 Numero = ImportTendons.Numero(t.Numero)!, Torons = t.Torons, Sens = ImportTendons.Sens(t.Sens)!, Prefixe = "", Nombre = 1,
@@ -145,7 +147,8 @@ public static class CommandeEndpoints
         var verrou = await Verrou(db, projet, dalle);
         return new
         {
-            modifiable = verrou is null && PeutSaisir(user), verrou,
+            modifiable = verrou is null && PeutSaisir(user), verrou, typesAncrage = SystemesAncrage.Torons,
+            surface = c.Surface, surfaceDalle = dalle.Surface,
             tendons = c.Tendons().Select(t => new { numero = t.Numero, torons = t.Torons, sens = t.Sens, longueur = t.Longueur, ancrages = t.Ancrages }),
             accessoires = c.Accessoires.Select(a => new { libelle = a.Libelle, unite = a.Unite, quantite = a.Quantite }),
             // Accessoires paramétrés, proposés d'office à la saisie.

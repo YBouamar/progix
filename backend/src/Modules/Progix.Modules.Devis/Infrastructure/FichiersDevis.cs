@@ -11,7 +11,8 @@ public class FichiersDevis(DevisDbContext db) : IContexteFichiers
     public const string Nom = "plan_principe";
     public string Contexte => Nom;
     public IReadOnlyList<string> Categories => [];
-    public bool PeutDeposer(ClaimsPrincipal user) => Policies.RolesDevis.Any(user.IsInRole);
+    // L'administrateur consulte les plans de principe sans en déposer.
+    public bool PeutDeposer(ClaimsPrincipal user) => Policies.RolesDevis.Any(user.IsInRole) && Endpoints.DevisEtatsEndpoints.PeutEcrire(user);
 
     public async Task<string?> RefusAsync(Guid cibleId, string? categorie, CancellationToken ct = default)
     {

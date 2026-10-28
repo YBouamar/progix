@@ -58,6 +58,8 @@ public static class SuiviEndpoints
 
             if (n == Etapes.CommandeUsine && !await db.CommandesUsine.AnyAsync(c => c.DalleId == did && c.NbCables > 0))
                 return ProjetsEndpoints.Conflit("Saisissez les câbles de la commande usine avant de la soumettre à validation.");
+            if (n == Etapes.CommandeUsine && !await db.CommandesUsine.AnyAsync(c => c.DalleId == did && c.Surface > 0))
+                return ProjetsEndpoints.Conflit("Saisissez la surface totale de la commande usine avant de la soumettre à validation : elle sera reprise sur le bon de livraison et la facture.");
             if (n == Etapes.Injection)
             {
                 if (await InjectionEndpoints.RefusAsync(db, did) is { } incomplet) return ProjetsEndpoints.Conflit(incomplet);

@@ -164,6 +164,10 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<decimal?>("Surface")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -600,6 +604,40 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                     b.ToTable("mouvements_stock", "projets");
                 });
 
+            modelBuilder.Entity("Progix.Modules.Projets.Domain.NiveauDalle", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Actif")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Libelle")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("Ordre")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("Valeur")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Valeur")
+                        .IsUnique();
+
+                    b.ToTable("niveaux", "projets");
+                });
+
             modelBuilder.Entity("Progix.Modules.Projets.Domain.ParametresCoulis", b =>
                 {
                     b.Property<int>("Id")
@@ -706,6 +744,16 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
 
+                    b.Property<Guid?>("CommercialId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("CommercialNom")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<bool>("CommercialRepris")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -759,8 +807,8 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
 
                     b.Property<string>("TypeConstruction")
                         .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -948,6 +996,42 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                     b.ToTable("remarque_traces", "projets");
                 });
 
+            modelBuilder.Entity("Progix.Modules.Projets.Domain.TypeConstructionParam", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Actif")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Libelle")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("Ordre")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("types_construction", "projets");
+                });
+
             modelBuilder.Entity("Progix.Modules.Projets.Domain.VersionPlan", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1086,6 +1170,81 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                         .HasForeignKey("ProjetId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.OwnsOne("Progix.Modules.Projets.Domain.AdaptDalle", "Adapt", b1 =>
+                        {
+                            b1.Property<Guid>("DalleId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<string>("FichierPt")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("FichierRebar")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<DateTime>("ImporteLe")
+                                .HasColumnType("timestamp with time zone");
+
+                            b1.Property<string>("ImportePar")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.Property<string>("Plancher")
+                                .HasColumnType("text");
+
+                            b1.Property<decimal>("RatioActif")
+                                .HasColumnType("numeric");
+
+                            b1.Property<decimal>("RatioPassif")
+                                .HasColumnType("numeric");
+
+                            b1.Property<decimal>("SurfacePlancher")
+                                .HasColumnType("numeric");
+
+                            b1.HasKey("DalleId");
+
+                            b1.ToTable("dalles", "projets");
+
+                            b1.ToJson("Adapt");
+
+                            b1.WithOwner()
+                                .HasForeignKey("DalleId");
+
+                            b1.OwnsMany("Progix.Modules.Projets.Domain.SystemeAdapt", "Systemes", b2 =>
+                                {
+                                    b2.Property<Guid>("AdaptDalleDalleId")
+                                        .HasColumnType("uuid");
+
+                                    b2.Property<int>("Id")
+                                        .ValueGeneratedOnAdd()
+                                        .HasColumnType("integer");
+
+                                    b2.Property<int>("Cables")
+                                        .HasColumnType("integer");
+
+                                    b2.Property<decimal>("LongueurGaines")
+                                        .HasColumnType("numeric");
+
+                                    b2.Property<decimal>("LongueurTorons")
+                                        .HasColumnType("numeric");
+
+                                    b2.Property<int>("Torons")
+                                        .HasColumnType("integer");
+
+                                    b2.HasKey("AdaptDalleDalleId", "Id");
+
+                                    b2.ToTable("dalles", "projets");
+
+                                    b2.WithOwner()
+                                        .HasForeignKey("AdaptDalleDalleId");
+                                });
+
+                            b1.Navigation("Systemes");
+                        });
+
+                    b.Navigation("Adapt");
                 });
 
             modelBuilder.Entity("Progix.Modules.Projets.Domain.EtapeDalle", b =>

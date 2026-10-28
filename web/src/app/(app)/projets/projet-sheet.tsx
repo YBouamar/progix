@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Field, Input } from "@/components/ui/input";
+import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import { PartenaireCombo } from "@/components/partenaire-combo";
 import { PartenaireSheet } from "../clients/partenaire-sheet";
@@ -21,7 +21,10 @@ export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
   const [client, setClient] = useState<{ id: string | null; texte: string }>({ id: projet?.clientId ?? null, texte: projet?.client ?? "" });
   const [proprio, setProprio] = useState<{ id: string | null; texte: string }>({ id: projet?.proprietaireId ?? null, texte: projet?.proprietaire ?? "" });
   const [entite, setEntite] = useState(projet?.entite ?? "APT");
-  const [type, setType] = useState(projet?.typeConstruction ?? "immeuble");
+  // Types proposés (paramétrage), plus celui déjà porté par le projet s'il n'est plus proposé.
+  const types = referentiel.types.filter((t) => t.actif !== false || t.code === projet?.typeConstruction);
+  const [type, setType] = useState(projet?.typeConstruction ?? types[0]?.code ?? "");
+  const [commercialId, setCommercialId] = useState(projet?.commercialId ?? "");
   const [description, setDescription] = useState(projet?.description ?? "");
   const [adresse, setAdresse] = useState(projet?.adresse ?? "");
   const [ville, setVille] = useState(projet?.ville ?? "");
@@ -44,7 +47,6 @@ export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
   }, [libelle, projet]);
 
   const err = (k: string) => erreurs[k]?.[0];
-  const forfait = referentiel.types.find((t) => t.code === type)?.forfait;
 
   async function enregistrer() {
     setEnvoi(true); setErreurs({}); setMessage("");
@@ -52,7 +54,7 @@ export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
       const corps = JSON.stringify({
         libelle, clientId: client.id ?? "00000000-0000-0000-0000-000000000000",
         proprietaireId: proprio.id, proprietaireLibre: proprio.id ? null : proprio.texte,
-        entite, typeConstruction: type, description, adresse, ville, dateCreation: dateCreation || null,
+        entite, typeConstruction: type, description, adresse, ville, dateCreation: dateCreation || null, commercialId: commercialId || null,
       });
       onSaved(await api<ProjetDetail>(projet ? `/projets/${projet.id}` : "/projets", { method: projet ? "PUT" : "POST", body: corps }));
     } catch (e) {
@@ -138,18 +140,21 @@ export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
             </p>
           </div>
 
-          <div>
-            <span className="mb-1.5 block text-[13px] font-semibold text-secondaire">Type de construction<span className="text-rouge-vif"> *</span></span>
-            <div className="grid grid-cols-4 gap-1 rounded-lg border border-bordure-forte p-0.5">
-              {referentiel.types.map((t) => (
-                <button key={t.code} type="button" onClick={() => setType(t.code)}
-                  className={cn("h-9 cursor-pointer rounded-md text-[13px] font-semibold", type === t.code ? "bg-marine text-white" : "text-secondaire")}>
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            {forfait && <p className="mt-1.5 text-[12px] text-attenue">Forfait appliqué au prix : {forfait}.</p>}
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Type de construction" required error={err("typeConstruction")}>
+              <Select value={type} aria-invalid={!!err("typeConstruction")} onChange={(e) => setType(e.target.value)}>
+                {types.map((t) => <option key={t.code} value={t.code}>{t.label}{t.actif === false ? " (n'est plus proposé)" : ""}</option>)}
+              </Select>
+            </Field>
+            <Field label="Commercial" error={err("commercialId")}>
+              <Select value={commercialId} aria-invalid={!!err("commercialId")} onChange={(e) => setCommercialId(e.target.value)}>
+                <option value="">Aucun</option>
+                {referentiel.commerciaux.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                {projet?.commercialId && !referentiel.commerciaux.some((c) => c.id === projet.commercialId) && <option value={projet.commercialId}>{projet.commercial} (inactif)</option>}
+              </Select>
+            </Field>
           </div>
+          <p className="-mt-3 text-[12px] text-attenue">Types de construction réglés dans le Paramétrage. Le commercial du projet est repris sur ses devis ; le forfait vient de la grille par surface du Paramétrage.</p>
 
           <Field label="Description">
             <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)}

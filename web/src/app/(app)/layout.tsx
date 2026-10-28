@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
@@ -26,7 +27,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside className="sticky top-0 flex h-screen w-[248px] shrink-0 flex-col bg-marine text-white">
-        <div className="px-6 py-6 font-display text-xl font-bold tracking-wide">PROGIX</div>
+        {/* Icône de la marque et nom en blanc : le logo complet, en bleu marine, ne se lit pas sur le fond du menu. */}
+        <Link href="/" className="flex items-center gap-3 px-5 py-5" aria-label="PROGIX, tableau de bord">
+          <Image src="/marque/icone.png" alt="" width={40} height={40} priority className="h-10 w-10 shrink-0" />
+          <span className="font-display text-xl font-bold tracking-wide">PROGIX</span>
+        </Link>
         <nav className="flex-1 space-y-1 overflow-y-auto px-3">
           {menu.map((m) => (
             <Link key={m.id} href={m.href}

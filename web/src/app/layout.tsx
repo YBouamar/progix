@@ -7,7 +7,6 @@ export const metadata: Metadata = {
   title: "PROGIX",
   description: "Du devis à la réception finale, dalle par dalle.",
   manifest: "/manifest.webmanifest",
-  icons: { icon: "/icone-192.png", apple: "/icone-192.png" },
   appleWebApp: { capable: true, title: "PROGIX", statusBarStyle: "default" },
 };
 

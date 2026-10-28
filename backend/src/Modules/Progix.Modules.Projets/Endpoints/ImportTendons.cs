@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using ClosedXML.Excel;
 using Progix.Modules.Projets.Domain;
+using Progix.SharedKernel;
 
 namespace Progix.Modules.Projets.Endpoints;
 
@@ -26,12 +27,14 @@ public static class ImportTendons
     public static string? Sens(string? s) => s?.Trim().ToUpperInvariant() is "X" or "Y" ? s.Trim().ToUpperInvariant() : null;
 
     /// <summary>Contrôle commun à la saisie et à l'enregistrement.</summary>
-    public static string? Refus(IReadOnlyList<TendonInput> t)
+    /// <param name="deja">Types d'ancrage déjà enregistrés sur la commande : acceptés même s'ils ne figurent plus dans la liste.</param>
+    public static string? Refus(IReadOnlyList<TendonInput> t, IReadOnlyCollection<int>? deja = null)
     {
         if (t.Count > Max) return $"Une commande compte au plus {Max} tendons.";
         if (t.FirstOrDefault(x => Numero(x.Numero) is null) is { } faux) return $"Numéro de tendon « {faux.Numero} » invalide : un numéro simple, sans préfixe (01, 02, 03...).";
         if (t.GroupBy(x => Numero(x.Numero)).FirstOrDefault(g => g.Count() > 1) is { } double_) return $"Le tendon {double_.Key} figure deux fois.";
-        if (t.Any(x => x.Torons is < 1 or > 99)) return "Le système est S suivi d'un nombre de torons entre 1 et 99.";
+        if (t.FirstOrDefault(x => !SystemesAncrage.Existe(x.Torons) && !(deja?.Contains(x.Torons) ?? false)) is { } inconnu)
+            return $"Type d'ancrage S{inconnu.Torons} inconnu : les types existants sont {SystemesAncrage.Liste}.";
         if (t.Any(x => Sens(x.Sens) is null)) return "L'orientation d'un tendon est X ou Y.";
         if (t.Any(x => x.Longueur is <= 0 or > 500)) return "La longueur d'un tendon est supérieure à 0 et au plus de 500 m.";
         if (t.Any(x => x.Ancrages is < 0 or > 99)) return "Le nombre d'ancrages d'un tendon est compris entre 0 et 99.";
@@ -63,7 +66,7 @@ public static class ImportTendons
                         ws.Cell(r + 2, 4).Value = decimal.Parse(e.Item4, CultureInfo.InvariantCulture); ws.Cell(r + 2, 5).Value = int.Parse(e.Item5);
                     }
                     var aide = wb.AddWorksheet("Aide");
-                    string[] lignes = ["Une ligne par tendon. Remplacez les deux lignes d'exemple.", "num : numéro du tendon, des chiffres seulement, unique dans la dalle (1, 2, 3...).", "system : S suivi du nombre de torons, par exemple S1 ou S4.",
+                    string[] lignes = ["Une ligne par tendon. Remplacez les deux lignes d'exemple.", "num : numéro du tendon, des chiffres seulement, unique dans la dalle (1, 2, 3...).", $"system : type d'ancrage, parmi {SystemesAncrage.Liste} (le nombre est celui des torons).",
                         "orientation : x ou y.", "longueur : en mètres.", "ancrages : nombre d'ancrages du tendon."];
                     for (var r = 0; r < lignes.Length; r++) aide.Cell(r + 1, 1).Value = lignes[r];
                     ws.Columns().AdjustToContents(); aide.Column(1).AdjustToContents();
@@ -104,7 +107,7 @@ public static class ImportTendons
             if (Numero(brut) is not { } num) { erreurs.Add($"{qui} : numéro absent ou invalide, attendu un numéro simple sans préfixe."); continue; }
             if (!vus.Add(num)) { erreurs.Add($"{qui} : numéro en double."); continue; }
             var sys = (l[1] ?? "").Trim().TrimStart('S', 's');
-            if (!int.TryParse(sys, out var torons) || torons is < 1 or > 99) { erreurs.Add($"{qui} : système « {l[1]} » inconnu, attendu S1, S4..."); continue; }
+            if (!int.TryParse(sys, out var torons) || !SystemesAncrage.Existe(torons)) { erreurs.Add($"{qui} : type d'ancrage « {l[1]} » inconnu, attendu {SystemesAncrage.Liste}."); continue; }
             if (Sens(l[2]) is not { } sens) { erreurs.Add($"{qui} : orientation « {l[2]} » inconnue, attendu x ou y."); continue; }
             if (Nombre(l[3]) is not { } longueur || longueur is <= 0 or > 500) { erreurs.Add($"{qui} : longueur « {l[3]} » invalide."); continue; }
             var ancrages = 2;

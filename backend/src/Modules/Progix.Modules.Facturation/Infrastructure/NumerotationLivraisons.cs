@@ -40,9 +40,17 @@ public partial class NumerotationLivraisons(FacturationDbContext db) : IReaffect
             x.ProjetCode = projet.Code;
             if (projet.Dalles.FirstOrDefault(v => v.Id == x.DalleId) is { } dalle) x.DalleReference = dalle.Reference;
         }
-        var idsFactures = factures.Select(f => f.Id).ToList();
-        var recus = await db.Encaissements.Where(x => x.NumeroRecu != null && idsFactures.Contains(x.FactureId)).OrderBy(x => x.DatePaiement).ThenBy(x => x.NumeroRecu).ToListAsync(ct);
-        foreach (var x in recus)
+        // Les paiements du projet suivent : entité, code du projet et références des dalles, puis numéro de reçu.
+        var paiements = await db.Encaissements.Where(x => x.ProjetId == projet.Id).OrderBy(x => x.DatePaiement).ThenBy(x => x.NumeroRecu).ToListAsync(ct);
+        foreach (var x in paiements)
+        {
+            x.Entite = projet.Entite;
+            x.ProjetCode = projet.Code;
+            x.Dalles = x.Dalles.Select(d => new Domain.PaiementDalle { DalleId = d.DalleId, Montant = d.Montant, Reference = projet.Dalles.FirstOrDefault(v => v.Id == d.DalleId)?.Reference ?? d.Reference }).ToList();
+        }
+        foreach (var f in factures)
+            f.Parts = f.Parts.Select(p => new Domain.PartFacture { DalleId = p.DalleId, MontantTTC = p.MontantTTC, Reference = projet.Dalles.FirstOrDefault(v => v.Id == p.DalleId)?.Reference ?? p.Reference }).ToList();
+        foreach (var x in paiements.Where(x => x.NumeroRecu != null))
         {
             var annee = x.DatePaiement.Year;
             x.AncienNumeroRecu = $"{x.NumeroRecu} ({ancienneEntite})";

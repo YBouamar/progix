@@ -34,7 +34,7 @@ export function UtilisateursParam() {
   const visibles = liste.filter((u) => inactifs || u.isActive);
 
   return (
-    <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
+    <div className="rounded-xl border border-bordure bg-white p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-[15px] font-bold">Utilisateurs</h2>

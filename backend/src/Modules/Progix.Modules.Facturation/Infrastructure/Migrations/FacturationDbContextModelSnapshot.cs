@@ -546,8 +546,21 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<string>("ClientAdresse")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<Guid>("ClientId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("ClientIdentifiants")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<string>("ClientNom")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -558,7 +571,12 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
                     b.Property<DateOnly?>("EcheanceEffet")
                         .HasColumnType("date");
 
-                    b.Property<Guid>("FactureId")
+                    b.Property<string>("Entite")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("character varying(10)");
+
+                    b.Property<Guid?>("FactureId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Jeton")
@@ -581,6 +599,19 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
                     b.Property<string>("NumeroRecu")
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
+
+                    b.Property<string>("ProjetCode")
+                        .IsRequired()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<Guid>("ProjetId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ProjetLibelle")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("Reference")
                         .HasMaxLength(100)
@@ -606,6 +637,8 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
 
                     b.HasIndex("Jeton")
                         .IsUnique();
+
+                    b.HasIndex("ProjetId");
 
                     b.HasIndex("ClientId", "DatePaiement");
 
@@ -1051,11 +1084,70 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
 
             modelBuilder.Entity("Progix.Modules.Facturation.Domain.Encaissement", b =>
                 {
-                    b.HasOne("Progix.Modules.Facturation.Domain.Facture", null)
-                        .WithMany("Encaissements")
-                        .HasForeignKey("FactureId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.OwnsMany("Progix.Modules.Facturation.Domain.PaiementDalle", "Dalles", b1 =>
+                        {
+                            b1.Property<Guid>("EncaissementId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid>("DalleId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("Montant")
+                                .HasColumnType("numeric");
+
+                            b1.Property<string>("Reference")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.HasKey("EncaissementId", "Id");
+
+                            b1.ToTable("encaissements", "facturation");
+
+                            b1.ToJson("Dalles");
+
+                            b1.WithOwner()
+                                .HasForeignKey("EncaissementId");
+                        });
+
+                    b.Navigation("Dalles");
+                });
+
+            modelBuilder.Entity("Progix.Modules.Facturation.Domain.Facture", b =>
+                {
+                    b.OwnsMany("Progix.Modules.Facturation.Domain.PartFacture", "Parts", b1 =>
+                        {
+                            b1.Property<Guid>("FactureId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            b1.Property<Guid>("DalleId")
+                                .HasColumnType("uuid");
+
+                            b1.Property<decimal>("MontantTTC")
+                                .HasColumnType("numeric");
+
+                            b1.Property<string>("Reference")
+                                .IsRequired()
+                                .HasColumnType("text");
+
+                            b1.HasKey("FactureId", "Id");
+
+                            b1.ToTable("factures", "facturation");
+
+                            b1.ToJson("Parts");
+
+                            b1.WithOwner()
+                                .HasForeignKey("FactureId");
+                        });
+
+                    b.Navigation("Parts");
                 });
 
             modelBuilder.Entity("Progix.Modules.Facturation.Domain.LigneFacture", b =>
@@ -1084,8 +1176,6 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
             modelBuilder.Entity("Progix.Modules.Facturation.Domain.Facture", b =>
                 {
                     b.Navigation("Avoirs");
-
-                    b.Navigation("Encaissements");
 
                     b.Navigation("Lignes");
                 });

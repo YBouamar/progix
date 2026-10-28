@@ -35,6 +35,7 @@ public class ProjetsModule : IModule
         AutoControleEndpoints.Map(app);
         PerformanceEndpoints.Map(app);
         RapportsEcrasementEndpoints.Map(app);
+        TypesConstructionEndpoints.Map(app);
     }
 
     public async Task InitializeAsync(IServiceProvider services, CancellationToken ct)
@@ -58,5 +59,24 @@ public class ProjetsModule : IModule
                 if (Domain.Accessoire.ParDefaut.FirstOrDefault(d => d.Libelle == a.Libelle) is { Unite: not null } d) a.Unite = d.Unite;
             await db.SaveChangesAsync(ct);
         }
+        // Niveaux des dalles créés au premier démarrage (ceux proposés jusqu'ici, plus ceux déjà portés par une dalle), paramétrables ensuite.
+        if (!await db.Niveaux.AnyAsync(ct))
+        {
+            var utilises = await db.Dalles.Select(d => d.Niveau).Distinct().ToListAsync(ct);
+            var valeurs = Enumerable.Range(Domain.NiveauDalle.DefautMin, Domain.NiveauDalle.DefautMax - Domain.NiveauDalle.DefautMin + 1).Union(utilises).Order().ToList();
+            db.Niveaux.AddRange(valeurs.Select((v, i) => new Domain.NiveauDalle { Valeur = v, Libelle = Domain.Dalle.NiveauParDefaut(v), Ordre = i }));
+            await db.SaveChangesAsync(ct);
+        }
+        Domain.NiveauxDalle.Charger(await db.Niveaux.AsNoTracking().ToListAsync(ct));
+        // Types de construction créés au premier démarrage (ceux proposés jusqu'ici, plus ceux déjà portés par un projet), paramétrables ensuite.
+        if (!await db.TypesConstruction.AnyAsync(ct))
+        {
+            var codes = Domain.TypeConstructionParam.ParDefaut.ToList();
+            foreach (var c in await db.Projets.Select(p => p.TypeConstruction).Distinct().ToListAsync(ct))
+                if (codes.All(x => x.Code != c)) codes.Add((c, c));
+            db.TypesConstruction.AddRange(codes.Select((t, i) => new Domain.TypeConstructionParam { Code = t.Code, Libelle = t.Libelle, Ordre = i }));
+            await db.SaveChangesAsync(ct);
+        }
+        Domain.TypesConstruction.Charger(await db.TypesConstruction.AsNoTracking().ToListAsync(ct));
     }
 }

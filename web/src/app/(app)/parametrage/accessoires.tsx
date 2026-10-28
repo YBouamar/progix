@@ -31,7 +31,7 @@ export function AccessoiresParam() {
   }
 
   return (
-    <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
+    <div className="rounded-xl border border-bordure bg-white p-6">
       <h2 className="text-[15px] font-bold">Commande usine : accessoires</h2>
       <p className="mt-1 text-[13px] text-secondaire">
         Ces accessoires sont proposés dans chaque commande usine. L&apos;utilisateur y saisit seulement les quantités, dans l&apos;unité indiquée ici.

@@ -52,9 +52,9 @@ public class VerificationFacturation(FacturationDbContext db) : IVerificationDoc
 
         if (await db.Encaissements.AsNoTracking().FirstOrDefaultAsync(x => x.Jeton == jeton, ct) is { } x)
         {
-            var fx = await db.Factures.AsNoTracking().FirstAsync(v => v.Id == x.FactureId, ct);
-            return new DocumentVerifie(x.Remboursement ? "Reçu de remboursement" : "Reçu de paiement", x.NumeroRecu ?? "", await Entite(fx.Entite),
-                [L("Client", fx.ClientNom), L(x.Remboursement ? "Facture concernée" : "Facture réglée", fx.Numero), L(x.Remboursement ? "Date du remboursement" : "Date du paiement", Date(x.DatePaiement)),
+            return new DocumentVerifie(x.Remboursement ? "Reçu de remboursement" : "Reçu de paiement", x.NumeroRecu ?? "", await Entite(x.Entite),
+                [L("Client", x.ClientNom), L("Projet", x.ProjetCode), L("Dalles", string.Join(", ", x.Dalles.Select(d => d.Reference))),
+                 L(x.Remboursement ? "Date du remboursement" : "Date du paiement", Date(x.DatePaiement)),
                  L("Mode", ModesPaiement.Libelles.GetValueOrDefault(x.Mode, x.Mode)), L(x.Remboursement ? "Montant remboursé au client" : "Montant reçu", DH(x.Montant))],
                 x.SaisiPar, x.SigneLe, x.Annule ? "Cette opération a été annulée après l'émission du reçu : le reçu n'a plus de valeur." : null);
         }

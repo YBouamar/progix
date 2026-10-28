@@ -36,7 +36,7 @@ export function ImportDevis({ devisId, onClose, onImporter }: { devisId: string;
 
   return (
     <Sheet open onOpenChange={(o) => !o && onClose()} title="Importer les dalles depuis Excel"
-      description="Une ligne par dalle, reconnue par sa référence. Les colonnes de systèmes sont reconnues par leur nom : S4 ancrages, S4 gaine.">
+      description="Une ligne par dalle, reconnue par sa référence. Les colonnes des types d'ancrage sont reconnues par leur nom : S4 ancrages, S4 gaine (S1, S2, S3, S4, S7, S9, S12, S15).">
       <div className="flex flex-wrap items-center gap-2">
         <a href={`/api/devis/${devisId}/import/modele`} className="inline-flex items-center gap-2 rounded-lg border border-bordure-forte bg-white px-3.5 py-2 text-[13px] font-semibold hover:bg-fond"><FileDown size={15} />Télécharger le modèle Excel</a>
         <input ref={champ} type="file" accept=".xlsx" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) lire(f); e.target.value = ""; }} />

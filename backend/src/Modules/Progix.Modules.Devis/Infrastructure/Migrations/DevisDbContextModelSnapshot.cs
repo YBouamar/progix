@@ -91,6 +91,13 @@ namespace Progix.Modules.Devis.Infrastructure.Migrations
                         .HasPrecision(14, 2)
                         .HasColumnType("numeric(14,2)");
 
+                    b.Property<Guid?>("IngenieurId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("IngenieurNom")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<string>("Jeton")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -401,7 +408,34 @@ namespace Progix.Modules.Devis.Infrastructure.Migrations
                                 .HasForeignKey("ParametresDevisId");
                         });
 
+                    b.OwnsMany("Progix.Modules.Devis.Domain.TrancheForfait", "Forfaits", b1 =>
+                        {
+                            b1.Property<int>("ParametresDevisId")
+                                .HasColumnType("integer");
+
+                            b1.Property<int>("Id")
+                                .ValueGeneratedOnAdd()
+                                .HasColumnType("integer");
+
+                            b1.Property<decimal>("APartirDe")
+                                .HasColumnType("numeric");
+
+                            b1.Property<decimal>("Prix")
+                                .HasColumnType("numeric");
+
+                            b1.HasKey("ParametresDevisId", "Id");
+
+                            b1.ToTable("parametres", "devis");
+
+                            b1.ToJson("Forfaits");
+
+                            b1.WithOwner()
+                                .HasForeignKey("ParametresDevisId");
+                        });
+
                     b.Navigation("Echeances");
+
+                    b.Navigation("Forfaits");
                 });
 
             modelBuilder.Entity("Progix.Modules.Devis.Domain.DevisEntete", b =>

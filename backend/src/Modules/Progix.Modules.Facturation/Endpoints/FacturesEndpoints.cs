@@ -34,7 +34,7 @@ public static class FacturesEndpoints
         {
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
-            var query = db.Factures.AsNoTracking().Include(f => f.Encaissements).Include(f => f.Avoirs).AsQueryable();
+            var query = db.Factures.AsNoTracking().Include(f => f.Avoirs).AsQueryable();
             if (projetId is Guid pid) query = query.Where(f => f.ProjetId == pid);
             if (annee is int a) query = query.Where(f => f.DateFacture >= new DateOnly(a, 1, 1) && f.DateFacture <= new DateOnly(a, 12, 31));
             if (!string.IsNullOrWhiteSpace(q))
@@ -44,6 +44,7 @@ public static class FacturesEndpoints
                     || EF.Functions.ILike(f.ProjetCode, like) || EF.Functions.ILike(f.ClientNom, like));
             }
             var toutes = await query.OrderByDescending(f => f.DateFacture).ThenByDescending(f => f.Numero).ToListAsync();
+            await db.ImputerAsync(toutes);
             var filtrees = string.IsNullOrEmpty(statut) ? toutes : toutes.Where(f => Statut(f) == statut).ToList();
             return Results.Ok(new
             {
@@ -60,22 +61,26 @@ public static class FacturesEndpoints
 
         g.MapGet("/{id:guid}", async (Guid id, FacturationDbContext db) =>
         {
-            var f = await db.Factures.AsNoTracking().Include(x => x.Lignes).Include(x => x.Encaissements).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
-            return f is null ? Results.NotFound() : Results.Ok(Dto(f, true));
+            var f = await db.Factures.AsNoTracking().Include(x => x.Lignes).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
+            if (f is null) return Results.NotFound();
+            await db.ImputerAsync([f]);
+            return Results.Ok(Dto(f, true, await PaiementsDe(db, f)));
         });
 
         // Situation financière du projet. Reste dû = commandé (devis validés, TTC) moins avoirs moins encaissé.
-        // Le reste par facture (facturé moins avoirs moins encaissé) reste affiché à côté, comme le reste à facturer.
+        // Le reste par facture (facturé moins avoirs moins réglé par imputation) reste affiché à côté, comme le reste à facturer.
         g.MapGet("/situation", async (Guid projetId, FacturationDbContext db, IDevisLookup devis) =>
         {
             var commande = (await devis.ValidesAsync(projetId)).Sum(d => d.TotalTTC);
-            var factures = await db.Factures.AsNoTracking().Include(f => f.Encaissements).Include(f => f.Avoirs).Where(f => f.ProjetId == projetId).ToListAsync();
+            var factures = await db.Factures.AsNoTracking().Include(f => f.Avoirs).Where(f => f.ProjetId == projetId).ToListAsync();
+            var encaissements = await db.Encaissements.AsNoTracking().Where(e => e.ProjetId == projetId && !e.Annule).ToListAsync();
+            Imputation.Imputer(factures, encaissements, Aujourdhui);
             var facture = factures.Sum(f => f.TotalTTC);
             var avoirs = factures.Sum(f => f.Avoirs_TTC);
-            var encaisse = factures.Sum(f => f.Regle);
+            var encaisse = encaissements.Where(e => !e.EnAttente(Aujourdhui)).Sum(e => e.Remboursement ? -e.Montant : e.Montant);
             return Results.Ok(new
             {
-                commande, facture, avoirs, encaisse, effetsEnAttente = factures.Sum(f => f.EffetsEnAttente),
+                commande, facture, avoirs, encaisse, effetsEnAttente = encaissements.Where(e => e.EnAttente(Aujourdhui)).Sum(e => e.Montant),
                 resteDu = commande - avoirs - encaisse,
                 resteAFacturer = Math.Max(0, commande - facture),
                 resteSurFactures = factures.Where(f => !f.Annulee).Sum(f => Math.Max(0, f.Reste)),
@@ -126,36 +131,11 @@ public static class FacturesEndpoints
             };
             var bons = new List<BonLivraison>();
 
+            // Une facture se crée uniquement à partir de bons de livraison : plus de facture d'acompte.
+            // Les acomptes déjà facturés restent déduits au prorata des factures de livraison (Chiffrer).
             if (input.Type == TypesFacture.Acompte)
-            {
-                var d = ctx.Devis.FirstOrDefault(x => x.Id == input.DevisId) ?? (ctx.Devis.Count == 1 ? ctx.Devis[0] : null);
-                if (d is null) return Conflit("Choisissez le devis validé sur lequel porte l'acompte.");
-                // L'acompte se saisit en montant TTC ; son taux sur le devis en découle.
-                if (d.NetHT <= 0) return Conflit("Le devis choisi n'a pas de montant.");
-                decimal ht, pct;
-                if (input.AcompteTTC is { } ttc)
-                {
-                    if (ttc <= 0) return Conflit("Saisissez le montant TTC de l'acompte.");
-                    ht = Math.Round(ttc / (1 + f.TauxTva / 100m), 2);
-                    pct = Math.Round(ht / d.NetHT * 100m, 6);
-                }
-                else
-                {
-                    if (input.AcomptePct is not > 0) return Conflit("Saisissez le montant TTC de l'acompte.");
-                    pct = input.AcomptePct.Value; ht = Math.Round(d.NetHT * pct / 100m, 2);
-                }
-                var deja = ctx.AcomptePct(d.Id);
-                if (deja + pct > 100.000001m)
-                {
-                    var max = Math.Round(Math.Round(d.NetHT * (100 - deja) / 100m, 2) * (1 + f.TauxTva / 100m), 2);
-                    return Conflit(deja >= 100 ? "Ce devis est déjà facturé en acompte à 100 %." : $"L'acompte dépasse ce qui reste à facturer sur ce devis : {max.ToString("N2", new System.Globalization.CultureInfo("fr-FR"))} DH TTC au plus ({deja.ToString("0.##", new System.Globalization.CultureInfo("fr-FR"))} % déjà facturés).");
-                }
-                pct = Math.Min(pct, 100 - deja);
-                f.DevisId = d.Id; f.DevisNumero = d.Numero; f.AcomptePct = pct; f.Origine = "Acompte";
-                f.TotalHT = ht;
-                f.Lignes.Add(new LigneFacture { Libelle = $"Acompte de {pct:0.##} % sur le devis {d.Numero}", MontantHT = f.TotalHT });
-            }
-            else if (input.Type == TypesFacture.Livraison)
+                return Conflit("Une facture s'établit uniquement à partir d'un bon de livraison. Le paiement à la signature se saisit dans les paiements du projet, sur les dalles.");
+            if (input.Type == TypesFacture.Livraison)
             {
                 var ids = (input.BonIds ?? []).Distinct().ToList();
                 if (ids.Count == 0) return Conflit("Sélectionnez au moins un bon de livraison.");
@@ -178,6 +158,7 @@ public static class FacturesEndpoints
             f.NetHT = f.TotalHT - f.AcompteDeduit;
             f.Tva = Math.Round(f.NetHT * f.TauxTva / 100m, 2);
             f.TotalTTC = f.NetHT + f.Tva;
+            f.Parts = Imputation.PartsLivraison(f);
 
             // Une facture à régler en espèces respecte le plafond par client et par mois civil, toutes entités confondues.
             if (f.ModeReglement == ModesPaiement.Especes)
@@ -244,7 +225,15 @@ public static class FacturesEndpoints
 
     internal static DateOnly Jour => Aujourdhui;
 
-    internal static object Dto(Facture f, bool detail) => new
+    /// <summary>Paiements reçus sur les dalles d'une facture (ou, avant le suivi par dalle, sur la facture elle-même).</summary>
+    internal static async Task<List<Encaissement>> PaiementsDe(FacturationDbContext db, Facture f)
+    {
+        var dalles = f.Parts.Select(p => p.DalleId).ToHashSet();
+        var tous = await db.Encaissements.AsNoTracking().Where(e => e.ProjetId == f.ProjetId || e.FactureId == f.Id).ToListAsync();
+        return tous.Where(e => e.FactureId == f.Id || e.Dalles.Any(d => dalles.Contains(d.DalleId))).ToList();
+    }
+
+    internal static object Dto(Facture f, bool detail, IEnumerable<Encaissement>? paiements = null) => new
     {
         id = f.Id, numero = f.Numero, ancienNumero = f.AncienNumero, entite = f.Entite, type = f.Type, projetId = f.ProjetId, projetCode = f.ProjetCode, projet = f.ProjetLibelle,
         client = f.ClientNom, clientIdentifiants = f.ClientIdentifiants, clientAdresse = f.ClientAdresse,
@@ -252,10 +241,11 @@ public static class FacturesEndpoints
         totalHT = f.TotalHT, acompteDeduit = f.AcompteDeduit, netHT = f.NetHT, tauxTva = f.TauxTva, tva = f.Tva, totalTTC = f.TotalTTC,
         avoirsTTC = f.Avoirs_TTC, du = f.Du, regle = f.Regle, reste = f.Reste, effetsEnAttente = f.EffetsEnAttente, aCouvrir = f.ACouvrir, statut = Statut(f), statutLabel = Statuts[Statut(f)], signePar = f.SignePar, signeLe = f.SigneLe, emisPar = f.EmisPar, emisLe = f.CreatedAt,
         lignes = detail ? f.Lignes.OrderBy(l => l.Ordre).Select(l => new { libelle = l.Libelle, surface = l.Surface, prixM2 = l.PrixM2, montantHT = l.MontantHT }) : null,
-        encaissements = detail ? f.Encaissements.OrderBy(e => e.DatePaiement).ThenBy(e => e.CreatedAt).Select(e => new
+        encaissements = detail ? (paiements ?? []).OrderBy(e => e.DatePaiement).ThenBy(e => e.CreatedAt).Select(e => new
         {
             id = e.Id, datePaiement = e.DatePaiement, mode = e.Mode, modeLabel = ModesPaiement.Libelles.GetValueOrDefault(e.Mode, e.Mode), montant = e.Montant,
             reference = e.Reference, banque = e.Banque, numeroRecu = e.NumeroRecu, echeanceEffet = e.EcheanceEffet, enAttente = e.EnAttente(Aujourdhui), remboursement = e.Remboursement, saisiPar = e.SaisiPar, annule = e.Annule, motifAnnulation = e.MotifAnnulation, annulePar = e.AnnulePar,
+            dalles = e.Dalles.Select(x => new { reference = x.Reference, montant = x.Montant }),
         }) : null,
         avoirs = detail ? f.Avoirs.OrderBy(a => a.DateAvoir).ThenBy(a => a.Numero).Select(a => new
         {

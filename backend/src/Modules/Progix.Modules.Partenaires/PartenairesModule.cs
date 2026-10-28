@@ -17,7 +17,11 @@ public class PartenairesModule : IModule
             configuration.GetConnectionString("Postgres"),
             npgsql => npgsql.MigrationsHistoryTable("__ef_migrations", PartenairesDbContext.Schema)));
 
-    public void MapEndpoints(IEndpointRouteBuilder app) => PartenairesEndpoints.Map(app);
+    public void MapEndpoints(IEndpointRouteBuilder app)
+    {
+        PartenairesEndpoints.Map(app);
+        ImportPartenaires.Map(app);
+    }
 
     public async Task InitializeAsync(IServiceProvider services, CancellationToken ct)
     {

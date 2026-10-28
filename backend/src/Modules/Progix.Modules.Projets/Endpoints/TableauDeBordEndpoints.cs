@@ -54,9 +54,10 @@ public static class TableauDeBordEndpoints
             string perimetre;
             if (user.IsInRole(Roles.AgentCommercial))
             {
+                // Projets dont il est le commercial, plus ceux qu'un ancien devis lui attribue.
                 var ids = await devis.ProjetsDuCommercialAsync(moi);
-                projets = await actifs.Where(p => ids.Contains(p.Id)).ToListAsync();
-                perimetre = "Projets dont un devis vous désigne comme commercial";
+                projets = await actifs.Where(p => p.CommercialId == moi || ids.Contains(p.Id)).ToListAsync();
+                perimetre = "Projets dont vous êtes le commercial";
             }
             else if (user.IsInRole(Roles.Ingenieur) || user.IsInRole(Roles.ChefChantier))
             {

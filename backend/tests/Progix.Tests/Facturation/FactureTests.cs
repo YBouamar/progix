@@ -10,15 +10,19 @@ public class FactureTests
     private static readonly DateOnly Jour = DateOnly.FromDateTime(DateTime.UtcNow);
 
     private static Facture Facture(decimal ttc = 1200, int echeanceDansJours = 30) =>
-        new() { TotalTTC = ttc, DateFacture = Jour.AddDays(-10), Echeance = Jour.AddDays(echeanceDansJours) };
+        new() { Id = Guid.NewGuid(), TotalTTC = ttc, DateFacture = Jour.AddDays(-10), Echeance = Jour.AddDays(echeanceDansJours) };
 
-    private static Encaissement Paiement(decimal montant, string mode = ModesPaiement.Virement, DateOnly? echeanceEffet = null, bool annule = false, bool remboursement = false) =>
-        new() { Montant = montant, Mode = mode, DatePaiement = Jour.AddDays(-1), EcheanceEffet = echeanceEffet, Annule = annule, Remboursement = remboursement };
+    // Règlement d'avant le suivi par dalle : rattaché à la facture, sans ventilation.
+    private static Encaissement Paiement(Facture f, decimal montant, string mode = ModesPaiement.Virement, DateOnly? echeanceEffet = null, bool annule = false, bool remboursement = false) =>
+        new() { FactureId = f.Id, Montant = montant, Mode = mode, DatePaiement = Jour.AddDays(-1), EcheanceEffet = echeanceEffet, Annule = annule, Remboursement = remboursement };
+
+    private static void Imputer(Facture f, params Encaissement[] e) => Imputation.Imputer([f], e, Jour);
 
     [Fact]
     public void Facture_sans_reglement_impayee()
     {
         var f = Facture();
+        Imputer(f);
         Assert.Equal(1200, f.Reste);
         Assert.Equal("impayee", FacturesEndpoints.Statut(f));
     }
@@ -27,7 +31,7 @@ public class FactureTests
     public void Reglement_partiel_et_annulation()
     {
         var f = Facture();
-        f.Encaissements = [Paiement(500), Paiement(100, annule: true)];
+        Imputer(f, Paiement(f, 500), Paiement(f, 100, annule: true));
         Assert.Equal(500, f.Regle);
         Assert.Equal(700, f.Reste);
         Assert.Equal("partielle", FacturesEndpoints.Statut(f));
@@ -37,7 +41,7 @@ public class FactureTests
     public void Effet_compte_seulement_a_son_echeance()
     {
         var f = Facture();
-        f.Encaissements = [Paiement(300, ModesPaiement.Effet, Jour.AddDays(15)), Paiement(200, ModesPaiement.Effet, Jour.AddDays(-1))];
+        Imputer(f, Paiement(f, 300, ModesPaiement.Effet, Jour.AddDays(15)), Paiement(f, 200, ModesPaiement.Effet, Jour.AddDays(-1)));
         Assert.Equal(200, f.Regle);
         Assert.Equal(300, f.EffetsEnAttente);
         Assert.Equal(1000, f.Reste);
@@ -66,16 +70,21 @@ public class FactureTests
     public void Trop_percu_puis_remboursement()
     {
         var f = Facture();
-        f.Encaissements = [Paiement(1200)];
         f.Avoirs = [new Avoir { TotalTTC = 200 }];
+        Imputer(f, Paiement(f, 1200));
         Assert.Equal(-200, f.Reste);
         Assert.Equal("payee", FacturesEndpoints.Statut(f));
-        f.Encaissements.Add(Paiement(200, remboursement: true));
+        Imputer(f, Paiement(f, 1200), Paiement(f, 200, remboursement: true));
         Assert.Equal(0, f.Reste);
     }
 
     [Fact]
-    public void Facture_echue_en_retard() => Assert.Equal("retard", FacturesEndpoints.Statut(Facture(echeanceDansJours: -1)));
+    public void Facture_echue_en_retard()
+    {
+        var f = Facture(echeanceDansJours: -1);
+        Imputer(f);
+        Assert.Equal("retard", FacturesEndpoints.Statut(f));
+    }
 
     [Fact]
     public void Constantes_legales()

@@ -116,10 +116,10 @@ public static class TresorerieEndpoints
     internal static async Task<(List<Mouvement> Tous, List<EffetAEchoir> AEchoir)> Mouvements(FacturationDbContext db, DateOnly avant, DateOnly fin, string? entite)
     {
         var jour = DateOnly.FromDateTime(DateTime.UtcNow);
-        var enc = await (from e in db.Encaissements.AsNoTracking() join f in db.Factures.AsNoTracking() on e.FactureId equals f.Id
-                         where !e.Annule && (string.IsNullOrEmpty(entite) || f.Entite == entite)
-                           && ((e.Mode == ModesPaiement.Effet && !e.Remboursement) ? (e.EcheanceEffet >= avant) : (e.DatePaiement >= avant && e.DatePaiement < fin))
-                         select new { e, f.Numero, f.ClientNom, f.ProjetCode, f.Entite }).ToListAsync();
+        var enc = (await db.Encaissements.AsNoTracking()
+            .Where(e => !e.Annule && (string.IsNullOrEmpty(entite) || e.Entite == entite)
+                && ((e.Mode == ModesPaiement.Effet && !e.Remboursement) ? (e.EcheanceEffet >= avant) : (e.DatePaiement >= avant && e.DatePaiement < fin)))
+            .ToListAsync()).Select(e => new { e, Numero = e.NumeroRecu ?? "", e.ClientNom, e.ProjetCode, e.Entite }).ToList();
         var dep = await db.Depenses.AsNoTracking().Where(x => !x.Annule && x.DateDepense >= avant && x.DateDepense < fin && (string.IsNullOrEmpty(entite) || x.Entite == entite)).ToListAsync();
 
         var tous = new List<Mouvement>();

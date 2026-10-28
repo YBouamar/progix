@@ -31,27 +31,30 @@ public static class PdfEndpoints
             return Results.File(DocumentsPdf.Facture(f, e, livraisons, Lien(config, f.Jeton)), "application/pdf", $"{f.Numero}.pdf");
         });
 
-        g.MapGet("/encaissements/{id:guid}/recu", async (Guid id, FacturationDbContext db, IConfiguration config) =>
+        // Reçu de paiement ou de remboursement : imprimable par les rôles qui voient les chiffres financiers.
+        app.MapGet("/api/encaissements/{id:guid}/recu", async (Guid id, FacturationDbContext db, IConfiguration config) =>
         {
             var x = await db.Encaissements.AsNoTracking().FirstOrDefaultAsync(v => v.Id == id);
             if (x is null) return Results.NotFound();
             if (x.NumeroRecu is null || x.Jeton is null) return Results.Conflict(new { message = "Ce règlement n'a pas de reçu signé." });
-            var f = await db.Factures.AsNoTracking().Include(v => v.Encaissements).Include(v => v.Avoirs).FirstAsync(v => v.Id == x.FactureId);
-            var e = await db.Entites.AsNoTracking().FirstOrDefaultAsync(v => v.Code == f.Entite);
+            var e = await db.Entites.AsNoTracking().FirstOrDefaultAsync(v => v.Code == x.Entite);
             if (e is null) return Results.Conflict(new { message = "L'entité émettrice n'est pas paramétrée." });
-            return Results.File(DocumentsPdf.Recu(x, f, e, Lien(config, x.Jeton)), "application/pdf", $"{x.NumeroRecu}.pdf");
-        });
+            // Règlement d'avant le suivi par dalle : le reçu rappelle la facture réglée.
+            var facture = x.FactureId is Guid fid ? await db.Factures.AsNoTracking().FirstOrDefaultAsync(v => v.Id == fid) : null;
+            return Results.File(DocumentsPdf.Recu(x, facture, e, Lien(config, x.Jeton)), "application/pdf", $"{x.NumeroRecu}.pdf");
+        }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
 
         // Signature électronique : le mot de passe de la personne connectée, exigé avant toute impression ou tout envoi.
         g.MapPost("/factures/{id:guid}/signer", async (Guid id, SignatureInput input, FacturationDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
         {
-            var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Encaissements).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
+            var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
             if (f is null) return Results.NotFound();
             if (f.Jeton is not null) return Results.Conflict(new { message = "Cette facture est déjà signée." });
             if (!await MotDePasseValide(users, user, input)) return MauvaisMotDePasse();
             f.SignePar = user.UserName(); f.SigneLe = DateTime.UtcNow; f.Jeton = NouveauJeton();
             await db.SaveChangesAsync();
-            return Results.Ok(FacturesEndpoints.Dto(f, true));
+            await db.ImputerAsync([f]);
+            return Results.Ok(FacturesEndpoints.Dto(f, true, await FacturesEndpoints.PaiementsDe(db, f)));
         });
 
         g.MapPost("/avoirs/{id:guid}/signer", async (Guid id, SignatureInput input, FacturationDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
@@ -62,8 +65,9 @@ public static class PdfEndpoints
             if (!await MotDePasseValide(users, user, input)) return MauvaisMotDePasse();
             a.SignePar = user.UserName(); a.SigneLe = DateTime.UtcNow; a.Jeton = NouveauJeton();
             await db.SaveChangesAsync();
-            var f = await db.Factures.AsNoTracking().Include(x => x.Lignes).Include(x => x.Encaissements).Include(x => x.Avoirs).FirstAsync(x => x.Id == a.FactureId);
-            return Results.Ok(FacturesEndpoints.Dto(f, true));
+            var f = await db.Factures.AsNoTracking().Include(x => x.Lignes).Include(x => x.Avoirs).FirstAsync(x => x.Id == a.FactureId);
+            await db.ImputerAsync([f]);
+            return Results.Ok(FacturesEndpoints.Dto(f, true, await FacturesEndpoints.PaiementsDe(db, f)));
         });
 
         g.MapPost("/livraisons/{id:guid}/signer", async (Guid id, SignatureInput input, FacturationDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
@@ -89,17 +93,18 @@ public static class PdfEndpoints
             return Results.File(DocumentsPdf.Livraison(b, p, client, e, Lien(config, b.Jeton)), "application/pdf", $"{b.Numero}.pdf");
         });
 
-        // Le PDF d'un devis est ouvert aux rôles qui voient les devis.
+        // Le PDF d'un devis est ouvert aux rôles qui voient les devis. Un brouillon s'imprime aussi, comme document de travail non signé,
+        // pour relecture avant l'envoi ; un devis envoyé, lui, doit être signé avant d'être imprimé.
         app.MapGet("/api/devis/{id:guid}/pdf", async (Guid id, FacturationDbContext db, IDevisDocuments devis, IProjetsLookup projets, IPartenairesLookup partenaires, IConfiguration config) =>
         {
             var d = await devis.DocumentAsync(id);
             if (d is null) return Results.NotFound();
-            if (d.Jeton is null) return NonSigne();
+            if (d.Jeton is null && d.Etat != "brouillon") return NonSigne();
             var e = await db.Entites.AsNoTracking().FirstOrDefaultAsync(x => x.Code == d.Entite);
             var p = await projets.ProjetAsync(d.ProjetId);
             var client = p is null ? null : await partenaires.LegalAsync(p.ClientId);
             if (e is null || p is null || client is null) return Results.Conflict(new { message = "Projet, client ou entité introuvable pour ce devis." });
-            return Results.File(DocumentsPdf.Devis(d, p, client, e, Lien(config, d.Jeton)), "application/pdf", $"{d.Numero}-v{d.Version}.pdf");
+            return Results.File(DocumentsPdf.Devis(d, p, client, e, d.Jeton is null ? "" : Lien(config, d.Jeton)), "application/pdf", d.Jeton is null ? $"{d.Numero}-v{d.Version}-brouillon.pdf" : $"{d.Numero}-v{d.Version}.pdf");
         }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
 
         // Vérification publique d'un document signé, atteinte par son QR code : aucun compte n'est nécessaire, seul le jeton du document donne accès.

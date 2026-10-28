@@ -16,11 +16,13 @@ public static class ProjetsEndpoints
     {
         var g = app.MapGroup("/api/projets").WithTags("Projets").RequireAuthorization();
 
-        g.MapGet("/referentiel", () => Results.Ok(new
+        g.MapGet("/referentiel", async (ProjetsDbContext db, IUtilisateursLookup users) => Results.Ok(new
         {
             entites = Entites.Labels.Select(e => new { code = e.Key, label = e.Value }),
-            types = TypesConstruction.All.Select(t => new { code = t.Code, label = t.Label, forfait = t.Forfait }),
+            // Types proposés, dans l'ordre du Paramétrage ; un type désactivé reste affiché sur les projets qui le portent.
+            types = (await db.TypesConstruction.AsNoTracking().OrderBy(t => t.Ordre).ToListAsync()).Select(t => new { code = t.Code, label = t.Libelle, actif = t.Actif }),
             statuts = StatutsProjet.Labels.Select(s => new { code = s.Key, label = s.Value }),
+            commerciaux = (await users.ParRolesAsync(RolesCommerciaux)).Select(u => new { id = u.Id, nom = u.Nom }),
         }));
 
         g.MapGet("/", async (ProjetsDbContext db, IPartenairesLookup partenaires, string? statut, string? entite,
@@ -54,7 +56,7 @@ public static class ProjetsEndpoints
                     .Where(a => idsPage.Contains(a.ProjetId) && a.Fonction == Fonctions.Ingenieur && a.Fin == null).ToListAsync())
                 .GroupBy(a => a.ProjetId).ToDictionary(x => x.Key, x => string.Join(", ", x.Select(a => a.UserNom)));
             var items = rows.Select(p => new ProjetListItem(p.Id, p.Code, p.Libelle, noms.GetValueOrDefault(p.ClientId, ""), p.Ville, p.DateCreation,
-                p.Entite, p.TypeConstruction, TypesConstruction.Find(p.TypeConstruction)?.Label ?? p.TypeConstruction,
+                p.Entite, p.TypeConstruction, TypesConstruction.Libelle(p.TypeConstruction),
                 p.Statut, StatutsProjet.Labels.GetValueOrDefault(p.Statut, p.Statut), p.Bloque, p.Supprime,
                 p.Supprime ? $"Supprimé le {p.SuppressionLe:dd/MM/yyyy} par {p.SuppressionPar}. Motif : {p.SuppressionMotif}" : null,
                 dalles.GetValueOrDefault(p.Id)?.Nb ?? 0, dalles.GetValueOrDefault(p.Id)?.Surface ?? 0,
@@ -87,9 +89,10 @@ public static class ProjetsEndpoints
             return p is null ? Results.NotFound() : Results.Ok(await ToDetail(p, partenaires));
         });
 
-        g.MapPost("/", async (ProjetInput input, ProjetsDbContext db, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
+        g.MapPost("/", async (ProjetInput input, ProjetsDbContext db, IPartenairesLookup partenaires, IUtilisateursLookup users, ClaimsPrincipal user) =>
         {
-            var erreurs = await Valider(input, partenaires);
+            var erreurs = await Valider(input, partenaires, db, null);
+            var commercial = await Commercial(input, users, erreurs, null);
             if (erreurs.Count > 0) return Results.ValidationProblem(erreurs);
 
             await using var tx = await db.Database.BeginTransactionAsync();
@@ -97,24 +100,25 @@ public static class ProjetsEndpoints
             var annee = date.Year;
             var numero = await db.NumeroSuivantAsync($"projet:{input.Entite}:{annee}");
             var p = new Projet { Code = $"{input.Entite}-{annee}-{numero:00000}", Entite = input.Entite, DateCreation = date, CreePar = user.UserName() };
-            Appliquer(p, input);
+            Appliquer(p, input, commercial);
             db.Projets.Add(p);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
             return Results.Created($"/api/projets/{p.Id}", await ToDetail(p, partenaires));
         }).RequireAuthorization(Policies.Commercial);
 
-        g.MapPut("/{id:guid}", async (Guid id, ProjetInput input, ProjetsDbContext db, IPartenairesLookup partenaires) =>
+        g.MapPut("/{id:guid}", async (Guid id, ProjetInput input, ProjetsDbContext db, IPartenairesLookup partenaires, IUtilisateursLookup users) =>
         {
             var p = await db.Projets.FirstOrDefaultAsync(x => x.Id == id);
             if (p is null) return Results.NotFound();
             if (p.Supprime) return Conflit("Un projet supprimé est en lecture seule.");
-            var erreurs = await Valider(input, partenaires);
+            var erreurs = await Valider(input, partenaires, db, p.TypeConstruction);
+            var commercial = await Commercial(input, users, erreurs, p);
             // Le code porte l'entité : elle ne change plus après la création.
             if (input.DateCreation is DateOnly d && d != p.DateCreation) erreurs["dateCreation"] = ["La date de création ne peut plus être modifiée."];
             if (input.Entite != p.Entite) erreurs["entite"] = ["L'entité émettrice ne peut plus être modifiée."];
             if (erreurs.Count > 0) return Results.ValidationProblem(erreurs);
-            Appliquer(p, input);
+            Appliquer(p, input, commercial);
             p.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(await ToDetail(p, partenaires));
@@ -201,12 +205,26 @@ public static class ProjetsEndpoints
     private static IResult MotifRequis() =>
         Results.ValidationProblem(new Dictionary<string, string[]> { ["motif"] = ["Le motif est obligatoire."] });
 
-    private static async Task<Dictionary<string, string[]>> Valider(ProjetInput i, IPartenairesLookup partenaires)
+    /// <summary>Agents commerciaux proposés comme commercial du projet.</summary>
+    private static readonly string[] RolesCommerciaux = [Roles.AgentCommercial];
+
+    /// <summary>Commercial choisi, vérifié parmi les agents commerciaux actifs ; null si aucun n'est choisi. Un commercial inchangé reste accepté, même devenu inactif.</summary>
+    private static async Task<UtilisateurFiche?> Commercial(ProjetInput i, IUtilisateursLookup users, Dictionary<string, string[]> erreurs, Projet? actuel)
+    {
+        if (i.CommercialId is not Guid cid) return null;
+        if (actuel?.CommercialId == cid) return new UtilisateurFiche(cid, actuel.CommercialNom ?? "", Roles.AgentCommercial);
+        var c = (await users.ParRolesAsync(RolesCommerciaux)).FirstOrDefault(u => u.Id == cid);
+        if (c is null) erreurs["commercialId"] = ["Commercial introuvable ou inactif."];
+        return c;
+    }
+
+    /// <param name="typeActuel">Type déjà porté par le projet : il reste accepté même s'il n'est plus proposé.</param>
+    private static async Task<Dictionary<string, string[]>> Valider(ProjetInput i, IPartenairesLookup partenaires, ProjetsDbContext db, string? typeActuel)
     {
         var e = new Dictionary<string, string[]>();
         if (string.IsNullOrWhiteSpace(i.Libelle)) e["libelle"] = ["Le libellé est obligatoire."];
         if (!Entites.Labels.ContainsKey(i.Entite)) e["entite"] = ["Entité inconnue."];
-        if (TypesConstruction.Find(i.TypeConstruction) is null) e["typeConstruction"] = ["Type de construction inconnu."];
+        if (i.TypeConstruction != typeActuel && !await db.TypesConstruction.AnyAsync(t => t.Code == i.TypeConstruction && t.Actif)) e["typeConstruction"] = ["Type de construction inconnu ou plus proposé."];
         if (i.DateCreation is DateOnly dc && dc > DateOnly.FromDateTime(DateTime.UtcNow.AddDays(1))) e["dateCreation"] = ["La date de création ne peut pas être dans le futur."];
         var ids = new List<Guid> { i.ClientId };
         if (i.ProprietaireId is Guid pid) ids.Add(pid);
@@ -216,8 +234,11 @@ public static class ProjetsEndpoints
         return e;
     }
 
-    private static void Appliquer(Projet p, ProjetInput i)
+    private static void Appliquer(Projet p, ProjetInput i, UtilisateurFiche? commercial)
     {
+        p.CommercialId = commercial?.Id;
+        p.CommercialNom = commercial?.Nom;
+        p.CommercialRepris = true;
         p.Libelle = i.Libelle.Trim();
         p.ClientId = i.ClientId;
         p.ProprietaireId = i.ProprietaireId;
@@ -233,12 +254,12 @@ public static class ProjetsEndpoints
         var ids = new List<Guid> { p.ClientId };
         if (p.ProprietaireId is Guid pid) ids.Add(pid);
         var noms = await partenaires.NomsAsync(ids);
-        var type = TypesConstruction.Find(p.TypeConstruction);
+
         var proprietaire = p.ProprietaireId is Guid id2 ? noms.GetValueOrDefault(id2, "") : p.ProprietaireLibre ?? "";
         return new ProjetDetail(p.Id, p.Code, p.Libelle, p.Entite, Entites.Labels.GetValueOrDefault(p.Entite, p.Entite),
             p.ClientId, noms.GetValueOrDefault(p.ClientId, ""), p.ProprietaireId, p.ProprietaireLibre, proprietaire,
             p.Adresse, p.Ville, p.DateCreation,
-            p.TypeConstruction, type?.Label ?? p.TypeConstruction, type?.Forfait ?? "", p.Description,
+            p.TypeConstruction, TypesConstruction.Libelle(p.TypeConstruction), p.CommercialId, p.CommercialNom, p.Description,
             p.Statut, StatutsProjet.Labels.GetValueOrDefault(p.Statut, p.Statut),
             p.Bloque, p.BlocageMotif, p.BlocagePar, p.BlocageLe,
             p.Supprime, p.SuppressionMotif, p.SuppressionPar, p.SuppressionLe, p.CreePar, p.CreatedAt);

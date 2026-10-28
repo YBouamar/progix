@@ -3,13 +3,14 @@ using Progix.SharedKernel;
 
 namespace Progix.Modules.Facturation.Infrastructure;
 
-/// <summary>Reste dû sur les factures d'un projet, effets non échus compris.</summary>
+/// <summary>Reste dû sur les factures d'un projet (paiements des dalles imputés), effets non échus compris.</summary>
 public class EncoursFacturation(FacturationDbContext db) : IEncoursProjet
 {
     public async Task<EncoursProjet> EncoursAsync(Guid projetId, CancellationToken ct = default)
     {
-        var factures = await db.Factures.AsNoTracking().Include(f => f.Encaissements).Include(f => f.Avoirs)
+        var factures = await db.Factures.AsNoTracking().Include(f => f.Avoirs)
             .Where(f => f.ProjetId == projetId).ToListAsync(ct);
+        await db.ImputerAsync(factures, ct);
         var dues = factures.Where(f => !f.Annulee && f.Reste > 0).ToList();
         var jour = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(1));
         var echues = dues.Where(f => f.Echeance < jour).ToList();

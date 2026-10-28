@@ -20,6 +20,7 @@ import { CourriersProjet } from "./courriers";
 import { PartenairesProjet } from "./partenaires";
 import { RemarquesProjet } from "./remarques";
 import { SituationProjet } from "./situation";
+import { PaiementsProjet } from "./paiements";
 import { TON_STATUT, type ProjetDetail, type Referentiel } from "../types";
 
 type Action = "bloquer" | "supprimer";
@@ -87,7 +88,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
     ["Propriétaire", p.proprietaire || "Non renseigné"],
     ["Entité émettrice", `${p.entiteLabel} (${p.entite})`],
     ["Type de construction", p.typeLabel],
-    ["Forfait appliqué au prix", p.forfait],
+    ["Commercial", p.commercial ?? "Aucun"],
     ["Adresse du projet", [p.adresse, p.ville].filter(Boolean).join(", ") || "Non renseignée"],
     ["Date de création", `${formatDate(p.dateCreation)} · saisi par ${p.creePar}`],
     ["Description", p.description || "Aucune description"],
@@ -172,6 +173,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
         <>
           {voitMontants(user) && <DevisProjet key={`devis-${version}`} projetId={p.id} lectureSeule={p.supprime} />}
           {peutGererCommercial(user) && voitMontants(user) && <SituationProjet key={`situation-${version}`} projetId={p.id} />}
+          {voitMontants(user) && <PaiementsProjet key={`paiements-${version}`} projetId={p.id} onChange={() => setVersion((v) => v + 1)} />}
           {peutGererCommercial(user) && <ContratsProjet key={`contrats-${version}`} projetId={p.id} />}
         </>
       )}

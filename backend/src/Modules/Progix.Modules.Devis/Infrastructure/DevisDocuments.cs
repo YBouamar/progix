@@ -30,7 +30,7 @@ public class DevisDocuments(DevisDbContext db) : IDevisDocuments, IVerificationD
             d.SignePar ?? "", d.SigneLe,
             d.Etat switch
             {
-                EtatsDevis.Annule => "Ce devis a été annulé : il n'a plus de valeur.",
+                EtatsDevis.Annule => "Ce devis a été rejeté : il n'a plus de valeur.",
                 EtatsDevis.Remplace => "Ce devis a été remplacé par une version plus récente : il n'a plus de valeur.",
                 EtatsDevis.Expire => "Ce devis a expiré : il n'engage plus l'entreprise.",
                 _ => null,

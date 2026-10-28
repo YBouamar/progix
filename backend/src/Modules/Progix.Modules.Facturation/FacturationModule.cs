@@ -23,6 +23,8 @@ public class FacturationModule : IModule
         LivraisonsEndpoints.Map(app);
         FacturesEndpoints.Map(app);
         EncaissementsEndpoints.Map(app);
+        PaiementsEndpoints.Map(app);
+        StatistiquesPaiementsEndpoints.Map(app);
         AvoirsEndpoints.Map(app);
         TresorerieEndpoints.Map(app);
         DepensesDalleEndpoints.Map(app);
@@ -50,5 +52,6 @@ public class FacturationModule : IModule
         }
         await Infrastructure.NumerotationLivraisons.ReprendreAsync(db, scope.ServiceProvider.GetRequiredService<IProjetsLookup>(), ct);
         await Infrastructure.NumerotationCourriers.ReprendreAsync(db, scope.ServiceProvider.GetRequiredService<IProjetsLookup>(), ct);
+        await Infrastructure.Paiements.ReprendreAsync(db, scope.ServiceProvider.GetRequiredService<IProjetsLookup>(), scope.ServiceProvider.GetRequiredService<IDevisLookup>(), ct);
     }
 }

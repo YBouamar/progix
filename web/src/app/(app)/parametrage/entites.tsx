@@ -22,7 +22,7 @@ export function EntitesParam() {
   const e = vue.entites.find((x) => x.code === code) ?? vue.entites[0];
   if (!e) return null;
   return (
-    <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
+    <div className="rounded-xl border border-bordure bg-white p-6">
       <h2 className="text-[15px] font-bold">Entités : identité légale et logo</h2>
       <p className="mt-1 text-[13px] text-secondaire">Ces informations figurent sur les factures et les avoirs de chaque entité. Les valeurs de départ sont des données de test, à remplacer.</p>
       <div className="mt-4 flex gap-2">

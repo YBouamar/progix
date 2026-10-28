@@ -76,7 +76,7 @@ public class FacturationDbContext(DbContextOptions<FacturationDbContext> options
             b.Property(x => x.TauxTva).HasPrecision(5, 2);
             b.Property(x => x.AcomptePct).HasPrecision(9, 6);
             b.HasMany(x => x.Lignes).WithOne().HasForeignKey(l => l.FactureId).OnDelete(DeleteBehavior.Cascade);
-            b.HasMany(x => x.Encaissements).WithOne().HasForeignKey(e => e.FactureId).OnDelete(DeleteBehavior.Restrict);
+            b.OwnsMany(x => x.Parts, p => p.ToJson());
             b.HasMany(x => x.Avoirs).WithOne().HasForeignKey(a => a.FactureId).OnDelete(DeleteBehavior.Restrict);
             b.Ignore(x => x.Regle); b.Ignore(x => x.Reste); b.Ignore(x => x.Avoirs_TTC); b.Ignore(x => x.Du); b.Ignore(x => x.Annulee); b.Ignore(x => x.EffetsEnAttente); b.Ignore(x => x.ACouvrir);
         });
@@ -101,6 +101,15 @@ public class FacturationDbContext(DbContextOptions<FacturationDbContext> options
         builder.Entity<Encaissement>(b =>
         {
             b.ToTable("encaissements");
+            b.OwnsMany(x => x.Dalles, d => d.ToJson());
+            b.HasIndex(x => x.ProjetId);
+            b.HasIndex(x => x.FactureId);
+            b.Property(x => x.Entite).HasMaxLength(10);
+            b.Property(x => x.ProjetCode).HasMaxLength(40);
+            b.Property(x => x.ProjetLibelle).HasMaxLength(300);
+            b.Property(x => x.ClientNom).HasMaxLength(300);
+            b.Property(x => x.ClientAdresse).HasMaxLength(500);
+            b.Property(x => x.ClientIdentifiants).HasMaxLength(300);
             b.Property(x => x.Mode).HasMaxLength(20);
             b.Property(x => x.Montant).HasPrecision(14, 2);
             b.Property(x => x.Reference).HasMaxLength(100);

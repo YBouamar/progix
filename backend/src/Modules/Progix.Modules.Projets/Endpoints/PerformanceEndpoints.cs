@@ -29,6 +29,8 @@ public static class PerformanceEndpoints
             var vivants = await db.Projets.AsNoTracking().Where(p => !p.Supprime).Select(p => p.Id).ToListAsync();
 
             object? dessinateurs = null, ingenieurs = null;
+            // Production année par année, toutes personnes confondues, pour le graphe d'évolution.
+            List<object>? dessinateursParAn = null, ingenieursParAn = null;
             var premiere = jour.Year;
 
             if (voitDessinateurs)
@@ -51,6 +53,8 @@ public static class PerformanceEndpoints
                         total = siennes.Count, surface = siennes.Sum(l => l.Surface),
                     };
                 }).OrderByDescending(x => x.total).ThenBy(x => x.nom).ToList();
+                dessinateursParAn = Enumerable.Range(premiere, jour.Year - premiere + 1)
+                    .Select(a => (object)new { annee = a, total = lignes.Count(l => l.Le.Year == a), surface = lignes.Where(l => l.Le.Year == a).Sum(l => l.Surface) }).ToList();
             }
 
             if (voitIngenieurs)
@@ -76,9 +80,15 @@ public static class PerformanceEndpoints
                         enCours = aff.Where(a => a.UserId == n.Key && a.Fin == null).Select(a => a.ProjetId).Distinct().Count(),
                     };
                 }).OrderByDescending(x => x.total).ThenBy(x => x.nom).ToList();
+                // Projets suivis dans l'année par au moins un ingénieur, chacun compté une fois.
+                ingenieursParAn = Enumerable.Range(premiere, jour.Year - premiere + 1).Select(a =>
+                {
+                    var projets = noms.Keys.SelectMany(id => ProjetsSuivis(id, new DateOnly(a, 1, 1), new DateOnly(a, 12, 31))).Distinct().ToList();
+                    return (object)new { annee = a, total = projets.Count, surface = dalles.Where(d => projets.Contains(d.ProjetId)).Sum(d => d.Surface) };
+                }).ToList();
             }
 
-            return Results.Ok(new { annee = an, annees = Enumerable.Range(premiere, jour.Year - premiere + 1).Reverse(), moisCourant = an == jour.Year ? jour.Month : (int?)null, dessinateurs, ingenieurs });
+            return Results.Ok(new { annee = an, annees = Enumerable.Range(premiere, jour.Year - premiere + 1).Reverse(), moisCourant = an == jour.Year ? jour.Month : (int?)null, dessinateurs, ingenieurs, dessinateursParAn, ingenieursParAn });
         }).WithTags("Statistiques").RequireAuthorization();
     }
 }

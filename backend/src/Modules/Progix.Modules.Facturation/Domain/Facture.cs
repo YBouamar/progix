@@ -56,13 +56,14 @@ public class Facture : Entity
     /// <summary>Jeton aléatoire porté par le QR code de vérification.</summary>
     public string? Jeton { get; set; }
     public List<LigneFacture> Lignes { get; set; } = [];
-    public List<Encaissement> Encaissements { get; set; } = [];
 
-    private static DateOnly Jour => DateOnly.FromDateTime(DateTime.UtcNow);
-    /// <summary>Encaissé à ce jour : les effets non échus ne comptent pas, les remboursements se retranchent.</summary>
-    public decimal Regle => Encaissements.Where(e => !e.Annule && !e.EnAttente(Jour)).Sum(e => e.Remboursement ? -e.Montant : e.Montant);
-    /// <summary>Effets reçus dont l'échéance n'est pas encore arrivée.</summary>
-    public decimal EffetsEnAttente => Encaissements.Where(e => e.EnAttente(Jour)).Sum(e => e.Montant);
+    /// <summary>Montant TTC facturé par dalle : c'est sur ces parts que s'imputent les paiements des dalles.</summary>
+    public List<PartFacture> Parts { get; set; } = [];
+
+    /// <summary>Réglé à ce jour, imputé depuis les paiements des dalles (<see cref="Imputation"/>) : non enregistré.</summary>
+    public decimal Regle { get; set; }
+    /// <summary>Effets reçus sur les dalles de la facture dont l'échéance n'est pas encore arrivée, imputés de même.</summary>
+    public decimal EffetsEnAttente { get; set; }
     /// <summary>Ce qu'il reste à couvrir par un nouveau règlement, effets en attente déduits.</summary>
     public decimal ACouvrir => Reste - EffetsEnAttente;
     public List<Avoir> Avoirs { get; set; } = [];
@@ -73,6 +74,13 @@ public class Facture : Entity
     public bool Annulee => Avoirs.Any(a => a.Total && !a.Annule);
     /// <summary>Négatif quand le client a payé plus que le montant dû après avoir : trop-perçu à rembourser.</summary>
     public decimal Reste => Du - Regle;
+}
+
+public class PartFacture
+{
+    public Guid DalleId { get; set; }
+    public string Reference { get; set; } = "";
+    public decimal MontantTTC { get; set; }
 }
 
 public class LigneFacture : Entity

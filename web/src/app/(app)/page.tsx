@@ -7,8 +7,19 @@ import { TableauDirection } from "./tableau-de-bord/direction";
 import { TableauCommercial } from "./tableau-de-bord/commercial";
 import { TableauPersonnel } from "./tableau-de-bord/personnel";
 import { TableauLogistique } from "./tableau-de-bord/logistique";
+import { BandeauAccueil } from "./tableau-de-bord/bandeau";
 
+/** Tableau de bord : le bandeau d'accueil, puis le tableau propre au rôle. */
 export default function Accueil() {
+  return (
+    <>
+      <BandeauAccueil />
+      <TableauDuRole />
+    </>
+  );
+}
+
+function TableauDuRole() {
   const { user } = useAuth();
   if (!user) return null;
   if (user.role === "directeur" || user.role === "chef_projet") return <TableauDirection />;
@@ -20,8 +31,7 @@ export default function Accueil() {
   const modules = menuPour(user.role).filter((m) => m.id !== "tdb");
   return (
     <div>
-      <h2 className="text-2xl font-bold">Bonjour {user.fullName}</h2>
-      <p className="mt-1 text-secondaire">Le tableau de bord de votre rôle arrive bientôt. En attendant, voici vos modules.</p>
+      <p className="text-secondaire">Le tableau de bord de votre rôle arrive bientôt. En attendant, voici vos modules.</p>
       <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {modules.map((m) => (
           <Link key={m.id} href={m.href} className="rounded-xl border border-bordure bg-white p-5 transition-colors hover:border-marine">

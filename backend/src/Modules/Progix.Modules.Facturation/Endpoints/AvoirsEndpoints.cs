@@ -42,7 +42,7 @@ public static class AvoirsEndpoints
         g.MapPost("/factures/{id:guid}/avoirs", async (Guid id, AvoirInput input, FacturationDbContext db, ClaimsPrincipal user) =>
         {
             await using var tx = await db.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
-            var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Encaissements).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
+            var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
             if (f is null) return Results.NotFound();
             if (string.IsNullOrWhiteSpace(input.Motif)) return Conflit("Le motif de l'avoir est obligatoire.");
             if (f.Annulee) return Conflit("Cette facture est déjà annulée par un avoir total.");
@@ -83,7 +83,8 @@ public static class AvoirsEndpoints
             }
             await db.SaveChangesAsync();
             await tx.CommitAsync();
-            return Results.Ok(FacturesEndpoints.Dto(f, true));
+            await db.ImputerAsync([f]);
+            return Results.Ok(FacturesEndpoints.Dto(f, true, await FacturesEndpoints.PaiementsDe(db, f)));
         });
 
         g.MapPost("/avoirs/{id:guid}/annuler", async (Guid id, AnnulationInput input, FacturationDbContext db, ClaimsPrincipal user) =>
@@ -94,7 +95,7 @@ public static class AvoirsEndpoints
             if (a is null) return Results.NotFound();
             if (a.Annule) return Conflit("Cet avoir est déjà annulé.");
             if (string.IsNullOrWhiteSpace(input.Motif)) return Conflit("Le motif de l'annulation est obligatoire.");
-            var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Encaissements).Include(x => x.Avoirs).FirstAsync(x => x.Id == a.FactureId);
+            var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Avoirs).FirstAsync(x => x.Id == a.FactureId);
             if (a.Total)
             {
                 // Annuler un avoir total remet la facture en vigueur : ce qu'elle facturait ne doit pas avoir été refacturé entre-temps.
@@ -114,7 +115,8 @@ public static class AvoirsEndpoints
             a.Annule = true; a.MotifAnnulation = input.Motif.Trim(); a.AnnulePar = user.UserName(); a.AnnuleLe = DateTime.UtcNow;
             await db.SaveChangesAsync();
             await tx.CommitAsync();
-            return Results.Ok(FacturesEndpoints.Dto(f, true));
+            await db.ImputerAsync([f]);
+            return Results.Ok(FacturesEndpoints.Dto(f, true, await FacturesEndpoints.PaiementsDe(db, f)));
         });
     }
 

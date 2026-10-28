@@ -204,8 +204,10 @@ class Demo:
     # ----- projets
     def projet(self, d):
         cp = self.de("chef.projet")
+        # Le commercial se choisit sur le projet ; ses devis le reprennent.
+        commercial = self.users[["agent.commercial", "rim.sqalli"][PROJETS.index(d) % 2]]
         p = cp.post("/projets", {"libelle": d["libelle"], "clientId": self.clients[d["client"]], "entite": d["entite"], "typeConstruction": d["type"],
-                                 "description": d["description"], "adresse": d["adresse"], "ville": d["ville"], "dateCreation": jour(d["age"])})
+                                 "description": d["description"], "adresse": d["adresse"], "ville": d["ville"], "dateCreation": jour(d["age"]), "commercialId": commercial})
         d["id"] = p["id"]; d["code"] = p["code"]
         d["dalleIds"] = [cp.post(f"/projets/{p['id']}/dalles", {"bloc": b, "immeuble": im, "niveau": n, "detail": None, "surface": s})["id"] for b, im, n, s in d["dalles"]]
         for role, cle in (("bet", "bet"), ("bct", "bct"), ("architecte", "archi"), ("laboratoire", "labo")):
@@ -226,26 +228,28 @@ class Demo:
 
     # ----- devis
     def devis(self, d, i):
-        adm = self.de(["responsable.administratif", "administrateur", "chef.projet"][i % 3])
+        # L'administrateur consulte les devis sans les établir ; la signature revient au responsable administratif.
+        adm = self.de(["responsable.administratif", "ingenieur.chef", "chef.projet"][i % 3])
+        sig = self.de("responsable.administratif")
         dv = adm.post("/devis", {"projetId": d["id"]})
         age = max(d["age"] - 3, 0)
-        corps = {"dateDevis": jour(age), "dureeValidite": age + 30, "commercialId": self.users[["agent.commercial", "rim.sqalli"][i % 2]],
+        corps = {"dateDevis": jour(age), "dureeValidite": age + 30, "ingenieurId": self.users[["ingenieur", "yasmine.cherkaoui", "ingenieur.chef"][i % 3]],
                  "remiseM2": [0, 3, 5, 0][i % 4], "remiseMotif": [None, "Volume du projet", "Client fidèle", None][i % 4],
                  "echeances": dv["echeances"], "modalitesContrat": dv["modalitesContrat"],
                  "lignes": [{"id": l["id"], "surface": l["surface"], "ratioActif": round(3.6 + 0.2 * (k % 4), 2), "ratioPassif": round(7.5 + 0.5 * (k % 3), 2),
                              "systemes": [{"torons": 4, "ancrages": 2 * (20 + 3 * k), "gaine": round(l["surface"] * 0.9, 1)},
-                                          {"torons": 5, "ancrages": 2 * (8 + k), "gaine": round(l["surface"] * 0.35, 1)}]} for k, l in enumerate(dv["lignes"])]}
+                                          {"torons": 7, "ancrages": 2 * (8 + k), "gaine": round(l["surface"] * 0.35, 1)}]} for k, l in enumerate(dv["lignes"])]}
         etat = d.get("devis", "valide")
         dv = adm.put(f"/devis/{dv['id']}", corps)
         if etat == "brouillon": return dv
         adm.post(f"/devis/{dv['id']}/envoyer")
-        adm.post(f"/devis/{dv['id']}/signer", {"motDePasse": MDP})
+        sig.post(f"/devis/{dv['id']}/signer", {"motDePasse": MDP})
         if etat == "version2":
             v2 = adm.post(f"/devis/{dv['id']}/nouvelle-version")
             corps["remiseM2"], corps["remiseMotif"], corps["dateDevis"], corps["lignes"] = 6, "Négociation après la première offre", jour(20), [
                 {**l, "id": n["id"]} for l, n in zip(corps["lignes"], v2["lignes"])]
             adm.put(f"/devis/{v2['id']}", corps)
-            adm.post(f"/devis/{v2['id']}/envoyer"); adm.post(f"/devis/{v2['id']}/signer", {"motDePasse": MDP})
+            adm.post(f"/devis/{v2['id']}/envoyer"); sig.post(f"/devis/{v2['id']}/signer", {"motDePasse": MDP})
             return v2
         if etat == "valide":
             dv = self.de("chef.projet").post(f"/devis/{dv['id']}/valider")
@@ -297,11 +301,11 @@ class Demo:
                 nb = max(12, int(surface / 28))
                 acc = [a for a in log.get(f"{base}/commande")["proposes"]][:6]
                 tendons, num = [], 100 * (j + 1)
-                for sens, torons, nombre, longueur in (("X", 4, nb, 18.5 + 1.5 * (j % 3)), ("Y", 4, int(nb * 0.7), 24.0 + 2.0 * (j % 2)), ("Y", 5, 6, 31.5)):
+                for sens, torons, nombre, longueur in (("X", 4, nb, 18.5 + 1.5 * (j % 3)), ("Y", 4, int(nb * 0.7), 24.0 + 2.0 * (j % 2)), ("Y", 7, 6, 31.5)):
                     for k in range(nombre):
                         num += 1
                         tendons.append({"numero": str(num), "torons": torons, "sens": sens, "longueur": round(longueur + 0.07 * (k % 9), 2), "ancrages": 2})
-                log.put(f"{base}/commande", {"tendons": tendons,
+                log.put(f"{base}/commande", {"tendons": tendons, "surface": surface,
                     "accessoires": [{"libelle": a["libelle"], "quantite": 4 + 3 * k, "unite": a.get("unite")} for k, a in enumerate(acc)]})
                 log.post(f"{base}/etapes/4/realiser", {"remarque": None})
                 if cible == "4v": return
@@ -356,16 +360,25 @@ class Demo:
 
     # ----- factures et règlements
     def regler(self, facture, montant, mode, age, session="responsable.administratif", echeance=None):
+        """Paiement sur le projet, ventilé entre les dalles de la facture (ou toutes les dalles pour un acompte) au prorata de leur reste."""
         refs = {"cheque": "CHQ 7745" + str(age).zfill(3), "virement": "VIR 2026-" + str(4000 + age), "effet": "LCN 5521" + str(age).zfill(3), "especes": None}
-        self.de(session).post(f"/factures/{facture['id']}/encaissements", {"datePaiement": jour(age), "mode": mode, "montant": montant, "reference": refs[mode],
+        s = self.de(session)
+        vue = s.get(f"/projets/{facture['projetId']}/paiements")
+        dalles = None if facture.get("acompte") else {l["libelle"].split(" · ")[0] for l in s.get(f"/factures/{facture['id']}")["lignes"]}
+        ouvertes = [x for x in vue["dalles"] if x["aCouvrir"] > 0 and (dalles is None or x["reference"] in dalles)]
+        total = sum(x["aCouvrir"] for x in ouvertes)
+        if total <= 0: return
+        montant, parts, cumul = min(montant, total), [], 0
+        for i, x in enumerate(ouvertes):
+            part = round(montant - cumul, 2) if i == len(ouvertes) - 1 else round(montant * x["aCouvrir"] / total, 2)
+            cumul += part
+            parts.append({"dalleId": x["dalleId"], "montant": min(part, x["aCouvrir"])})
+        s.post(f"/projets/{facture['projetId']}/paiements", {"datePaiement": jour(age), "mode": mode, "reference": refs[mode], "dalles": parts,
             "banque": None if mode == "especes" else ["Attijariwafa bank", "Banque Populaire", "BMCE Bank of Africa", "CIH Bank"][age % 4], "echeanceEffet": echeance, "motDePasse": MDP})
 
     def acompte(self, d, ttc, age, mode="virement"):
-        ra = self.de("responsable.administratif")
-        f = ra.post("/factures", {"projetId": d["id"], "type": "acompte", "devisId": d["devisId"], "acompteTTC": ttc, "dateFacture": jour(age),
-                                  "echeance": jour(age - 30), "modeReglement": mode})
-        ra.post(f"/factures/{f['id']}/signer", {"motDePasse": MDP})
-        return f
+        """Plus de facture d'acompte : le paiement à la signature se saisit directement sur les dalles (voir regler)."""
+        return {"projetId": d["id"], "totalTTC": ttc, "acompte": True}
 
     def livrer(self, d, indices, age):
         log = self.de("administrateur")

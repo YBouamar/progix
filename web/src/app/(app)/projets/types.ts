@@ -1,5 +1,5 @@
-export type Ref = { code: string; label: string; forfait?: string };
-export type Referentiel = { entites: Ref[]; types: Ref[]; statuts: Ref[] };
+export type Ref = { code: string; label: string; actif?: boolean };
+export type Referentiel = { entites: Ref[]; types: Ref[]; statuts: Ref[]; commerciaux: { id: string; nom: string }[] };
 
 export type ProjetListItem = {
   id: string; code: string; libelle: string; client: string; ville: string | null; dateCreation: string; entite: string;
@@ -16,7 +16,7 @@ export type ProjetDetail = {
   id: string; code: string; libelle: string; entite: string; entiteLabel: string;
   clientId: string; client: string; proprietaireId: string | null; proprietaireLibre: string | null; proprietaire: string;
   adresse: string | null; ville: string | null; dateCreation: string;
-  typeConstruction: string; typeLabel: string; forfait: string; description: string | null;
+  typeConstruction: string; typeLabel: string; commercialId: string | null; commercial: string | null; description: string | null;
   statut: string; statutLabel: string;
   bloque: boolean; blocageMotif: string | null; blocagePar: string | null; blocageLe: string | null;
   supprime: boolean; suppressionMotif: string | null; suppressionPar: string | null; suppressionLe: string | null;

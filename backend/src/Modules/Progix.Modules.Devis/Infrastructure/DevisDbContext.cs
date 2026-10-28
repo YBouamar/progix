@@ -16,7 +16,12 @@ public class DevisDbContext(DbContextOptions<DevisDbContext> options) : DbContex
 
     /// <summary>Paramètres en vigueur ; sans réglage enregistré, les valeurs d'origine.</summary>
     public async Task<ParametresDevis> ParametresAsync(CancellationToken ct = default) =>
-        await Parametres.AsNoTracking().FirstOrDefaultAsync(ct) ?? new ParametresDevis { Modalites = ParametresDevis.ModalitesParDefaut, Echeances = ParametresDevis.EcheancesParDefaut() };
+        await Parametres.AsNoTracking().FirstOrDefaultAsync(ct) is { } p
+            ? p.Forfaits is { Count: > 0 } ? p : WithForfaits(p)
+            : new ParametresDevis { Modalites = ParametresDevis.ModalitesParDefaut, Echeances = ParametresDevis.EcheancesParDefaut(), Forfaits = ParametresDevis.ForfaitsParDefaut() };
+
+    // Paramètres enregistrés avant la grille des forfaits : la grille d'origine s'applique.
+    private static ParametresDevis WithForfaits(ParametresDevis p) { p.Forfaits = ParametresDevis.ForfaitsParDefaut(); return p; }
 
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -34,6 +39,7 @@ public class DevisDbContext(DbContextOptions<DevisDbContext> options) : DbContex
             b.Property(d => d.Jeton).HasMaxLength(64);
             b.HasIndex(d => d.Jeton).IsUnique();
             b.Property(d => d.CommercialNom).HasMaxLength(200);
+            b.Property(d => d.IngenieurNom).HasMaxLength(200);
             b.Property(d => d.RemiseMotif).HasMaxLength(500);
             b.Property(d => d.ModalitesContrat).HasMaxLength(4000);
             b.Property(d => d.CreePar).HasMaxLength(200);
@@ -70,6 +76,7 @@ public class DevisDbContext(DbContextOptions<DevisDbContext> options) : DbContex
             b.Property(x => x.Modalites).HasMaxLength(4000);
             b.Property(x => x.ModifiePar).HasMaxLength(200);
             b.OwnsMany(x => x.Echeances, e => e.ToJson());
+            b.OwnsMany(x => x.Forfaits, e => e.ToJson());
         });
         builder.Entity<CompteurDevis>(b =>
         {

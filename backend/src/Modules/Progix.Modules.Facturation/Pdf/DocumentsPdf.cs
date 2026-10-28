@@ -100,15 +100,24 @@ public static class DocumentsPdf
         var (doc, s) = Cadre(e, d.Numero);
         var refs = new List<(string, string)> { ("Numéro", $"{d.Numero} · version {d.Version}"), ("Date du devis", Date(d.DateDevis)), ("Valable jusqu'au", Date(d.Echeance)), ("Projet", $"{p.Code} · {p.Libelle}") };
         if (d.Commercial is not null) refs.Add(("Votre interlocuteur", d.Commercial));
-        var titre = d.Etat switch { "annule" => "DEVIS (ANNULÉ)", "remplace" => "DEVIS (REMPLACÉ)", "expire" => "DEVIS (EXPIRÉ)", _ => "DEVIS" };
+        // Brouillon : document de travail imprimé avant l'envoi, sans signature ni QR code de vérification.
+        var brouillon = d.Etat == "brouillon";
+        var titre = d.Etat switch { "brouillon" => "DEVIS (BROUILLON)", "annule" => "DEVIS (REJETÉ)", "remplace" => "DEVIS (REMPLACÉ)", "expire" => "DEVIS (EXPIRÉ)", _ => "DEVIS" };
         Entete(s, client.Nom, client.Adresse, client.Identifiants, titre, refs);
+        if (brouillon)
+        {
+            var avis = s.AddParagraph("BROUILLON : document de travail non signé, sans valeur contractuelle. Les montants peuvent encore changer avant l'envoi du devis.");
+            avis.Format.Font.Bold = true; avis.Format.Font.Size = 9; avis.Format.Font.Color = new Color(0xB4, 0x23, 0x18);
+            avis.Format.Shading.Color = new Color(0xFD, 0xEC, 0xEA); avis.Format.Borders.Distance = 4; avis.Format.SpaceAfter = "0.3cm";
+        }
 
         var objet = s.AddParagraph("Objet : dalles en béton précontraint par post-tension, étude et réalisation.");
         objet.Format.SpaceAfter = "0.3cm"; objet.Format.Font.Bold = true;
 
-        var t = Tableau(s, [(4.0, "Réf.", false), (4.0, "Désignation", false), (1.7, "Ratio actif", true), (1.7, "Ratio passif", true), (1.8, "Surface (m²)", true), (1.6, "P.U. HT", true), (2.6, "Total HT", true)]);
+        // Les ratios d'acier (actif, passif) servent au chiffrage interne : ils ne figurent pas sur le devis remis au client.
+        var t = Tableau(s, [(4.0, "Réf.", false), (7.4, "Désignation", false), (1.8, "Surface (m²)", true), (1.6, "P.U. HT", true), (2.6, "Total HT", true)]);
         foreach (var l in d.Lignes)
-            LigneTableau(t, l.Reference, l.Emplacement, Nb(l.RatioActif), Nb(l.RatioPassif), Nb(l.Surface), Nb(l.PrixM2), Nb(l.MontantHT));
+            LigneTableau(t, l.Reference, l.Emplacement, Nb(l.Surface), Nb(l.PrixM2), Nb(l.MontantHT));
 
         var totaux = new List<(string, string)> { ("Surface totale", Nb(d.SurfaceTotale) + " m²") };
         if (d.RemiseTotale > 0) { totaux.Add(("Total HT avant remise", DH(d.TotalHT))); totaux.Add(($"Remise de {Nb(d.RemiseM2)} DH par m²", "- " + DH(d.RemiseTotale))); }
@@ -122,7 +131,7 @@ public static class DocumentsPdf
             var bloc = Bloc(s.AddTable(), Largeur, "MODALITÉS DE PAIEMENT");
             foreach (var x in d.Echeances) Mention(bloc.AddParagraph(), x.Key, $"{x.Value:0.##} %, soit {DH(Math.Round(d.TotalTTC * x.Value / 100m, 2))} TTC");
         }
-        Signature(s, d.SignePar ?? "", d.SigneLe ?? DateTime.UtcNow, lienVerification, "ce devis", "Bon pour accord : date, cachet et signature du client");
+        if (!brouillon) Signature(s, d.SignePar ?? "", d.SigneLe ?? DateTime.UtcNow, lienVerification, "ce devis", "Bon pour accord : date, cachet et signature du client");
 
         // Conditions d'offre : elles font partie du devis et sont signées avec lui.
         s.AddPageBreak();
@@ -133,8 +142,6 @@ public static class DocumentsPdf
 
         Rubrique("Conditions générales :");
         Puce("Charges d'exploitation et permanentes : suivant le plan de charges transmis lors de la consultation.");
-        var passif = d.SurfaceTotale > 0 ? d.Lignes.Sum(l => l.RatioPassif * l.Surface) / d.SurfaceTotale : 0;
-        if (passif > 0) Puce($"Ratio moyen des aciers passifs des dalles : {Nb(Math.Round(passif, 2))} kg/m².");
         if (d.Echeances.Count > 0) Puce("Modalités de paiement : " + string.Join(" ; ", d.Echeances.Select(x => $"{x.Value:0.##} % {char.ToLower(x.Key[0])}{x.Key[1..]}")) + ".");
         Puce($"Validité de l'offre : {d.Echeance.DayNumber - d.DateDevis.DayNumber} jours, soit jusqu'au {Date(d.Echeance)}.");
         foreach (var ligne in (d.Modalites ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) Puce(ligne);
@@ -186,20 +193,38 @@ public static class DocumentsPdf
         return Rendu(doc);
     }
 
-    public static byte[] Recu(Encaissement x, Facture f, ParametresEntite e, string lienVerification)
+    /// <param name="facture">Facture réglée, pour un règlement saisi avant le suivi par dalle ; sinon null.</param>
+    public static byte[] Recu(Encaissement x, Facture? facture, ParametresEntite e, string lienVerification)
     {
         var (doc, s) = Cadre(e, x.NumeroRecu!);
-        var refs = new List<(string, string)> { ("Numéro", x.NumeroRecu!), (x.Remboursement ? "Date du remboursement" : "Date du paiement", Date(x.DatePaiement)), (x.Remboursement ? "Trop-perçu sur la facture" : "En règlement de la facture", $"{f.Numero} du {Date(f.DateFacture)}"), ("Projet", $"{f.ProjetCode} · {f.ProjetLibelle}") };
+        var refs = new List<(string, string)> { ("Numéro", x.NumeroRecu!), (x.Remboursement ? "Date du remboursement" : "Date du paiement", Date(x.DatePaiement)), ("Projet", $"{x.ProjetCode} · {x.ProjetLibelle}") };
+        if (facture is not null) refs.Add((x.Remboursement ? "Trop-perçu sur la facture" : "En règlement de la facture", $"{facture.Numero} du {Date(facture.DateFacture)}"));
         if (x.AncienNumeroRecu is not null) refs.Add(("Ancien numéro", x.AncienNumeroRecu));
-        Entete(s, f.ClientNom, f.ClientAdresse, f.ClientIdentifiants, (x.Remboursement ? "REÇU DE REMBOURSEMENT" : "REÇU DE PAIEMENT") + (x.Annule ? " (ANNULÉ)" : ""), refs);
+        Entete(s, x.ClientNom, x.ClientAdresse, x.ClientIdentifiants, (x.Remboursement ? "REÇU DE REMBOURSEMENT" : "REÇU DE PAIEMENT") + (x.Annule ? " (ANNULÉ)" : ""), refs);
 
         var detail = new List<(string, string)> { (x.Remboursement ? "Mode de remboursement" : "Mode de paiement", ModesPaiement.Libelles.GetValueOrDefault(x.Mode, x.Mode)) };
         if (x.Reference is not null) detail.Add((x.Mode == ModesPaiement.Cheque ? "Numéro du chèque" : x.Mode == ModesPaiement.Effet ? "Numéro de l'effet" : "Référence", x.Reference));
         if (x.Banque is not null) detail.Add(("Banque", x.Banque));
         if (x.EcheanceEffet is not null) detail.Add(("Échéance de l'effet", $"{Date(x.EcheanceEffet.Value)}, date à laquelle il est encaissé"));
-        detail.Add(("Montant total de la facture (TTC)", DH(f.TotalTTC)));
         var bloc = Bloc(s.AddTable(), Largeur, x.Remboursement ? "DÉTAIL DU REMBOURSEMENT" : "DÉTAIL DU RÈGLEMENT");
         foreach (var (label, valeur) in detail) Mention(bloc.AddParagraph(), label, valeur);
+
+        // Répartition entre les dalles du projet.
+        if (x.Dalles.Count > 0)
+        {
+            s.AddParagraph().Format.SpaceAfter = "0.2cm";
+            var t = s.AddTable();
+            t.Borders.Width = 0.5; t.Borders.Color = Trait; t.LeftPadding = 5; t.RightPadding = 5;
+            t.AddColumn($"{(Largeur - 4.2).ToString(CultureInfo.InvariantCulture)}cm"); t.AddColumn("4.2cm");
+            var h = t.AddRow(); h.HeadingFormat = true; h.Shading.Color = Fond; h.Format.Font.Bold = true; h.Format.Font.Size = 7.5;
+            h.Cells[0].AddParagraph(x.Remboursement ? "DALLE CONCERNÉE" : "DALLE"); h.Cells[1].AddParagraph("MONTANT AFFECTÉ").Format.Alignment = ParagraphAlignment.Right;
+            foreach (var d in x.Dalles)
+            {
+                var r = t.AddRow();
+                r.Cells[0].AddParagraph(d.Reference);
+                r.Cells[1].AddParagraph(DH(d.Montant)).Format.Alignment = ParagraphAlignment.Right;
+            }
+        }
 
         Totaux(s, [], x.Remboursement ? "Montant remboursé au client" : "Montant reçu", DH(x.Montant));
         EnToutesLettres(s, x.Remboursement ? "Remboursé au client la somme de : " : "Reçu la somme de : ", x.Montant);

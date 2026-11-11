@@ -58,7 +58,7 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 
 ## Production
 
-- `progix.bacybrains.com` tourne une version **antérieure au commit `f97dca4`** (constaté le 2026-10-27 : les routes ajoutées le 2026-10-23 y répondent 404). La mise à jour attend les commandes fournies (pas d'accès SSH depuis ce poste).
+- `progix.bacybrains.com` (VPS Contabo, dossier `/opt/apps/progix`, dépôt git) tournait le commit `e5fed3a` le 2026-11-11, avec deux modifications locales non committées (routes des utilisateurs en `""`, mot de passe sans majuscule obligatoire), reprises dans le dépôt le même jour. Sauvegarde manuelle faite le 2026-11-11 à 21 h 47 ; aucune sauvegarde nocturne n'était programmée. Mise à jour en cours, guidée pas à pas (pas d'accès SSH depuis la session). `deploiement/env.production.exemple` annonce encore majuscule et symbole : à corriger sur demande.
 
 ## En cours / à reprendre
 

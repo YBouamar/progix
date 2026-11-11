@@ -28,6 +28,8 @@ public class IdentityModule : IModule
             {
                 o.User.RequireUniqueEmail = true;
                 o.Password.RequiredLength = 8;
+                // Règle en service en production : ni majuscule ni symbole exigés.
+                o.Password.RequireUppercase = false;
                 o.Password.RequireNonAlphanumeric = false;
             })
             .AddRoles<AppRole>()

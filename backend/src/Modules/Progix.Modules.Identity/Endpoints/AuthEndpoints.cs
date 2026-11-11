@@ -97,7 +97,7 @@ public static class AuthEndpoints
 
         var admin = app.MapGroup("/api/users").WithTags("Utilisateurs").RequireAuthorization(Policies.GestionUtilisateurs);
 
-        admin.MapGet("/", async (UserManager<AppUser> users, RoleManager<AppRole> roles) =>
+        admin.MapGet("", async (UserManager<AppUser> users, RoleManager<AppRole> roles) =>
         {
             var list = await users.Users.OrderBy(u => u.FullName).ToListAsync();
             var result = new List<UserDto>();
@@ -113,7 +113,7 @@ public static class AuthEndpoints
         admin.MapGet("/login-propose", async (string? prenom, string? nom, UserManager<AppUser> users) =>
             Results.Ok(new { login = Logins.Partie(prenom).Length == 0 || Logins.Partie(nom).Length == 0 ? "" : await Logins.LibreAsync(users, Logins.Base(prenom, nom)) }));
 
-        admin.MapPost("/", async (CreateUserRequest request, UserManager<AppUser> users, RoleManager<AppRole> roles, ClaimsPrincipal principal) =>
+        admin.MapPost("", async (CreateUserRequest request, UserManager<AppUser> users, RoleManager<AppRole> roles, ClaimsPrincipal principal) =>
         {
             if (await ReferenceAsync(roles, request.Role) == Roles.Directeur && !principal.IsInRole(Roles.Directeur)) return Results.Problem("Seul un directeur crée ou modifie un compte de directeur.", statusCode: StatusCodes.Status403Forbidden, title: "action_interdite");
             if (await ReferenceAsync(roles, request.Role) is null)

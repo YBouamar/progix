@@ -127,7 +127,7 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
             <option value="">Choisir une fonction</option>{roles.map((r) => <option key={r.code} value={r.code}>{r.label}{r.voitMontants ? "" : " · ne voit pas les montants"}</option>)}
           </Select>
         </Field>
-        {!u && <Field label="Mot de passe initial : 8 caractères au moins, avec une majuscule, une minuscule et un chiffre" required><Input type="text" autoComplete="off" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>}
+        {!u && <Field label="Mot de passe initial : 8 caractères au moins, avec une minuscule et un chiffre" required><Input type="text" autoComplete="off" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>}
         {u && (
           <label className={cn("flex items-start gap-3 rounded-lg border border-bordure p-3", soi ? "opacity-60" : "cursor-pointer")}>
             <input type="checkbox" className="mt-0.5 h-4 w-4 accent-marine" disabled={soi} checked={actif} onChange={(e) => setActif(e.target.checked)} />
@@ -147,7 +147,7 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
           <div className="font-semibold">Remplacer le mot de passe</div>
           <p className="text-[12px] text-secondaire">À utiliser si la personne a oublié le sien. L&apos;ancien mot de passe ne fonctionnera plus.</p>
           <div className="mt-2 flex items-end gap-2">
-            <Field label="Nouveau mot de passe : 8 caractères, majuscule, minuscule et chiffre" className="flex-1"><Input type="text" autoComplete="off" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>
+            <Field label="Nouveau mot de passe : 8 caractères, minuscule et chiffre" className="flex-1"><Input type="text" autoComplete="off" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>
             <Button variant="outline" disabled={envoi || motDePasse.length < 8} onClick={reinitialiser}>Remplacer</Button>
           </div>
           {info && <div role="status" className="mt-2 text-[13px] text-vert-texte">{info}</div>}

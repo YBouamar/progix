@@ -82,7 +82,7 @@ function ChangerMotDePasse({ onClose }: { onClose: () => void }) {
             <Input type="password" autoComplete="new-password" aria-invalid={discordance}
               className={cn(discordance && "border-rouge-vif")} value={confirmation} onChange={(e) => setConfirmation(e.target.value)} />
           </Field>
-          <p className="text-[12px] text-attenue"><KeyRound size={12} className="mr-1 inline" />8 caractères au moins, avec une majuscule, une minuscule et un chiffre.</p>
+          <p className="text-[12px] text-attenue"><KeyRound size={12} className="mr-1 inline" />8 caractères au moins, avec une minuscule et un chiffre.</p>
           {erreur && <div role="alert" className="text-[13px] text-rouge-texte">{erreur}</div>}
         </div>
       )}

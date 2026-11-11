@@ -12,6 +12,7 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] Deux entités émettrices, `APT` et `BBR` ; chaque document porte l'entité du projet. Un projet se réaffecte à l'autre entité (directeur, chef de projet, responsable administratif) : nouveau code et renumérotation de tous ses documents, ancien numéro gardé.
 - [code] TVA à 20 %.
 - [code] Les documents émis ne se modifient pas et ne se suppriment pas ; ils s'annulent avec un motif obligatoire, tracé (qui, quand).
+- [décidé 2026-11-11, code] Mot de passe : 8 caractères au moins, avec une minuscule et un chiffre ; ni majuscule ni symbole exigés (règle déjà en service en production, reprise dans le dépôt).
 - [décidé 2026-11-11, code] Signature électronique au nom de l'utilisateur connecté, **sans ressaisie du mot de passe** (elle était exigée jusque-là), obligatoire avant d'imprimer ou d'envoyer devis, contrat, BL, facture, avoir, courrier, fiche de chantier ; un jeton aléatoire alimente le QR code de vérification publique.
 
 ### Habilitations par fonction

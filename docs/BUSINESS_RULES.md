@@ -69,6 +69,16 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] Avant l'injection (dalle aux étapes 8 à 9), rappel des factures non soldées du projet ; il informe, il ne bloque pas.
 - [code] Avis de conformité d'une dalle réalisée (directeur, chef de projet, responsable administratif) ; seule une dalle conforme figure sur une attestation.
 
+### Étude des dalles (menu Étude)
+
+- [décidé 2026-11-11, code] Chaque dalle d'un projet a son **étude**, dès sa création, visible dans le menu « Étude » (directeur, chef de projet, ingénieur en chef, ingénieur). Les ingénieurs voient toutes les études.
+- [décidé 2026-11-11, code] **Affectation** des ingénieurs à l'étude d'une dalle par l'ingénieur en chef, le chef de projet ou le directeur. **Plusieurs ingénieurs** peuvent porter la même étude ; un retrait garde l'historique. Sont affectables : ingénieur et ingénieur en chef. À distinguer de l'ingénieur de réalisation du projet et de l'ingénieur du devis.
+- [code] État de l'étude : « À affecter » sans ingénieur, « En cours » dès qu'un ingénieur est affecté, « Terminée » à la clôture.
+- [décidé 2026-11-11, code] **Clôture** par un ingénieur affecté à l'étude, sans validation supplémentaire. Les pièces sont figées et les ingénieurs ne changent plus.
+- [décidé 2026-11-11, code] **Pièces** de l'étude, dans l'ordre du travail du bureau d'études : plan de coffrage reçu, fond de plan préparé pour ADAPT (calques dalle, poteaux, voiles, réservations), sortie ADAPT, plan de principe. Dépôt des fichiers seulement : la génération automatique du fond de plan et du plan de principe n'est pas faite.
+- [code, à confirmer] Dépôt des pièces par les ingénieurs affectés à l'étude et par ceux qui affectent (ingénieur en chef, chef de projet, directeur). Réouverture d'une étude terminée par ces trois mêmes rôles. Aucune pièce n'est exigée pour clôturer.
+- [code] L'étude est indépendante des 11 étapes du suivi et du statut du projet : elle peut commencer avant tout devis.
+
 ## 6. Mise en tension
 
 - [décidé] Tolérance EN 13670 : ± 5 % pour le groupe, ± 15 % pour un câble seul.

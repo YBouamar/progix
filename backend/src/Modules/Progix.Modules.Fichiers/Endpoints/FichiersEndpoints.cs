@@ -30,7 +30,7 @@ public static class FichiersEndpoints
         {
             var ctx = contextes.FirstOrDefault(c => c.Contexte == contexte);
             if (ctx is null) return Results.NotFound();
-            var ouvert = ctx.PeutDeposer(user) && await ctx.RefusAsync(cibleId, categorie) is null;
+            var ouvert = ctx.PeutDeposer(user) && await ctx.RefusPourAsync(user, cibleId, categorie) is null;
             var rows = await db.Fichiers.AsNoTracking().Where(f => f.Contexte == contexte && f.CibleId == cibleId && f.Complet && !f.Supprime
                     && (categorie == null || f.Categorie == categorie))
                 .OrderByDescending(f => f.CreatedAt).ToListAsync();
@@ -48,7 +48,7 @@ public static class FichiersEndpoints
             if (ctx is null) return Results.NotFound();
             if (!ctx.PeutDeposer(user)) return Results.Forbid();
             var categorie = string.IsNullOrWhiteSpace(input.Categorie) ? null : input.Categorie;
-            if (await ctx.RefusAsync(input.CibleId, categorie, ct) is { } refus) return Conflit(refus);
+            if (await ctx.RefusPourAsync(user, input.CibleId, categorie, ct) is { } refus) return Conflit(refus);
             if (ctx.ImagesSeulement && !Photos.Contains(input.ContentType ?? "")) return Conflit("Seules les photos sont acceptées ici (JPEG, PNG, WebP, HEIC).");
             if (ctx.Categories.Count > 0 ? categorie is null || !ctx.Categories.Contains(categorie) : categorie is not null) return Conflit("Catégorie de fichier inconnue.");
             var nom = Path.GetFileName(input.Nom ?? "").Trim();
@@ -108,7 +108,7 @@ public static class FichiersEndpoints
             var f = await db.Fichiers.FirstOrDefaultAsync(x => x.Id == id && x.Complet && !x.Supprime);
             if (f is null) return Results.NotFound();
             if (!PeutSupprimer(f, user)) return Results.Forbid();
-            if (contextes.FirstOrDefault(c => c.Contexte == f.Contexte) is { } ctx && await ctx.RefusAsync(f.CibleId, f.Categorie) is { } refus) return Conflit(refus);
+            if (contextes.FirstOrDefault(c => c.Contexte == f.Contexte) is { } ctx && await ctx.RefusPourAsync(user, f.CibleId, f.Categorie) is { } refus) return Conflit(refus);
             f.Supprime = true;
             f.SupprimePar = user.UserName();
             f.SupprimeLe = DateTime.UtcNow;

@@ -43,6 +43,7 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - **Points à surveiller (2026-10-28)** : la reprise des parts de facture relit toutes les factures à chaque démarrage tant qu'une facture d'acompte n'a pas retrouvé son devis validé ; à alléger si le volume grandit. La saisie des paiements n'est plus possible depuis l'écran Facturation (consultation et lien vers le projet).
 - **2026-10-28** : page Performance enrichie de graphes (composants maison `web/src/components/graphes.tsx`, sans bibliothèque) : dalles finies par dessinateur et par mois, surface suivie par ingénieur, projets suivis par mois, production par an, état des paiements par mode et encaissé par mois et par mode (nouvelle route `/api/statistiques/paiements`, rôles qui voient les montants). Palette des modes validée (daltonisme).
 - **2026-11-11, refonte visuelle et confort d'usage (web seulement, aucune règle métier touchée)** : polices IBM Plex Sans et IBM Plex Sans Condensed (chargées par `next/font/google`, les paquets `@fontsource-variable` sont retirés) ; menu groupé par domaine, repliable (choix gardé sur l'appareil) et en tiroir sous 1024 px ; recherche globale Ctrl+K ou « / » (`web/src/components/recherche.tsx` : pages, projets, devis, clients, fiches récentes, « Nouveau projet ») ; bandeau d'accueil avec le tracé du câble (`trace-cable.tsx`) ; avancement des dalles dans la liste des projets et dans l'en-tête de la fiche projet ; onglets de la fiche projet fixes au défilement ; étapes du suivi reliées par un trait ; blocs d'attente (`ui/attente.tsx`) à la place de « Chargement... » ; en-têtes de tableaux en minuscules ; repère de focus commun. Corrigé au passage : le filtre `?statut=` du lien « Projets par statut » du tableau de bord était ignoré par la liste des projets. Vérifié : `npm run lint`, `npm run build`, et captures d'écran avec une API simulée (tableau de bord, projets, fiche projet, suivi, recherche, menu replié, largeur téléphone). **Pas encore regardé avec la base réelle ni les données de démonstration.**
+- **2026-11-11, menu Étude** : une étude par dalle (migration Projets `EtudesDalles`), affectation de plusieurs ingénieurs par l'ingénieur en chef, le chef de projet ou le directeur, dépôt des quatre pièces (coffrage, fond de plan, sortie ADAPT, plan de principe), clôture par un ingénieur affecté, réouverture par les responsables. Écran `web/src/app/(app)/etudes/page.tsx`, API `/api/etudes` (`EtudesEndpoints.cs`). 138 tests. Vérifié sur une base PostgreSQL locale par un script Node jouant cinq rôles (affectation, refus par rôle, filtres, clôture, pièces figées, réouverture) et à l'écran. Non vérifié : le dépôt réel d'un fichier (pas de stockage MinIO dans l'environnement de vérification).
 - Dossiers non suivis laissés en place : `logos_icons/` et `web/files/` (sources identiques, copiées dans `docs/marque/`) : à supprimer après accord.
 
 ## Production
@@ -58,6 +59,8 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 
 ## Pas commencé
 
+- Génération automatique du fond de plan depuis le plan de coffrage, et du plan de principe depuis la sortie ADAPT (analyse faite le 2026-11-11 sur les fichiers Villa Anfa : lecture des DWG AutoCAD 2018 possible sans AutoCAD ; il manque un plan d'exécution avec câbles, le modèle ADAPT et d'autres plans de coffrage).
+
 - Tests d'intégration avec base de données, tests frontend.
 - Application mobile React Native + Expo.
 - Déploiement réel sur le VPS Contabo `progix.bacybrains.com`.
@@ -69,7 +72,7 @@ Aucun. Sur ce poste : pas de SDK .NET 8 ni de Python, le build et les tests back
 
 ## Écarts entre règles décidées et code
 
-Aucun écart ouvert.
+- Étude des dalles : trois points codés sans décision explicite, marqués « à confirmer » dans BUSINESS_RULES.md (dépôt des pièces ouvert aux responsables, réouverture par les responsables, aucune pièce exigée pour clôturer).
 
 ## Bugs connus et incohérences mineures
 

@@ -106,3 +106,29 @@ public class FichiersRapport(ProjetsDbContext db) : IContexteFichiers
         return null;
     }
 }
+
+/// <summary>Pièces de l'étude d'une dalle : déposées par les ingénieurs affectés et par les responsables, figées une fois l'étude terminée.</summary>
+public class FichiersEtude(ProjetsDbContext db) : IContexteFichiers
+{
+    public string Contexte => EtudeDalle.Contexte;
+    public IReadOnlyList<string> Categories => EtudeDalle.Pieces.Select(p => p.Code).ToArray();
+    public bool PeutDeposer(ClaimsPrincipal user) => EtudeDalle.RolesVue.Any(user.IsInRole);
+
+    public async Task<string?> RefusAsync(Guid cibleId, string? categorie, CancellationToken ct = default)
+    {
+        var dalle = await db.Dalles.AsNoTracking().FirstOrDefaultAsync(d => d.Id == cibleId, ct);
+        if (dalle is null) return "Dalle introuvable.";
+        var projet = await db.Projets.AsNoTracking().FirstAsync(p => p.Id == dalle.ProjetId, ct);
+        if (projet.Supprime) return "Un projet supprimé est en lecture seule.";
+        if (dalle.EtudeTermineeLe is not null) return "Cette étude est terminée : ses pièces sont figées.";
+        return null;
+    }
+
+    public async Task<string?> RefusPourAsync(ClaimsPrincipal user, Guid cibleId, string? categorie, CancellationToken ct = default)
+    {
+        if (await RefusAsync(cibleId, categorie, ct) is { } refus) return refus;
+        var id = user.UserId();
+        var affecte = await db.AffectationsEtude.AsNoTracking().AnyAsync(a => a.DalleId == cibleId && a.UserId == id && a.Fin == null, ct);
+        return EtudeDalle.RefusDeposer(EtudeDalle.RolesAffectation.Any(user.IsInRole), affecte);
+    }
+}

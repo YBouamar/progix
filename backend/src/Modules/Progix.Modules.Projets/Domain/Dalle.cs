@@ -35,6 +35,10 @@ public class Dalle : Entity
     /// <summary>Date à laquelle l'étude (plans d'exécution) est planifiée.</summary>
     public DateOnly? EtudePlanifiee { get; set; }
 
+    /// <summary>Clôture de l'étude de la dalle par un ingénieur affecté. Null tant que l'étude est ouverte.</summary>
+    public DateTime? EtudeTermineeLe { get; set; }
+    public string? EtudeTermineePar { get; set; }
+
     // Avis de conformité, donné une fois les 11 étapes faites. Seule une dalle conforme peut figurer sur une attestation.
     public bool? Conforme { get; set; }
     public string? ConformiteRemarque { get; set; }

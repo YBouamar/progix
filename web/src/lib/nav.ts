@@ -8,6 +8,7 @@ const ITEMS: Record<string, NavItem> = {
   livraisons: { id: "livraisons", label: "Livraisons", href: "/livraisons", pret: true, icon: "M1 5h14v11H1zM15 9h4l4 4v3h-8zM5.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" },
   facturation: { id: "facturation", label: "Facturation", href: "/facturation", pret: true, icon: "M5 2h14v20l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6" },
   tresorerie: { id: "tresorerie", label: "Trésorerie", href: "/tresorerie", pret: true, icon: "M2 6h20v12H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" },
+  etude: { id: "etude", label: "Étude", href: "/etudes", pret: true, icon: "M3 17l10-10 4 4L7 21H3zM14 6l2-2 4 4-2 2M9 11l4 4" },
   logistique: { id: "logistique", label: "Logistique", href: "/logistique", pret: true, icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8" },
   repIng: { id: "repIng", label: "Répartition des ingénieurs", href: "/repartition/ingenieurs", pret: true, icon: "M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" },
   repDes: { id: "repDes", label: "Répartition des dessinateurs", href: "/repartition/dessinateurs", pret: true, icon: "M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6" },
@@ -25,8 +26,8 @@ const MENUS: Record<string, string[]> = {
   responsable_administratif: COMMERCIAL,
   administrateur: COMMERCIAL,
   agent_commercial: ["tdb", "projets"],
-  ingenieur_chef: ["tdb", "projets", "devis", "repIng", "perf"],
-  ingenieur: ["tdb", "projets", "devis"],
+  ingenieur_chef: ["tdb", "projets", "devis", "etude", "repIng", "perf"],
+  ingenieur: ["tdb", "projets", "devis", "etude"],
   dessinateur_chef: ["tdb", "projets", "repDes", "perf"],
   dessinateur: ["tdb", "projets"],
   responsable_logistique: ["tdb", "projets", "logistique", "param"],
@@ -38,7 +39,7 @@ const MENUS: Record<string, string[]> = {
 const GROUPES: { label: string; ids: string[] }[] = [
   { label: "Suivi", ids: ["tdb", "projets"] },
   { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"] },
-  { label: "Études et chantier", ids: ["logistique", "repIng", "repDes", "perf", "niveaux"] },
+  { label: "Études et chantier", ids: ["etude", "logistique", "repIng", "repDes", "perf", "niveaux"] },
   { label: "Réglages", ids: ["param"] },
 ];
 

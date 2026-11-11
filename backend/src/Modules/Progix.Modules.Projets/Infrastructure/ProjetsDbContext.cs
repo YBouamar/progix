@@ -29,6 +29,7 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
     public DbSet<EtapeDalle> Etapes => Set<EtapeDalle>();
     public DbSet<EtapeTrace> EtapeTraces => Set<EtapeTrace>();
     public DbSet<Affectation> Affectations => Set<Affectation>();
+    public DbSet<AffectationEtude> AffectationsEtude => Set<AffectationEtude>();
     public DbSet<Remarque> Remarques => Set<Remarque>();
     public DbSet<RemarqueTrace> RemarqueTraces => Set<RemarqueTrace>();
 
@@ -67,6 +68,7 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             b.Property(d => d.DessinateurNom).HasMaxLength(200);
             b.Property(d => d.ConformiteRemarque).HasMaxLength(500);
             b.Property(d => d.ConformitePar).HasMaxLength(200);
+            b.Property(d => d.EtudeTermineePar).HasMaxLength(200);
             b.Property(d => d.Surface).HasPrecision(12, 2);
             b.OwnsOne(d => d.Adapt, a => { a.ToJson(); a.OwnsMany(x => x.Systemes); });
             b.HasIndex(d => new { d.ProjetId, d.Numero }).IsUnique();
@@ -223,6 +225,17 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             b.Property(e => e.Par).HasMaxLength(200);
             b.HasOne<Dalle>().WithMany().HasForeignKey(e => e.DalleId).OnDelete(DeleteBehavior.Cascade);
         });
+        builder.Entity<AffectationEtude>(b =>
+        {
+            b.ToTable("affectations_etude");
+            b.Property(a => a.UserNom).HasMaxLength(200);
+            b.Property(a => a.AffectePar).HasMaxLength(200);
+            b.Property(a => a.RetirePar).HasMaxLength(200);
+            b.HasIndex(a => new { a.DalleId, a.Fin });
+            b.HasIndex(a => a.UserId);
+            b.HasOne<Dalle>().WithMany().HasForeignKey(a => a.DalleId).OnDelete(DeleteBehavior.Cascade);
+        });
+
         builder.Entity<Affectation>(b =>
         {
             b.ToTable("affectations");

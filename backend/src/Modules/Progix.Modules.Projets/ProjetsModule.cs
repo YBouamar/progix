@@ -13,7 +13,7 @@ public class ProjetsModule : IModule
     public string Name => "Projets";
 
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddScoped<IContexteFichiers, FichiersProjet>().AddScoped<IContexteFichiers, FichiersPlans>().AddScoped<IContexteFichiers, FichiersPhotos>().AddScoped<IContexteFichiers, FichiersRapport>().AddScoped<IProjetsStatut, ProjetsLookup>().AddScoped<IProjetsLookup, ProjetsLookup>().AddScoped<IFichesChantier, FichesChantier>().AddDbContext<ProjetsDbContext>(o => o.UseNpgsql(
+        services.AddScoped<IContexteFichiers, FichiersProjet>().AddScoped<IContexteFichiers, FichiersEtude>().AddScoped<IContexteFichiers, FichiersPlans>().AddScoped<IContexteFichiers, FichiersPhotos>().AddScoped<IContexteFichiers, FichiersRapport>().AddScoped<IProjetsStatut, ProjetsLookup>().AddScoped<IProjetsLookup, ProjetsLookup>().AddScoped<IFichesChantier, FichesChantier>().AddDbContext<ProjetsDbContext>(o => o.UseNpgsql(
             configuration.GetConnectionString("Postgres"),
             npgsql => npgsql.MigrationsHistoryTable("__ef_migrations", ProjetsDbContext.Schema)));
 
@@ -36,6 +36,7 @@ public class ProjetsModule : IModule
         PerformanceEndpoints.Map(app);
         RapportsEcrasementEndpoints.Map(app);
         TypesConstructionEndpoints.Map(app);
+        EtudesEndpoints.Map(app);
     }
 
     public async Task InitializeAsync(IServiceProvider services, CancellationToken ct)

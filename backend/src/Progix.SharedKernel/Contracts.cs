@@ -91,6 +91,9 @@ public interface IContexteFichiers
 
     /// <summary>Motif de refus pour cette cible et cette catégorie, ou null si le dépôt et la suppression sont possibles.</summary>
     Task<string?> RefusAsync(Guid cibleId, string? categorie, CancellationToken ct = default);
+
+    /// <summary>Même contrôle pour une personne donnée, quand le dépôt est réservé à certaines personnes de la cible. Par défaut : le contrôle général.</summary>
+    Task<string?> RefusPourAsync(ClaimsPrincipal user, Guid cibleId, string? categorie, CancellationToken ct = default) => RefusAsync(cibleId, categorie, ct);
 }
 
 /// <summary>Accès en lecture aux fichiers déposés pour les autres modules.</summary>

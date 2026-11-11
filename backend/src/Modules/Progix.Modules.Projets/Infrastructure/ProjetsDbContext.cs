@@ -30,6 +30,7 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
     public DbSet<EtapeTrace> EtapeTraces => Set<EtapeTrace>();
     public DbSet<Affectation> Affectations => Set<Affectation>();
     public DbSet<AffectationEtude> AffectationsEtude => Set<AffectationEtude>();
+    public DbSet<AffectationExecution> AffectationsExecution => Set<AffectationExecution>();
     public DbSet<Remarque> Remarques => Set<Remarque>();
     public DbSet<RemarqueTrace> RemarqueTraces => Set<RemarqueTrace>();
 
@@ -88,6 +89,13 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             b.ToTable("versions_plans");
             b.Property(v => v.Commentaire).HasMaxLength(1000);
             b.Property(v => v.CreePar).HasMaxLength(200);
+            b.Property(v => v.Etat).HasMaxLength(20).HasDefaultValue(ExecutionDalle.EnCours);
+            b.Property(v => v.TerminePar).HasMaxLength(200);
+            b.Property(v => v.Surface).HasPrecision(12, 2);
+            b.Property(v => v.DessinateursIds).HasMaxLength(400);
+            b.Property(v => v.DessinateursNoms).HasMaxLength(1000);
+            b.Property(v => v.ArretMotif).HasMaxLength(500);
+            b.HasIndex(v => v.TermineLe);
             b.HasIndex(v => new { v.DalleId, v.Lettre }).IsUnique();
             b.HasOne<Dalle>().WithMany().HasForeignKey(v => v.DalleId).OnDelete(DeleteBehavior.Cascade);
         });
@@ -228,6 +236,17 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
         builder.Entity<AffectationEtude>(b =>
         {
             b.ToTable("affectations_etude");
+            b.Property(a => a.UserNom).HasMaxLength(200);
+            b.Property(a => a.AffectePar).HasMaxLength(200);
+            b.Property(a => a.RetirePar).HasMaxLength(200);
+            b.HasIndex(a => new { a.DalleId, a.Fin });
+            b.HasIndex(a => a.UserId);
+            b.HasOne<Dalle>().WithMany().HasForeignKey(a => a.DalleId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<AffectationExecution>(b =>
+        {
+            b.ToTable("affectations_execution");
             b.Property(a => a.UserNom).HasMaxLength(200);
             b.Property(a => a.AffectePar).HasMaxLength(200);
             b.Property(a => a.RetirePar).HasMaxLength(200);

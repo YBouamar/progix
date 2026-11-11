@@ -32,7 +32,7 @@ Rôles définis dans le code (`Progix.SharedKernel/Roles.cs`). « Voit les monta
 | `agent_commercial` | Agent commercial | non | Commercial (facultatif) d'un projet, choisi à sa création ; voit ses projets. |
 | `ingenieur_chef` | Ingénieur en chef | oui | Répartition des ingénieurs, performance. |
 | `ingenieur` | Ingénieur | oui | Validation BCT, rapports d'écrasement, devis (ingénieur du devis, trame de calcul) ; ingénieur de réalisation quand il est affecté au projet. |
-| `dessinateur_chef` | Dessinateur en chef | non | Répartition des dessinateurs, plans d'exécution. |
+| `dessinateur_chef` | Dessinateur en chef | non | Exécution des dalles (affectation des dessinateurs, dossiers, suivi par jour), plans d'exécution. |
 | `dessinateur` | Dessinateur | non | Plans d'exécution (étape 1). |
 | `responsable_logistique` | Responsable logistique | non | Commande usine (étape 4), suivi logistique, stock, paramétrage des accessoires. |
 | `responsable_chantier` | Responsable chantier | non | Étapes de chantier, validation chantier de la mise en tension et de l'injection. |

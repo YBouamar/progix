@@ -36,6 +36,7 @@ public class FichiersPlans(ProjetsDbContext db) : IContexteFichiers
         var projet = await db.Projets.AsNoTracking().FirstAsync(p => p.Id == dalle.ProjetId, ct);
         if (projet.Supprime) return "Un projet supprimé est en lecture seule.";
         if (dalle.EtapesFaites >= Etapes.ValidationBct) return VersionPlan.Fige;
+        if (v.Etat == ExecutionDalle.Termine) return "Ce dossier est terminé : rouvrez-le pour modifier ses fichiers.";
         if (await db.VersionsPlans.AnyAsync(x => x.DalleId == v.DalleId && x.Lettre > v.Lettre, ct))
             return "Seule la dernière version des plans est modifiable.";
         return null;

@@ -5,7 +5,10 @@ namespace Progix.Tests;
 /// <summary>Habilitations : niveaux d'origine, plafonds, niveau effectif et module d'une requête.</summary>
 public class HabilitationsTests
 {
-    /// <summary>Menus de chaque fonction avant les habilitations : les niveaux d'origine doivent ouvrir exactement les mêmes modules.</summary>
+    /// <summary>
+    /// Menus de chaque fonction avant les habilitations : les niveaux d'origine doivent ouvrir exactement les mêmes modules,
+    /// plus le menu Exécution ajouté depuis pour les dessinateurs, qui remplace la répartition des dessinateurs.
+    /// </summary>
     public static readonly TheoryData<string, string[]> MenusDorigine = new()
     {
         { Roles.ResponsableAdministratif, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
@@ -13,8 +16,8 @@ public class HabilitationsTests
         { Roles.AgentCommercial, [Habilitations.Projets] },
         { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude, Habilitations.RepartitionIngenieurs, Habilitations.Performance] },
         { Roles.Ingenieur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude] },
-        { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.RepartitionDessinateurs, Habilitations.Performance] },
-        { Roles.Dessinateur, [Habilitations.Projets] },
+        { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.Execution, Habilitations.Performance] },
+        { Roles.Dessinateur, [Habilitations.Projets, Habilitations.Execution] },
         { Roles.ResponsableLogistique, [Habilitations.Projets, Habilitations.Logistique, Habilitations.Parametrage] },
         { Roles.ResponsableChantier, [Habilitations.Projets] },
         { Roles.ChefChantier, [Habilitations.Projets] },
@@ -70,8 +73,9 @@ public class HabilitationsTests
     [InlineData("POST", "/api/encaissements/3f2a/annuler", Habilitations.Facturation, Habilitations.Ecriture)]
     [InlineData("GET", "/api/tresorerie/export.xlsx", Habilitations.Tresorerie, Habilitations.Lecture)]
     [InlineData("POST", "/api/etudes/3f2a/fond-plan/deposer", Habilitations.Etude, Habilitations.Ecriture)]
+    [InlineData("GET", "/api/execution/jours", Habilitations.Execution, Habilitations.Lecture)]
+    [InlineData("POST", "/api/execution/dossiers/3f2a/terminer", Habilitations.Execution, Habilitations.Ecriture)]
     [InlineData("GET", "/api/repartition/ingenieurs", Habilitations.RepartitionIngenieurs, Habilitations.Lecture)]
-    [InlineData("GET", "/api/repartition/dessinateurs", Habilitations.RepartitionDessinateurs, Habilitations.Lecture)]
     [InlineData("GET", "/api/statistiques/performance", Habilitations.Performance, Habilitations.Lecture)]
     [InlineData("PUT", "/api/parametres/niveaux", Habilitations.Niveaux, Habilitations.Ecriture)]
     [InlineData("PUT", "/api/parametres/tension", Habilitations.Parametrage, Habilitations.Ecriture)]

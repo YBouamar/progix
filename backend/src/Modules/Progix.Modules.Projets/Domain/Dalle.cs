@@ -25,7 +25,7 @@ public class Dalle : Entity
     /// <summary>Dernier import des exports ADAPT : ratios et câbles repris par les devis.</summary>
     public AdaptDalle? Adapt { get; set; }
 
-    /// <summary>Un seul dessinateur par dalle.</summary>
+    /// <summary>Premier dessinateur affecté à l'exécution de la dalle, et les noms de tous (voir AffectationExecution).</summary>
     public Guid? DessinateurId { get; set; }
     public string? DessinateurNom { get; set; }
 

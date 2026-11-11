@@ -37,6 +37,7 @@ public class ProjetsModule : IModule
         RapportsEcrasementEndpoints.Map(app);
         TypesConstructionEndpoints.Map(app);
         EtudesEndpoints.Map(app);
+        ExecutionEndpoints.Map(app);
         FondPlanEndpoints.Map(app);
     }
 

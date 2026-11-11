@@ -9,9 +9,9 @@ const ITEMS: Record<string, NavItem> = {
   facturation: { id: "facturation", label: "Facturation", href: "/facturation", pret: true, icon: "M5 2h14v20l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6" },
   tresorerie: { id: "tresorerie", label: "Trésorerie", href: "/tresorerie", pret: true, icon: "M2 6h20v12H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" },
   etude: { id: "etude", label: "Étude", href: "/etudes", pret: true, icon: "M3 17l10-10 4 4L7 21H3zM14 6l2-2 4 4-2 2M9 11l4 4" },
+  execution: { id: "execution", label: "Exécution", href: "/execution", pret: true, icon: "M4 4h12l4 4v12H4zM16 4v4h4M8 13h8M8 17h5M8 9h3" },
   logistique: { id: "logistique", label: "Logistique", href: "/logistique", pret: true, icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8" },
   repIng: { id: "repIng", label: "Répartition des ingénieurs", href: "/repartition/ingenieurs", pret: true, icon: "M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" },
-  repDes: { id: "repDes", label: "Répartition des dessinateurs", href: "/repartition/dessinateurs", pret: true, icon: "M12 19l7-7 3 3-7 7zM18 13l-1.5-7.5L2 2l3.5 14.5L13 18zM2 2l7.6 7.6" },
   perf: { id: "perf", label: "Performance", href: "/performance", pret: true, icon: "M3 3v18h18M7 15l4-5 3 3 5-7" },
   niveaux: { id: "niveaux", label: "Niveaux des dalles", href: "/niveaux", pret: true, icon: "M4 20h16M4 15h16M4 10h16M4 5h16" },
   param: { id: "param", label: "Paramétrage", href: "/parametrage", pret: true, icon: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4" },
@@ -20,12 +20,12 @@ const ITEMS: Record<string, NavItem> = {
 /** Module d'habilitation de chaque entrée du menu. Le tableau de bord n'en dépend pas. */
 const MODULES: Record<string, string> = {
   projets: "projets", devis: "devis", clients: "clients", livraisons: "livraisons", facturation: "facturation", tresorerie: "tresorerie",
-  etude: "etude", logistique: "logistique", repIng: "repartition_ingenieurs", repDes: "repartition_dessinateurs", perf: "performance",
+  etude: "etude", execution: "execution", logistique: "logistique", repIng: "repartition_ingenieurs", perf: "performance",
   niveaux: "niveaux", param: "parametrage",
 };
 
 /** Modules de consultation : ils n'ont pas de niveau « écriture ». */
-const CONSULTATION = ["tresorerie", "repartition_ingenieurs", "repartition_dessinateurs", "performance"];
+const CONSULTATION = ["tresorerie", "repartition_ingenieurs", "performance"];
 
 type Droits = { droits?: Record<string, number> };
 
@@ -33,7 +33,7 @@ type Droits = { droits?: Record<string, number> };
 const GROUPES: { label: string; ids: string[] }[] = [
   { label: "Suivi", ids: ["tdb", "projets"] },
   { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"] },
-  { label: "Études et chantier", ids: ["etude", "logistique", "repIng", "repDes", "perf", "niveaux"] },
+  { label: "Études et chantier", ids: ["etude", "execution", "logistique", "repIng", "perf", "niveaux"] },
   { label: "Réglages", ids: ["param"] },
 ];
 

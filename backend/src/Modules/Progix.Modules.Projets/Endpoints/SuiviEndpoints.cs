@@ -78,6 +78,7 @@ public static class SuiviEndpoints
             e.FaitLe = DateTime.UtcNow;
             e.Remarque = remarque;
             if (e.Terminee) dalle.EtapesFaites = n;
+            if (n == 1) await ExecutionEndpoints.TerminerAvecEtapeAsync(db, dalle, user.UserName());
             await db.SaveChangesAsync();
             await MajStatut(db, projet);
             if (e.Terminee && n is 6 or Etapes.MiseEnTension or Etapes.Injection)

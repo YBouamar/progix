@@ -33,28 +33,38 @@ public static class VersionsEndpoints
             if (projet is null || dalle is null) return Results.NotFound();
             if (projet.Supprime) return ProjetsEndpoints.Conflit("Un projet supprimé est en lecture seule.");
 
-            if (dalle.EtapesFaites >= Etapes.ValidationBct) return ProjetsEndpoints.Conflit(VersionPlan.Fige);
-
-            var derniere = await db.VersionsPlans.Where(v => v.DalleId == did).OrderByDescending(v => v.Lettre).FirstOrDefaultAsync();
-            char lettre;
-            if (derniere is null) lettre = dalle.Version; // la première version garde la lettre de départ de la dalle
-            else
-            {
-                if (await fichiers.NombreAsync(VersionPlan.Contexte, derniere.Id) == 0)
-                    return ProjetsEndpoints.Conflit($"La version {derniere.Lettre} ne contient encore aucun fichier.");
-                if (derniere.Lettre >= 'Z') return ProjetsEndpoints.Conflit("La dalle a atteint la dernière lettre de version.");
-                lettre = (char)(derniere.Lettre + 1);
-            }
-            db.VersionsPlans.Add(new VersionPlan
-            {
-                DalleId = did, Lettre = lettre, CreePar = user.UserName(),
-                Commentaire = string.IsNullOrWhiteSpace(input.Commentaire) ? null : input.Commentaire.Trim(),
-            });
-            dalle.Version = lettre;
-            dalle.UpdatedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
+            if (await CreerAsync(db, fichiers, dalle, input.Commentaire, user) is { } motif) return ProjetsEndpoints.Conflit(motif);
             return Results.Ok(await Vue(db, projet, dalle, user));
         });
+    }
+
+    /// <summary>
+    /// Crée la version suivante des plans de la dalle, qui ouvre un dossier d'exécution. Renvoie le motif du refus, ou null.
+    /// La version précédente doit contenir des fichiers et son dossier ne doit plus être en cours.
+    /// </summary>
+    public static async Task<string?> CreerAsync(ProjetsDbContext db, IFichiersLookup fichiers, Dalle dalle, string? commentaire, ClaimsPrincipal user)
+    {
+        if (dalle.EtapesFaites >= Etapes.ValidationBct) return VersionPlan.Fige;
+        var derniere = await db.VersionsPlans.Where(v => v.DalleId == dalle.Id).OrderByDescending(v => v.Lettre).FirstOrDefaultAsync();
+        char lettre;
+        if (derniere is null) lettre = dalle.Version; // la première version garde la lettre de départ de la dalle
+        else
+        {
+            if (derniere.Etat != ExecutionDalle.Arrete && await fichiers.NombreAsync(VersionPlan.Contexte, derniere.Id) == 0)
+                return $"La version {derniere.Lettre} ne contient encore aucun fichier.";
+            if (ExecutionDalle.RefusOuvrir(derniere.Etat, derniere.Lettre, true) is { } enCours) return enCours;
+            if (derniere.Lettre >= 'Z') return "La dalle a atteint la dernière lettre de version.";
+            lettre = (char)(derniere.Lettre + 1);
+        }
+        db.VersionsPlans.Add(new VersionPlan
+        {
+            DalleId = dalle.Id, Lettre = lettre, CreePar = user.UserName(),
+            Commentaire = string.IsNullOrWhiteSpace(commentaire) ? null : commentaire.Trim(),
+        });
+        dalle.Version = lettre;
+        dalle.UpdatedAt = DateTime.UtcNow;
+        await db.SaveChangesAsync();
+        return null;
     }
 
     /// <summary>Ce qui manque pour valider l'étape « Plans d'exécution », ou null si la dernière version est complète.</summary>

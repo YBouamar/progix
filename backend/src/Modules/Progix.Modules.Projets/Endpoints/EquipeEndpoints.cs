@@ -83,20 +83,14 @@ public static class EquipeEndpoints
             var d = await db.Dalles.FirstOrDefaultAsync(x => x.Id == did && x.ProjetId == id);
             if (projet is null || d is null) return Results.NotFound();
             if (projet.Supprime) return ProjetsEndpoints.Conflit("Un projet supprimé est en lecture seule.");
+            // Même affectation que le menu Exécution : la personne choisie devient le seul dessinateur de la dalle.
+            UtilisateurFiche? personne = null;
             if (input.UserId is Guid uid)
             {
-                var personne = (await users.ParRolesAsync(RolesDessinateurs)).FirstOrDefault(u => u.Id == uid);
+                personne = (await users.ParRolesAsync(RolesDessinateurs)).FirstOrDefault(u => u.Id == uid);
                 if (personne is null) return ProjetsEndpoints.Conflit("Cette personne n'est pas dessinateur.");
-                d.DessinateurId = personne.Id;
-                d.DessinateurNom = personne.Nom;
             }
-            else
-            {
-                d.DessinateurId = null;
-                d.DessinateurNom = null;
-            }
-            d.UpdatedAt = DateTime.UtcNow;
-            await db.SaveChangesAsync();
+            await ExecutionEndpoints.DefinirSeulAsync(db, d, personne, user);
             return Results.Ok(DallesEndpoints.Dto(d, projet.Code));
         });
     }

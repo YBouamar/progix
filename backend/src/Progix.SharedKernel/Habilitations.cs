@@ -27,9 +27,9 @@ public static class Habilitations
     public const string Facturation = "facturation";
     public const string Tresorerie = "tresorerie";
     public const string Etude = "etude";
+    public const string Execution = "execution";
     public const string Logistique = "logistique";
     public const string RepartitionIngenieurs = "repartition_ingenieurs";
-    public const string RepartitionDessinateurs = "repartition_dessinateurs";
     public const string Performance = "performance";
     public const string Niveaux = "niveaux";
     public const string Parametrage = "parametrage";
@@ -59,9 +59,9 @@ public static class Habilitations
         new(Facturation, "Facturation", "Factures, avoirs et encaissements.", false, true, Policies.RolesCommercial, []),
         new(Tresorerie, "Trésorerie", "Encaissements, dépenses et marge, avec leurs exports.", true, true, [], Policies.RolesCommercial),
         new(Etude, "Étude", "Études des dalles : ingénieurs, pièces, fond de plan. L'affectation des ingénieurs reste aux responsables.", false, false, [Roles.Directeur, Roles.ChefProjet, Roles.IngenieurChef, Roles.Ingenieur], []),
+        new(Execution, "Exécution", "Exécution des dalles : dessinateurs, dossiers EXE et MODIF, suivi par jour. L'affectation des dessinateurs reste aux responsables.", false, false, [Roles.Directeur, Roles.ChefProjet, Roles.DessinateurChef, Roles.Dessinateur], []),
         new(Logistique, "Logistique", "Commandes usine et stock.", false, true, Policies.RolesLogistique, []),
         new(RepartitionIngenieurs, "Répartition des ingénieurs", "Charge des ingénieurs par projet.", true, false, [], [.. Direction, Roles.IngenieurChef]),
-        new(RepartitionDessinateurs, "Répartition des dessinateurs", "Charge des dessinateurs par dalle.", true, false, [], [.. Direction, Roles.DessinateurChef]),
         new(Performance, "Performance", "Graphes de performance.", true, false, [], [.. Direction, Roles.IngenieurChef, Roles.DessinateurChef]),
         new(Niveaux, "Niveaux des dalles", "Liste des niveaux proposés à la création d'une dalle.", false, false, Direction, []),
         new(Parametrage, "Paramétrage", "Réglages de l'application. Les utilisateurs et les habilitations restent au directeur et au chef de projet.", false, false, [.. Direction, Roles.ResponsableLogistique], []),
@@ -98,9 +98,9 @@ public static class Habilitations
         (new(@"^/api/(factures|avoirs|encaissements)(/|$)", RegexOptions.Compiled), Facturation, Mode.Normal),
         (new(@"^/api/tresorerie(/|$)", RegexOptions.Compiled), Tresorerie, Mode.Normal),
         (new(@"^/api/etudes(/|$)", RegexOptions.Compiled), Etude, Mode.Normal),
+        (new(@"^/api/execution(/|$)", RegexOptions.Compiled), Execution, Mode.Normal),
         (new(@"^/api/logistique(/|$)", RegexOptions.Compiled), Logistique, Mode.Normal),
         (new(@"^/api/repartition/ingenieurs(/|$)", RegexOptions.Compiled), RepartitionIngenieurs, Mode.Normal),
-        (new(@"^/api/repartition/dessinateurs(/|$)", RegexOptions.Compiled), RepartitionDessinateurs, Mode.Normal),
         (new(@"^/api/statistiques/performance(/|$)", RegexOptions.Compiled), Performance, Mode.Normal),
         // Les listes de paramètres se lisent partout (formulaires) : seule leur modification dépend du module.
         (new(@"^/api/parametres/niveaux(/|$)", RegexOptions.Compiled), Niveaux, Mode.EcrituresSeulement),

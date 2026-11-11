@@ -145,6 +145,53 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                     b.ToTable("affectations_etude", "projets");
                 });
 
+            modelBuilder.Entity("Progix.Modules.Projets.Domain.AffectationExecution", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("AffectePar")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("DalleId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateOnly>("Debut")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("Fin")
+                        .HasColumnType("date");
+
+                    b.Property<string>("RetirePar")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("UserNom")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("DalleId", "Fin");
+
+                    b.ToTable("affectations_execution", "projets");
+                });
+
             modelBuilder.Entity("Progix.Modules.Projets.Domain.ArticleStock", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1092,6 +1139,10 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<string>("ArretMotif")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<string>("Commentaire")
                         .HasMaxLength(1000)
                         .HasColumnType("character varying(1000)");
@@ -1107,13 +1158,44 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                     b.Property<Guid>("DalleId")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("DessinateursIds")
+                        .HasMaxLength(400)
+                        .HasColumnType("character varying(400)");
+
+                    b.Property<string>("DessinateursNoms")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<DateOnly?>("EnvoyeLe")
+                        .HasColumnType("date");
+
+                    b.Property<string>("Etat")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("en_cours");
+
                     b.Property<char>("Lettre")
                         .HasColumnType("character(1)");
+
+                    b.Property<decimal?>("Surface")
+                        .HasPrecision(12, 2)
+                        .HasColumnType("numeric(12,2)");
+
+                    b.Property<DateTime?>("TermineLe")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("TerminePar")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TermineLe");
 
                     b.HasIndex("DalleId", "Lettre")
                         .IsUnique();
@@ -1131,6 +1213,15 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                 });
 
             modelBuilder.Entity("Progix.Modules.Projets.Domain.AffectationEtude", b =>
+                {
+                    b.HasOne("Progix.Modules.Projets.Domain.Dalle", null)
+                        .WithMany()
+                        .HasForeignKey("DalleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("Progix.Modules.Projets.Domain.AffectationExecution", b =>
                 {
                     b.HasOne("Progix.Modules.Projets.Domain.Dalle", null)
                         .WithMany()

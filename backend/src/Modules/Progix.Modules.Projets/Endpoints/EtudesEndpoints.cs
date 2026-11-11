@@ -189,6 +189,7 @@ public static class EtudesEndpoints
             peutTerminer = !p.Supprime && EtudeDalle.RefusTerminer(terminee, affecte) is null,
             peutRouvrir = !p.Supprime && responsable && terminee,
             peutModifierIngenieurs = !p.Supprime && responsable && !terminee,
+            peutDeposer = !p.Supprime && !terminee && EtudeDalle.RefusDeposer(responsable, affecte) is null,
         };
     }
 }

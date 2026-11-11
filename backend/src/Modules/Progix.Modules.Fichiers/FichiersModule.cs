@@ -22,6 +22,7 @@ public class FichiersModule : IModule
         services.AddSingleton<Stockage>();
         services.AddScoped<PurgeFichiers>();
         services.AddScoped<IFichiersLookup, FichiersLookup>();
+        services.AddScoped<IFichiersContenu, FichiersContenu>();
 
     }
 

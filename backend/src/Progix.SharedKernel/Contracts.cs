@@ -104,6 +104,21 @@ public interface IFichiersLookup
     Task<int> NombreAsync(string contexte, Guid cibleId, CancellationToken ct = default);
 }
 
+/// <summary>Contenu des fichiers pour les autres modules : lire une pièce déposée, déposer une pièce produite par l'application.</summary>
+public interface IFichiersContenu
+{
+    /// <summary>Fichiers complets et non supprimés d'une cible, les plus récents d'abord.</summary>
+    Task<IReadOnlyList<FichierResume>> ListerAsync(string contexte, Guid cibleId, string? categorie, CancellationToken ct = default);
+
+    /// <summary>Contenu d'un fichier, copié en mémoire, ou null s'il n'existe pas dans ce contexte.</summary>
+    Task<(FichierResume Fichier, MemoryStream Contenu)?> LireAsync(string contexte, Guid id, CancellationToken ct = default);
+
+    /// <summary>Dépose un fichier produit par l'application, au nom de la personne qui l'a demandé. Les droits sont vérifiés par l'appelant.</summary>
+    Task<FichierResume> DeposerAsync(string contexte, Guid cibleId, string? categorie, string nom, string contentType, MemoryStream contenu, ClaimsPrincipal par, CancellationToken ct = default);
+}
+
+public record FichierResume(Guid Id, Guid CibleId, string? Categorie, string Nom, long Taille, DateTime Date);
+
 /// <summary>
 /// Réaffectation d'un projet à une autre entité : chaque module renumérote ses documents dans la séquence de la nouvelle entité.
 /// </summary>

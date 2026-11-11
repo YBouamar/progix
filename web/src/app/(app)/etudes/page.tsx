@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Check, Search, X } from "lucide-react";
+import { Check, Search, Wand2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { cn, formatDate, formatDateHeure, formatSurface } from "@/lib/utils";
@@ -13,12 +13,13 @@ import { Modal } from "@/components/ui/modal";
 import { Sheet } from "@/components/ui/sheet";
 import { AttenteFiche, AttenteLignes } from "@/components/ui/attente";
 import { Documents } from "@/components/documents";
+import { GenerationFondPlan } from "./fond-plan";
 
 type Etude = {
   dalleId: string; projetId: string; projetCode: string; projetLibelle: string; ville: string | null;
   reference: string; niveauLabel: string; surface: number; etat: "a_affecter" | "en_cours" | "terminee"; etatLabel: string;
   ingenieurs: { userId: string; nom: string; depuis: string }[]; pieces: string[];
-  termineeLe: string | null; termineePar: string | null; peutTerminer: boolean; peutRouvrir: boolean; peutModifierIngenieurs: boolean;
+  termineeLe: string | null; termineePar: string | null; peutTerminer: boolean; peutRouvrir: boolean; peutModifierIngenieurs: boolean; peutDeposer: boolean;
 };
 type Piece = { code: string; label: string };
 type Personne = { id: string; nom: string };
@@ -181,6 +182,7 @@ function FicheEtude({ dalleId, pieces, ingenieurs, onClose }: { dalleId: string;
   const [confirmation, setConfirmation] = useState(false);
   // Les blocs de pièces sont rechargés après chaque action : leurs droits de dépôt en dépendent.
   const [version, setVersion] = useState(0);
+  const [generation, setGeneration] = useState(false);
 
   useEffect(() => {
     api<Detail>(`/etudes/${dalleId}`).then(setD).catch((e) => setErreur(e instanceof ApiError ? e.message : "Chargement impossible."));
@@ -256,6 +258,12 @@ function FicheEtude({ dalleId, pieces, ingenieurs, onClose }: { dalleId: string;
               {pieces.map((p, i) => (
                 <li key={p.code} className="rounded-lg border border-bordure p-4">
                   <Documents compact key={`${p.code}-${version}`} contexte="etude_dalle" cibleId={dalleId} categorie={p.code} titre={`${i + 1}. ${p.label}`} />
+                  {p.code === "fond_plan" && e.peutDeposer && (
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <Button variant="outline" size="sm" onClick={() => setGeneration(true)}><Wand2 size={15} />Générer depuis le plan de coffrage</Button>
+                      <span className="text-[12px] text-attenue">Dalle, poteaux, voiles et réservations proposés, à vérifier avant le dépôt.</span>
+                    </div>
+                  )}
                 </li>
               ))}
             </ol>
@@ -275,6 +283,11 @@ function FicheEtude({ dalleId, pieces, ingenieurs, onClose }: { dalleId: string;
             </section>
           )}
         </div>
+      )}
+
+      {generation && e && (
+        <GenerationFondPlan dalleId={dalleId} reference={e.reference} onClose={() => setGeneration(false)}
+          onDepose={() => { setGeneration(false); setVersion((v) => v + 1); }} />
       )}
 
       <Modal open={confirmation} onOpenChange={setConfirmation} title="Déclarer l'étude terminée"

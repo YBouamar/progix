@@ -63,9 +63,7 @@ public static class SuiviEndpoints
             if (n == Etapes.Injection)
             {
                 if (await InjectionEndpoints.RefusAsync(db, did) is { } incomplet) return ProjetsEndpoints.Conflit(incomplet);
-                // L'exécutant signe la fiche d'injection avec son mot de passe.
-                if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
-                    return ProjetsEndpoints.Conflit("Mot de passe incorrect : il sert de signature à la fiche d'injection.");
+                // Valider l'étape signe la fiche d'injection au nom de l'exécutant connecté.
                 await InjectionEndpoints.SignerAsync(db, did, user.UserName());
             }
 

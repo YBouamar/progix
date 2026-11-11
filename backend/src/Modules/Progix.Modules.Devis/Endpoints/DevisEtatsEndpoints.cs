@@ -12,7 +12,8 @@ namespace Progix.Modules.Devis.Endpoints;
 public record MotifInput(string? Motif);
 
 /// <summary>Cycle de vie du devis : envoi, validation, rejet, nouvelle version.</summary>
-public record SignatureDevisInput(string? MotDePasse);
+/// <summary>Corps de la demande de signature. Le mot de passe n'est plus demandé : le champ reste accepté et ignoré.</summary>
+public record SignatureDevisInput(string? MotDePasse = null);
 
 public static class DevisEtatsEndpoints
 {
@@ -77,8 +78,6 @@ public static class DevisEtatsEndpoints
             if (d is null) return Results.NotFound();
             if (d.Etat == EtatsDevis.Brouillon) return DevisEndpoints.Conflit("Un brouillon reste modifiable : marquez le devis comme envoyé avant de le signer.");
             if (d.Jeton is not null) return DevisEndpoints.Conflit("Ce devis est déjà signé.");
-            if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
-                return DevisEndpoints.Conflit("Mot de passe incorrect : il signe électroniquement le document.");
             d.SignePar = user.UserName(); d.SigneLe = DateTime.UtcNow;
             d.Jeton = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
             Tracer(db, d, user, "Devis signé électroniquement");

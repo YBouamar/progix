@@ -12,7 +12,7 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] Deux entités émettrices, `APT` et `BBR` ; chaque document porte l'entité du projet. Un projet se réaffecte à l'autre entité (directeur, chef de projet, responsable administratif) : nouveau code et renumérotation de tous ses documents, ancien numéro gardé.
 - [code] TVA à 20 %.
 - [code] Les documents émis ne se modifient pas et ne se suppriment pas ; ils s'annulent avec un motif obligatoire, tracé (qui, quand).
-- [code] Signature électronique par mot de passe de l'utilisateur, obligatoire avant d'imprimer ou d'envoyer devis, contrat, BL, facture, avoir, courrier ; un jeton aléatoire alimente le QR code de vérification publique.
+- [décidé 2026-11-11, code] Signature électronique au nom de l'utilisateur connecté, **sans ressaisie du mot de passe** (elle était exigée jusque-là), obligatoire avant d'imprimer ou d'envoyer devis, contrat, BL, facture, avoir, courrier, fiche de chantier ; un jeton aléatoire alimente le QR code de vérification publique.
 
 ### Habilitations par fonction
 
@@ -67,7 +67,7 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 | 7 | Coulage du béton | chantier | photo |
 | 8 | Rapport d'écrasement | chantier, ingénieurs | laboratoire rattaché au projet, dernier rapport conforme avec son fichier |
 | 9 | Mise en tension | chantier | validations technique, administrative et chantier **avant** la saisie ; fiche complète |
-| 10 | Injection | chantier | validations technique, administrative et chantier **avant** ; fiche complète ; signature par mot de passe |
+| 10 | Injection | chantier | validations technique, administrative et chantier **avant** ; fiche complète ; la validation signe la fiche au nom de l'exécutant, sans mot de passe (2026-11-11) |
 | 11 | Réception finale | chantier, responsable administratif | |
 
 - [décidé 2026-10-23, code] Qui valide : **technique = chef de projet**, **administrative = responsable administratif**, **chantier = responsable des chantiers**. Le **directeur** peut donner toutes les validations. Personne d'autre (ni ingénieur en chef, ni chef de projet pour l'administrative ou le chantier).

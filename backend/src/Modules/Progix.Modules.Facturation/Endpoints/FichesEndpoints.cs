@@ -33,8 +33,6 @@ public static class FichesEndpoints
             if (!f.RolesSignature.Any(user.IsInRole)) return Results.Forbid();
             if (!f.Figee) return Conflit("La fiche se signe une fois l'étape validée : elle peut encore changer.");
             if (await db.SignaturesFiches.AnyAsync(x => x.DalleId == did && x.Type == type)) return Conflit("Cette fiche est déjà signée.");
-            if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
-                return Conflit("Mot de passe incorrect : il signe électroniquement le document.");
             var s = new SignatureFiche { DalleId = did, Type = type, ProjetId = f.ProjetId, Reference = f.Reference, Titre = f.Titre, SignePar = user.UserName(), SigneLe = DateTime.UtcNow, Jeton = PdfEndpoints.NouveauJeton() };
             db.SignaturesFiches.Add(s);
             await db.SaveChangesAsync();

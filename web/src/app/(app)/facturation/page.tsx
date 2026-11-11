@@ -504,9 +504,8 @@ function Avoirs({ facture, onChange }: { facture: Facture; onChange: (f: Facture
   );
 }
 
-/** Signature par mot de passe : tant qu'un document n'est pas signé, il ne peut être ni imprimé ni envoyé. */
+/** Signature électronique au nom de la personne connectée : tant qu'un document n'est pas signé, il ne peut être ni imprimé ni envoyé. */
 function SignatureDoc({ signePar, signeLe, quoi, url, onSigne }: { signePar: string | null; signeLe: string | null; quoi: string; url: string; onSigne: (f: Facture) => void }) {
-  const [motDePasse, setMotDePasse] = useState("");
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
   if (signePar) return (
@@ -517,18 +516,15 @@ function SignatureDoc({ signePar, signeLe, quoi, url, onSigne }: { signePar: str
   );
   const signer = async () => {
     setEnvoi(true); setErreur("");
-    try { onSigne(await api<Facture>(`${url}/signer`, { method: "POST", body: JSON.stringify({ motDePasse }) })); setMotDePasse(""); }
+    try { onSigne(await api<Facture>(`${url}/signer`, { method: "POST", body: "{}" })); }
     catch (e) { setErreur(e instanceof ApiError ? e.message : "Signature impossible."); }
     finally { setEnvoi(false); }
   };
   return (
     <div className="mt-3 rounded-lg border border-bordure bg-fond p-4">
       <div className="text-[13px] font-semibold">Signer {quoi}</div>
-      <p className="text-[12px] text-secondaire">Un document se signe avant de pouvoir être imprimé ou envoyé. Votre nom, la date et un QR code de vérification y figureront.</p>
-      <div className="mt-2 flex items-end gap-2">
-        <Field label="Votre mot de passe" required className="flex-1"><Input type="password" autoComplete="current-password" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter" && motDePasse) signer(); }} /></Field>
-        <Button disabled={envoi || !motDePasse} onClick={signer}>Signer</Button>
-      </div>
+      <p className="text-[12px] text-secondaire">Un document se signe avant de pouvoir être imprimé ou envoyé. Votre nom, la date et un QR code de vérification y figureront. La signature ne s&apos;annule pas.</p>
+      <Button className="mt-3" disabled={envoi} onClick={signer}>{envoi ? "Signature..." : `Signer ${quoi}`}</Button>
       {erreur && <div role="alert" className="mt-2 rounded-lg bg-rouge-fond px-3 py-2 text-[12px] text-rouge-texte">{erreur}</div>}
     </div>
   );

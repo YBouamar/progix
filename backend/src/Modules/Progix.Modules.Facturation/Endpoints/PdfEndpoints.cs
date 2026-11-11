@@ -10,7 +10,8 @@ using Progix.SharedKernel;
 
 namespace Progix.Modules.Facturation.Endpoints;
 
-public record SignatureInput(string? MotDePasse);
+/// <summary>Corps de la demande de signature. Le mot de passe n'est plus demandé : le champ reste accepté et ignoré.</summary>
+public record SignatureInput(string? MotDePasse = null);
 
 public static class PdfEndpoints
 {
@@ -44,13 +45,12 @@ public static class PdfEndpoints
             return Results.File(DocumentsPdf.Recu(x, facture, e, Lien(config, x.Jeton)), "application/pdf", $"{x.NumeroRecu}.pdf");
         }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
 
-        // Signature électronique : le mot de passe de la personne connectée, exigé avant toute impression ou tout envoi.
+        // Signature électronique par la personne connectée, exigée avant toute impression ou tout envoi. Le mot de passe n'est plus demandé.
         g.MapPost("/factures/{id:guid}/signer", async (Guid id, SignatureInput input, FacturationDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
         {
             var f = await db.Factures.Include(x => x.Lignes).Include(x => x.Avoirs).FirstOrDefaultAsync(x => x.Id == id);
             if (f is null) return Results.NotFound();
             if (f.Jeton is not null) return Results.Conflict(new { message = "Cette facture est déjà signée." });
-            if (!await MotDePasseValide(users, user, input)) return MauvaisMotDePasse();
             f.SignePar = user.UserName(); f.SigneLe = DateTime.UtcNow; f.Jeton = NouveauJeton();
             await db.SaveChangesAsync();
             await db.ImputerAsync([f]);
@@ -62,7 +62,6 @@ public static class PdfEndpoints
             var a = await db.Avoirs.FirstOrDefaultAsync(x => x.Id == id);
             if (a is null) return Results.NotFound();
             if (a.Jeton is not null) return Results.Conflict(new { message = "Cet avoir est déjà signé." });
-            if (!await MotDePasseValide(users, user, input)) return MauvaisMotDePasse();
             a.SignePar = user.UserName(); a.SigneLe = DateTime.UtcNow; a.Jeton = NouveauJeton();
             await db.SaveChangesAsync();
             var f = await db.Factures.AsNoTracking().Include(x => x.Lignes).Include(x => x.Avoirs).FirstAsync(x => x.Id == a.FactureId);
@@ -75,7 +74,6 @@ public static class PdfEndpoints
             var b = await db.BonsLivraison.FirstOrDefaultAsync(x => x.Id == id);
             if (b is null) return Results.NotFound();
             if (b.Jeton is not null) return Results.Conflict(new { message = "Ce bon de livraison est déjà signé." });
-            if (!await MotDePasseValide(users, user, input)) return MauvaisMotDePasse();
             b.SignePar = user.UserName(); b.SigneLe = DateTime.UtcNow; b.Jeton = NouveauJeton();
             await db.SaveChangesAsync();
             return Results.Ok(new { id = b.Id, signePar = b.SignePar, signeLe = b.SigneLe });
@@ -130,8 +128,5 @@ public static class PdfEndpoints
 
     public static string NouveauJeton() => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
     public static string Lien(IConfiguration config, string jeton) => $"{(config["App:PublicUrl"] ?? "http://localhost:3000").TrimEnd('/')}/verification/{jeton}";
-    private static async Task<bool> MotDePasseValide(IUtilisateursLookup users, ClaimsPrincipal user, SignatureInput input) =>
-        !string.IsNullOrEmpty(input.MotDePasse) && await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse);
-    private static IResult MauvaisMotDePasse() => Results.Conflict(new { message = "Mot de passe incorrect : il signe électroniquement le document." });
     private static IResult NonSigne() => Results.Conflict(new { message = "Ce document n'est pas encore signé : signez-le avant de l'imprimer ou de l'envoyer." });
 }

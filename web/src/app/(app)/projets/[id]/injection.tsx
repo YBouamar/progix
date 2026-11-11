@@ -150,7 +150,7 @@ export function FicheInjection({ projetId, dalleId }: { projetId: string; dalleI
         <div>
           <div className="text-[12px] font-bold text-secondaire">Exécution</div>
           <p className="mt-1 text-[13px]">
-            {vue.signePar ? `Signée par ${vue.signePar} le ${formatDateHeure(vue.signeLe)}.` : "L'exécutant signe avec son mot de passe à la validation de l'étape."}
+            {vue.signePar ? `Signée par ${vue.signePar} le ${formatDateHeure(vue.signeLe)}.` : "La fiche est signée au nom de l'exécutant à la validation de l'étape."}
           </p>
         </div>
         <div>

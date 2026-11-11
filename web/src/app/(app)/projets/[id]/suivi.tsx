@@ -36,7 +36,6 @@ export function SuiviDalle({ projetId, dalleId, onClose, onChange }: {
 }) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [remarque, setRemarque] = useState("");
-  const [motDePasse, setMotDePasse] = useState("");
   const [deverrou, setDeverrou] = useState<{ n: number; motif: string } | null>(null);
   const [erreur, setErreur] = useState("");
   // Étape dont l'action vient d'échouer : le message s'affiche à côté de son bouton, là où l'on regarde.
@@ -51,7 +50,7 @@ export function SuiviDalle({ projetId, dalleId, onClose, onChange }: {
     setEnvoi(true); setErreur(""); setErreurEtape(null);
     try {
       const r = await api<Vue>(`${base}/${chemin}`, { method: "POST", body: JSON.stringify(corps) });
-      setVue(r); setRemarque(""); setMotDePasse(""); setDeverrou(null); setSel(null); onChange(r.dalle);
+      setVue(r); setRemarque(""); setDeverrou(null); setSel(null); onChange(r.dalle);
     } catch (e) {
       setErreur(e instanceof ApiError ? (e.status === 403 ? "Votre rôle ne permet pas cette action." : e.errors?.motif?.[0] ?? e.message) : "Action impossible.");
       setErreurEtape(parseInt(chemin, 10) || null);
@@ -180,13 +179,8 @@ export function SuiviDalle({ projetId, dalleId, onClose, onChange }: {
             {e.peutRealiser && (
               <div className="mt-2">
                 <textarea rows={1} className={ZONE} placeholder={e.numero === 9 ? "Remarque (obligatoire si des mesures sont hors tolérance)" : "Remarque (facultative)"} value={remarque} onChange={(ev) => setRemarque(ev.target.value)} />
-                {e.numero === 10 && (
-                  <label className="mt-2 block">
-                    <span className="mb-1 block text-[13px] font-semibold text-secondaire">Votre mot de passe, en signature de la fiche d&apos;injection</span>
-                    <input type="password" autoComplete="current-password" className={ZONE} value={motDePasse} onChange={(ev) => setMotDePasse(ev.target.value)} />
-                  </label>
-                )}
-                <Button size="sm" className="mt-2" disabled={envoi || (e.numero === 10 && !motDePasse)} onClick={() => agir(`${e.numero}/realiser`, { remarque, motDePasse })}>
+                {e.numero === 10 && <p className="mt-2 text-[12px] text-secondaire">Valider l&apos;étape signe la fiche d&apos;injection à votre nom.</p>}
+                <Button size="sm" className="mt-2" disabled={envoi} onClick={() => agir(`${e.numero}/realiser`, { remarque })}>
                   {e.doubleValidation && !e.validationAvant ? "Soumettre la commande à validation" : "Valider l'étape"}
                 </Button>
               </div>

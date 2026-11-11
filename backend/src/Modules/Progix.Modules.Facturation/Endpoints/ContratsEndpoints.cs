@@ -61,8 +61,6 @@ public static class ContratsEndpoints
             if (c is null) return Results.NotFound();
             if (c.Annule) return Conflit("Ce contrat est annulé.");
             if (c.Jeton is not null) return Conflit("Ce contrat est déjà signé.");
-            if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
-                return Conflit("Mot de passe incorrect : il signe électroniquement le document.");
             c.SignePar = user.UserName(); c.SigneLe = DateTime.UtcNow; c.Jeton = PdfEndpoints.NouveauJeton();
             await db.SaveChangesAsync();
             return Results.Ok(Dto(c));

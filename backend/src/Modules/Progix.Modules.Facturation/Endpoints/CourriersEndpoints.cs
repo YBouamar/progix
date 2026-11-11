@@ -103,8 +103,6 @@ public static class CourriersEndpoints
             if (c.Annule) return Conflit("Ce courrier est annulé.");
             if (c.Type == TypesCourrier.Attestation && !RolesAttestation.Any(user.IsInRole)) return Results.Forbid();
             if (c.Jeton is not null) return Conflit("Ce courrier est déjà signé.");
-            if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
-                return Conflit("Mot de passe incorrect : il signe électroniquement le document.");
             c.SignePar = user.UserName(); c.SigneLe = DateTime.UtcNow; c.Jeton = PdfEndpoints.NouveauJeton();
             await db.SaveChangesAsync();
             return Results.Ok(Dto(c));

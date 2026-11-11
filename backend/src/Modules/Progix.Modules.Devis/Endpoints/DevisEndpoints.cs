@@ -98,14 +98,41 @@ public static class DevisEndpoints
             });
         });
 
+        // Valeurs proposées par les filtres de la liste : commerciaux et projets qui ont au moins un devis.
+        g.MapGet("/filtres", async (DevisDbContext db, IProjetsLookup projets) =>
+        {
+            var commerciaux = await db.Devis.AsNoTracking().Where(d => d.CommercialId != null).Select(d => new { d.CommercialId, d.CommercialNom }).Distinct().ToListAsync();
+            var infos = await projets.ProjetsAsync(await db.Devis.AsNoTracking().Select(d => d.ProjetId).Distinct().ToListAsync());
+            return Results.Ok(new
+            {
+                commerciaux = commerciaux.GroupBy(c => c.CommercialId).Select(c => new { id = c.Key, nom = c.First().CommercialNom ?? "" }).OrderBy(c => c.nom),
+                projets = infos.Values.OrderBy(p => p.Code).Select(p => new { id = p.Id, code = p.Code, libelle = p.Libelle }),
+            });
+        });
+
+        // Devis à traiter, pour le chiffre du menu : les brouillons. Un ingénieur compte les siens, les autres fonctions le total.
+        g.MapGet("/a-traiter", async (DevisDbContext db, ClaimsPrincipal user) =>
+        {
+            var brouillons = db.Devis.AsNoTracking().Where(d => d.Etat == EtatsDevis.Brouillon);
+            var moi = user.UserId();
+            return Results.Ok(new { nb = user.IsInRole(Roles.Ingenieur) ? await brouillons.CountAsync(d => d.IngenieurId == moi) : await brouillons.CountAsync() });
+        });
+
+        // Liste filtrée par état, texte, projet, commercial, date du devis et ingénieur ; « sansIngenieur » ajoute à l'ingénieur choisi
+        // les devis qui n'en ont pas (vue d'un ingénieur : les siens et ceux à prendre), ou les montre seuls.
         g.MapGet("/", async (DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires,
-            string? etat, Guid? projetId, string? q, int page = 1, int pageSize = 20) =>
+            string? etat, Guid? projetId, string? q, Guid? ingenieur, bool? sansIngenieur, Guid? commercial, DateOnly? du, DateOnly? au, int page = 1, int pageSize = 20) =>
         {
             await db.ExpirerAsync();
             page = Math.Max(1, page);
             pageSize = Math.Clamp(pageSize, 1, 100);
             var query = db.Devis.AsNoTracking();
             if (projetId is Guid pid) query = query.Where(d => d.ProjetId == pid);
+            if (ingenieur is Guid ing) query = sansIngenieur == true ? query.Where(d => d.IngenieurId == ing || d.IngenieurId == null) : query.Where(d => d.IngenieurId == ing);
+            else if (sansIngenieur == true) query = query.Where(d => d.IngenieurId == null);
+            if (commercial is Guid com) query = query.Where(d => d.CommercialId == com);
+            if (du is DateOnly d1) query = query.Where(d => d.DateDevis >= d1);
+            if (au is DateOnly d2) query = query.Where(d => d.DateDevis <= d2);
             if (!string.IsNullOrWhiteSpace(q))
             {
                 var like = $"%{q.Trim()}%";
@@ -128,7 +155,7 @@ public static class DevisEndpoints
                     {
                         id = d.Id, numero = d.Numero, entite = d.Entite, version = d.Version, projetId = d.ProjetId,
                         projet = p?.Libelle ?? "", projetCode = p?.Code ?? "", client = p is null ? "" : noms.GetValueOrDefault(p.ClientId, ""),
-                        commercial = d.CommercialNom, etat = d.Etat, etatLabel = EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat),
+                        commercial = d.CommercialNom, ingenieur = d.IngenieurNom, etat = d.Etat, etatLabel = EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat),
                         dateDevis = d.DateDevis, echeance = d.Echeance, totalTTC = d.TotalTTC,
             info = DevisEtatsEndpoints.Info(d), alerte = DevisEtatsEndpoints.Alerte(d),
                     };

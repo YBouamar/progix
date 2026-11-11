@@ -18,8 +18,21 @@ public static class LogistiqueEndpoints
 {
     private static readonly (string Code, string Label)[] Etats =
     [
-        ("attente", "En attente de validation"), ("validee", "Validée"), ("fabrication", "En fabrication"), ("livree", "Livrée"), ("recue", "Reçue"),
+        (ACommander, "À commander"), ("attente", "En attente de validation"), ("validee", "Validée"), ("fabrication", "En fabrication"), ("livree", "Livrée"), ("recue", "Reçue"),
     ];
+
+    public const string ACommander = "a_commander";
+
+    /// <summary>
+    /// Dalles dont la commande usine reste à créer : l'étape 4 est leur étape en cours et la commande n'est pas encore soumise à validation.
+    /// Ce sont les dalles où la saisie de la commande est ouverte (projet ni supprimé ni bloqué).
+    /// </summary>
+    internal static IQueryable<Dalle> DallesACommander(ProjetsDbContext db) =>
+        from d in db.Dalles.AsNoTracking()
+        join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
+        where !p.Supprime && !p.Bloque && d.EtapesFaites == Etapes.CommandeUsine - 1
+            && !db.Etapes.Any(e => e.DalleId == d.Id && e.Numero == Etapes.CommandeUsine && e.FaitLe != null)
+        select d;
 
     private static string Etat(CommandeUsine c, EtapeDalle e) =>
         c.RecueLe != null ? "recue" : c.LivreeLe != null ? "livree" : c.FabricationLe != null ? "fabrication" : e.Validee ? "validee" : "attente";
@@ -28,7 +41,7 @@ public static class LogistiqueEndpoints
     {
         var g = app.MapGroup("/api/logistique").WithTags("Logistique").RequireAuthorization(Policies.Logistique);
 
-        // Une commande apparaît ici dès qu'elle est soumise à validation.
+        // Une commande apparaît ici dès qu'elle est soumise à validation ; avant, sa dalle figure dans « À commander » pour y créer la commande.
         g.MapGet("/commandes", async (ProjetsDbContext db, string? etat) =>
         {
             var rows = await (
@@ -49,6 +62,18 @@ public static class LogistiqueEndpoints
                     : $"Technique : {(r.e.ValidationTechniqueLe != null ? "oui" : "non")} · administrative : {(r.e.ValidationAdministrativeLe != null ? "oui" : "non")}",
                 etat = Etat(r.c, r.e),
             }).ToList();
+            var aCommander = await (
+                from d in DallesACommander(db)
+                join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
+                orderby p.Code, d.Numero
+                select new { d, p, c = db.CommandesUsine.FirstOrDefault(c => c.DalleId == d.Id) }).ToListAsync();
+            liste.InsertRange(0, aCommander.Select(r => new
+            {
+                dalleId = r.d.Id, projetId = r.p.Id, reference = $"{r.p.Code}-{r.d.Suffixe}", projet = r.p.Libelle, entite = r.p.Entite, demandee = (DateTime?)null,
+                contenu = r.c is null || r.c.Lignes.Count == 0 ? "Commande à créer" : "Saisie commencée : " + string.Join(" · ", r.c.Lignes.GroupBy(l => l.Torons).OrderBy(x => x.Key)
+                    .Select(x => $"S{x.Key} · {x.Sum(l => l.Nombre)} câbles · {x.Sum(l => l.Gaine):0.##} m")),
+                validations = "", etat = ACommander,
+            }));
             return Results.Ok(new
             {
                 compteurs = Etats.Select(x => new { etat = x.Code, label = x.Label, nb = liste.Count(l => l.etat == x.Code) }),

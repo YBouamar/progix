@@ -9,9 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
+import { SuiviDalle } from "../projets/[id]/suivi";
 
 type Commande = {
-  dalleId: string; projetId: string; reference: string; projet: string; entite: string; demandee: string;
+  dalleId: string; projetId: string; reference: string; projet: string; entite: string; demandee: string | null;
   contenu: string; validations: string; etat: string; etatLabel: string;
 };
 type Commandes = { compteurs: { etat: string; label: string; nb: number }[]; commandes: Commande[] };
@@ -45,6 +46,9 @@ function CommandesUsine() {
   const [data, setData] = useState<Commandes | null>(null);
   const [erreur, setErreur] = useState("");
   const [filtreDate, setFiltreDate] = useState({ du: "", au: "" });
+  // Dalle dont on crée la commande : le suivi de la dalle s'ouvre ici, sans passer par la fiche du projet.
+  const [suivi, setSuivi] = useState<Commande | null>(null);
+  const ouvrir = (c: Commande) => (c.etat === "a_commander" ? setSuivi(c) : router.push(`/logistique/${c.dalleId}`));
 
   const charger = useCallback(() => {
     api<Commandes>(`/logistique/commandes${etat ? `?etat=${etat}` : ""}`).then((r) => { setData(r); setErreur(""); })
@@ -53,7 +57,8 @@ function CommandesUsine() {
   useEffect(() => { charger(); }, [charger]);
 
   const commandesFiltrees = useMemo(
-    () => (data?.commandes ?? []).filter((c) => dansIntervalle(c.demandee, filtreDate.du, filtreDate.au)),
+    // Une commande à créer n'a pas encore de date de demande : le filtre par date ne la masque pas.
+    () => (data?.commandes ?? []).filter((c) => c.etat === "a_commander" || dansIntervalle(c.demandee, filtreDate.du, filtreDate.au)),
     [data, filtreDate],
   );
   const dateFiltreActif = !!(filtreDate.du || filtreDate.au);
@@ -106,21 +111,22 @@ function CommandesUsine() {
               <tr><td colSpan={8} className="px-5 py-8 text-center text-secondaire">Aucune commande ne correspond aux filtres.</td></tr>
             )}
             {commandesFiltrees.map((c) => (
-              <tr key={c.dalleId} tabIndex={0} role="link" aria-label={`Détail de la commande ${c.reference}`}
-                onClick={() => router.push(`/logistique/${c.dalleId}`)}
-                onKeyDown={(e) => { if (e.key === "Enter") router.push(`/logistique/${c.dalleId}`); }}
+              <tr key={c.dalleId} tabIndex={0} role="link" aria-label={c.etat === "a_commander" ? `Créer la commande ${c.reference}` : `Détail de la commande ${c.reference}`}
+                onClick={() => ouvrir(c)}
+                onKeyDown={(e) => { if (e.key === "Enter") ouvrir(c); }}
                 className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond focus:outline-none focus:bg-fond">
                 <td className="whitespace-nowrap px-5 py-3" onClick={(e) => e.stopPropagation()}>
                   <Link href={`/projets/${c.projetId}`} className="font-display font-bold text-marine hover:underline">{c.reference}</Link>
                 </td>
                 <td className="px-5 py-3">{c.projet}</td>
                 <td className="px-5 py-3 font-display">{c.entite}</td>
-                <td className="whitespace-nowrap px-5 py-3 font-display text-secondaire">{formatDate(c.demandee)}</td>
+                <td className="whitespace-nowrap px-5 py-3 font-display text-secondaire">{c.demandee ? formatDate(c.demandee) : ""}</td>
                 <td className="px-5 py-3 text-secondaire">{c.contenu}</td>
                 <td className={cn("px-5 py-3 text-[13px]", c.etat === "attente" ? "font-semibold text-rouge-texte" : "text-secondaire")}>{c.validations}</td>
-                <td className="whitespace-nowrap px-5 py-3"><Badge ton={c.etat === "recue" ? "vert" : c.etat === "attente" ? "neutre" : "orange"}>{c.etatLabel}</Badge></td>
+                <td className="whitespace-nowrap px-5 py-3"><Badge ton={c.etat === "recue" ? "vert" : c.etat === "attente" ? "neutre" : c.etat === "a_commander" ? "violet" : "orange"}>{c.etatLabel}</Badge></td>
                 <td className="whitespace-nowrap px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                  {c.etat !== "attente" && (
+                  {c.etat === "a_commander" && <Button size="sm" onClick={() => setSuivi(c)}>{c.contenu === "Commande à créer" ? "Créer la commande" : "Continuer la saisie"}</Button>}
+                  {c.etat !== "attente" && c.etat !== "a_commander" && (
                     <Select className="h-8 w-40 text-[13px]" aria-label={`État de la commande ${c.reference}`} value={c.etat} onChange={(e) => changer(c, e.target.value)}>
                       {ETATS.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
                     </Select>
@@ -133,11 +139,12 @@ function CommandesUsine() {
         {data && data.commandes.length === 0 && (
           <div className="px-6 py-14 text-center">
             <div className="font-display font-bold">Aucune commande usine</div>
-            <div className="text-secondaire">Une commande apparaît ici dès qu&apos;elle est soumise à validation, à l&apos;étape 4 du suivi d&apos;une dalle.</div>
+            <div className="text-secondaire">Une dalle apparaît ici dès que sa commande usine est à créer, à l&apos;étape 4 de son suivi.</div>
           </div>
         )}
       </div>
       {data && <div className="mt-3 text-[13px] text-secondaire">{commandesFiltrees.length} commande(s){dateFiltreActif && ` sur ${data.commandes.length}`}</div>}
+      {suivi && <SuiviDalle projetId={suivi.projetId} dalleId={suivi.dalleId} onClose={() => { setSuivi(null); charger(); }} onChange={() => charger()} />}
     </div>
   );
 }

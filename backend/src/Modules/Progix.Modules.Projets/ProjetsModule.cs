@@ -40,6 +40,7 @@ public class ProjetsModule : IModule
         ExecutionEndpoints.Map(app);
         ChantierEndpoints.Map(app);
         FondPlanEndpoints.Map(app);
+        ATraiterEndpoints.Map(app);
     }
 
     public async Task InitializeAsync(IServiceProvider services, CancellationToken ct)

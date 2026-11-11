@@ -1,6 +1,6 @@
 export type DevisListItem = {
   id: string; numero: string; entite: string; version: number; projetId: string; projet: string; projetCode: string; client: string;
-  commercial: string | null; etat: string; etatLabel: string; dateDevis: string; echeance: string; totalTTC: number; info: string; alerte: string | null;
+  commercial: string | null; ingenieur: string | null; etat: string; etatLabel: string; dateDevis: string; echeance: string; totalTTC: number; info: string; alerte: string | null;
 };
 
 export type DevisListe = {

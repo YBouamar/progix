@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
+import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { accesPage, groupesPour, titrePour } from "@/lib/nav";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,19 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => { try { setReplie(localStorage.getItem(CLE_MENU) === "1"); } catch { /* stockage indisponible */ } }, []);
   // Le menu mobile se referme à chaque changement de page.
   useEffect(() => { setTiroir(false); }, [pathname]);
+  // Chiffres du menu : ce qui reste à traiter, au nom de la personne ou au total selon sa fonction. Relus à chaque changement de page.
+  const [aTraiter, setATraiter] = useState<Record<string, number>>({});
+  const voitDevis = (user?.droits?.devis ?? 0) >= 1;
+  const connecte = !!user;
+  useEffect(() => {
+    if (!connecte) return;
+    let actuel = true;
+    Promise.all([
+      api<Record<string, number>>("/a-traiter").catch(() => ({} as Record<string, number>)),
+      voitDevis ? api<{ nb: number }>("/devis/a-traiter").then((r) => ({ devis: r.nb })).catch(() => ({})) : Promise.resolve({}),
+    ]).then(([a, b]) => { if (actuel) setATraiter({ ...a, ...b }); });
+    return () => { actuel = false; };
+  }, [pathname, connecte, voitDevis]);
 
   if (loading || !user) {
     return (
@@ -62,6 +76,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
                     <path d={m.icon} />
                   </svg>
                   {court ? <span className="sr-only">{m.label}</span> : <span className="truncate">{m.label}</span>}
+                  {aTraiter[m.id] > 0 && (
+                    <span title={`${aTraiter[m.id]} à traiter`}
+                      className={cn("rounded-full bg-gaine font-display text-[11px] font-bold leading-none text-marine", court ? "absolute right-1 top-1 px-1 py-0.5" : "ml-auto px-1.5 py-1")}>
+                      {aTraiter[m.id] > 99 ? "99+" : aTraiter[m.id]}<span className="sr-only"> à traiter</span>
+                    </span>
+                  )}
                 </Link>
               ))}
             </div>

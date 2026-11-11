@@ -17,10 +17,15 @@ public static partial class PlanCoffrageDwg
     public const string CalqueVoiles = "ADAPT-VOILE";
     public const string CalqueReservations = "ADAPT-RESERVATION";
 
-    [GeneratedRegex(@"\\[A-Za-z][^;]*;|[{}]|\\L|\\P")]
+    // Codes de mise en forme d'un texte multiligne : sans paramètre (souligné, surligné, barré, saut de ligne) ou terminés par un point-virgule.
+    [GeneratedRegex(@"\\[LlOoKkP~]|\\[A-Za-z][^;\\]*;|[{}]")]
     private static partial Regex Mise();
 
-    /// <summary>Lit l'espace objet du dessin. Les coordonnées sont ramenées au mètre d'après l'unité déclarée dans le fichier.</summary>
+    /// <summary>
+    /// Lit l'espace objet du dessin, blocs compris (poteaux et réservations posés en blocs, seuls leurs éléments visibles).
+    /// Les coordonnées sont ramenées au mètre : l'unité déclarée dans le fichier sert si elle donne un bâtiment plausible,
+    /// sinon elle se déduit des dimensions du dessin (voir <see cref="FondPlan.Echelle"/>).
+    /// </summary>
     public static PlanCoffrage Lire(Stream contenu, string nom)
     {
         CadDocument doc;
@@ -34,38 +39,80 @@ public static partial class PlanCoffrageDwg
             using var lecteur = new DwgReader(contenu);
             doc = lecteur.Read();
         }
-        var k = doc.Header.InsUnits switch { UnitsType.Millimeters => 0.001, UnitsType.Centimeters => 0.01, _ => 1.0 };
+        var brut = new Brut();
+        foreach (var e in doc.Entities) Lire(e, Repere.Identite, null, 0, brut);
+
+        var declaree = doc.Header.InsUnits switch { UnitsType.Millimeters => 0.001, UnitsType.Centimeters => 0.01, _ => 1.0 };
+        var k = FondPlan.Echelle(declaree,
+            brut.Contours.Select(c => Math.Max(c.Sommets.Max(s => s.X) - c.Sommets.Min(s => s.X), c.Sommets.Max(s => s.Y) - c.Sommets.Min(s => s.Y))).ToList(),
+            brut.Contours.Where(c => c.Fermee && c.Sommets.Count == 4).Select(c => Math.Min(Cote(c.Sommets[0], c.Sommets[1]), Cote(c.Sommets[1], c.Sommets[2]))).ToList());
+
         var plan = new PlanCoffrage();
-        foreach (var e in doc.Entities)
-        {
-            var calque = e.Layer?.Name ?? "0";
-            switch (e)
-            {
-                case LwPolyline p:
-                    Ajouter(plan, calque, p.Vertices.Select(v => (v.Location.X * k, v.Location.Y * k)).ToList(), p.IsClosed);
-                    break;
-                case Polyline2D p:
-                    Ajouter(plan, calque, p.Vertices.Select(v => (v.Location.X * k, v.Location.Y * k)).ToList(), p.IsClosed);
-                    break;
-                case Arc:
-                    break;
-                case Circle c:
-                    plan.Ronds.Add(new RondPlan(calque, c.Center.X * k, c.Center.Y * k, c.Radius * k));
-                    break;
-                case MText m:
-                    plan.Titres.Add(new TitrePlan(m.InsertPoint.X * k, m.InsertPoint.Y * k, Mise().Replace(m.Value ?? "", " ").Trim(), m.Height * k));
-                    break;
-                case TextEntity t:
-                    plan.Titres.Add(new TitrePlan(t.InsertPoint.X * k, t.InsertPoint.Y * k, (t.Value ?? "").Trim(), t.Height * k));
-                    break;
-            }
-        }
+        foreach (var c in brut.Contours)
+            if (FondPlan.Polygone(c.Sommets.Select(s => (s.X * k, s.Y * k)).ToList(), c.Fermee) is { } polygone) plan.Contours.Add(new ContourPlan(c.Calque, polygone));
+        plan.Ronds.AddRange(brut.Ronds.Select(r => r with { X = r.X * k, Y = r.Y * k, Rayon = r.Rayon * k }));
+        plan.Titres.AddRange(brut.Titres.Select(t => t with { X = t.X * k, Y = t.Y * k, Hauteur = t.Hauteur * k }));
         return plan;
     }
 
-    private static void Ajouter(PlanCoffrage plan, string calque, List<(double X, double Y)> sommets, bool fermee)
+    private static double Cote((double X, double Y) a, (double X, double Y) b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
+
+    /// <summary>Éléments lus, dans l'unité du dessin.</summary>
+    private sealed class Brut
     {
-        if (FondPlan.Polygone(sommets, fermee) is { } polygone) plan.Contours.Add(new ContourPlan(calque, polygone));
+        public List<(string Calque, List<(double X, double Y)> Sommets, bool Fermee)> Contours { get; } = [];
+        public List<RondPlan> Ronds { get; } = [];
+        public List<TitrePlan> Titres { get; } = [];
+    }
+
+    /// <summary>Position d'un bloc inséré : point de base, échelles, rotation, point d'insertion. Les repères s'enchaînent pour les blocs imbriqués.</summary>
+    private sealed record Repere(double A, double B, double C, double D, double Tx, double Ty)
+    {
+        public static readonly Repere Identite = new(1, 0, 0, 1, 0, 0);
+        public (double X, double Y) Point(double x, double y) => (A * x + B * y + Tx, C * x + D * y + Ty);
+        public double Facteur => Math.Sqrt(Math.Abs(A * D - B * C));
+
+        public Repere Puis(Insert i)
+        {
+            var (cos, sin) = (Math.Cos(i.Rotation), Math.Sin(i.Rotation));
+            var (bx, by) = (i.Block.BlockEntity.BasePoint.X, i.Block.BlockEntity.BasePoint.Y);
+            // Local : (p - base) mis à l'échelle, tourné, puis posé au point d'insertion.
+            var (a, b, c, d) = (cos * i.XScale, -sin * i.YScale, sin * i.XScale, cos * i.YScale);
+            var (tx, ty) = (i.InsertPoint.X - a * bx - b * by, i.InsertPoint.Y - c * bx - d * by);
+            return new Repere(A * a + B * c, A * b + B * d, C * a + D * c, C * b + D * d, A * tx + B * ty + Tx, C * tx + D * ty + Ty);
+        }
+    }
+
+    private static void Lire(Entity e, Repere repere, string? calqueDuBloc, int profondeur, Brut brut)
+    {
+        if (e.IsInvisible) return;
+        // Dans un bloc, le calque « 0 » prend celui de l'insertion.
+        var calque = e.Layer?.Name is { } n && !(n == "0" && calqueDuBloc is not null) ? n : calqueDuBloc ?? "0";
+        switch (e)
+        {
+            case Insert i when profondeur < 4 && i.Block is not null:
+                var suite = repere.Puis(i);
+                foreach (var enfant in i.Block.Entities) Lire(enfant, suite, i.Layer?.Name ?? calqueDuBloc, profondeur + 1, brut);
+                break;
+            case LwPolyline p when p.Vertices.Count >= 2:
+                brut.Contours.Add((calque, p.Vertices.Select(v => repere.Point(v.Location.X, v.Location.Y)).ToList(), p.IsClosed));
+                break;
+            case Polyline2D p when p.Vertices.Count() >= 2:
+                brut.Contours.Add((calque, p.Vertices.Select(v => repere.Point(v.Location.X, v.Location.Y)).ToList(), p.IsClosed));
+                break;
+            case Arc:
+                break;
+            case Circle c:
+                var (cx, cy) = repere.Point(c.Center.X, c.Center.Y);
+                brut.Ronds.Add(new RondPlan(calque, cx, cy, c.Radius * repere.Facteur));
+                break;
+            case MText m when profondeur == 0:
+                brut.Titres.Add(new TitrePlan(m.InsertPoint.X, m.InsertPoint.Y, Mise().Replace(m.Value ?? "", " ").Trim(), m.Height));
+                break;
+            case TextEntity t when profondeur == 0:
+                brut.Titres.Add(new TitrePlan(t.InsertPoint.X, t.InsertPoint.Y, (t.Value ?? "").Trim(), t.Height));
+                break;
+        }
     }
 
     /// <summary>Écrit le fond de plan d'un niveau : quatre calques, en mètres, le coin bas gauche de la dalle à l'origine.</summary>

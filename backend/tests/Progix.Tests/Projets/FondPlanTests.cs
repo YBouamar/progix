@@ -32,6 +32,8 @@ public class FondPlanTests
     [InlineData("L00-BA-HACHURE POT.V", FondPlan.Voiles)]
     [InlineData("HACHURES", FondPlan.Ignore)]
     [InlineData("Hachure", FondPlan.Ignore)]
+    [InlineData("Ouverture voile", FondPlan.Ignore)]
+    [InlineData("RESERVATION FLUIDES", FondPlan.Reservations)]
     [InlineData("L03-BA-DALLE", FondPlan.Dalle)]
     [InlineData("-0-limites des dalles mise a jour", FondPlan.Dalle)]
     [InlineData("BET-coffrage", FondPlan.Dalle)]
@@ -132,12 +134,41 @@ public class FondPlanTests
         var roles = FondPlan.RolesProposes(plan);
         // Le calque de hachures est ignoré par défaut : le voile porteur reste seul avec celui de l'étage.
         Assert.Equal(2, FondPlan.Plans(plan, roles)[0].Fond.Voiles.Count);
-        // L'ingénieur le passe en voiles : ses bandes s'ajoutent sans absorber le voile porteur.
+        // L'ingénieur le passe en voiles : ses deux bandes en équerre s'ajoutent, séparées, sans absorber le voile porteur.
         roles["HACHURES"] = FondPlan.Voiles;
         var voiles = FondPlan.Plans(plan, roles)[0].Fond.Voiles;
-        Assert.Equal(3, voiles.Count);
+        Assert.Equal(4, voiles.Count);
         Assert.Contains(voiles, v => Math.Abs(v.Area - 1.0 * 0.2) < 0.005);
     }
+
+    [Fact]
+    public void Un_poteau_rectangulaire_reste_un_poteau_et_un_contour_en_double_ne_compte_qu_une_fois()
+    {
+        var plan = Etage();
+        // 25 x 70 : moins de quatre fois plus long qu'épais, c'est un poteau. 20 x 100 : un voile.
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(5, 2, 0.25, 0.7)));
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(5, 2, 0.25, 0.7)));
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(4, 0, 1.0, 0.2)));
+        var fond = FondPlan.Plans(plan, FondPlan.RolesProposes(plan))[0].Fond;
+        Assert.Equal(5, fond.Poteaux.Count);
+        Assert.Equal(2, fond.Voiles.Count);
+    }
+
+    [Theory]
+    // Déclaré en millimètres mais dessiné en mètres : dalle de 22,6 de large, voiles de 0,2.
+    [InlineData(0.001, 22.6, 0.2, 1.0)]
+    // Déclaré sans unité mais dessiné en millimètres.
+    [InlineData(1.0, 22600, 200, 0.001)]
+    // Dessiné en centimètres.
+    [InlineData(1.0, 2260, 20, 0.01)]
+    // L'unité déclarée est plausible : elle est gardée.
+    [InlineData(0.001, 22600, 200, 0.001)]
+    [InlineData(1.0, 22.6, 0.2, 1.0)]
+    // Deux unités donnent un bâtiment plausible : l'épaisseur des voiles départage.
+    [InlineData(1.0, 10000, 200, 0.001)]
+    [InlineData(1.0, 10000, 20, 0.01)]
+    public void L_unite_du_dessin_se_deduit_de_ses_dimensions_quand_l_unite_declaree_ne_tient_pas(double declaree, double etendue, double epaisseur, double attendu) =>
+        Assert.Equal(attendu, FondPlan.Echelle(declaree, [etendue, etendue / 10], [epaisseur, epaisseur, epaisseur * 1.5]));
 
     [Fact]
     public void Les_voiles_peripheriques_d_un_sous_sol_etendent_la_dalle_et_donnent_un_voile_par_cote()

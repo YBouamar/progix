@@ -55,6 +55,8 @@ public static class FondPlan
     private static readonly Regex RePoteau = new("pot[e]?au|^pot", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     // Un calque de hachures ne désigne des voiles que s'il le dit (« HACHURE POT.V ») : seul, il porte aussi bien des remplissages non porteurs.
     private static readonly Regex ReVoile = new(@"voile|hachure.*pot|pot.*hachure", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // « Ouverture voile » dessine le passage laissé dans un voile, pas un voile.
+    private static readonly Regex ReOuverture = new("ouverture", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ReDalle = new("coffrage|dalle", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ReVide = new("poutre|vide|tr[eé]mie|r[eé]serv", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ReNiveau = new(@"\bPH\b|MEZZ|[EÉ]TAGE|\bRDC|SOUS.?SOL|TERRASSE|PLANCHER", RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -64,7 +66,7 @@ public static class FondPlan
     /// Un calque de hachures sans autre précision est proposé ignoré ; l'ingénieur le passe en voiles au besoin.
     /// </summary>
     public static string RolePropose(string calque) =>
-        RePoteau.IsMatch(calque) ? Poteaux : ReVoile.IsMatch(calque) ? Voiles : ReDalle.IsMatch(calque) ? Dalle : ReVide.IsMatch(calque) ? Reservations : Ignore;
+        ReOuverture.IsMatch(calque) ? Ignore : RePoteau.IsMatch(calque) ? Poteaux : ReVoile.IsMatch(calque) ? Voiles : ReDalle.IsMatch(calque) ? Dalle : ReVide.IsMatch(calque) ? Reservations : Ignore;
 
     /// <summary>Rôles proposés pour tous les calques du plan qui portent des contours ou des cercles.</summary>
     public static Dictionary<string, string> RolesProposes(PlanCoffrage plan) =>
@@ -115,7 +117,10 @@ public static class FondPlan
     /// <summary>Fond de plan de la zone d'un niveau, ou null si aucun contour de dalle n'y est trouvé.</summary>
     public static FondPlanNiveau? Extraire(PlanCoffrage plan, Envelope zone, IReadOnlyDictionary<string, string> roles)
     {
-        var polys = plan.Contours.Where(c => zone.Contains(c.Polygone.InteriorPoint.Coordinate)).Select(c => (Role: Role(roles, c.Calque), c.Calque, P: c.Polygone)).ToList();
+        // Un contour dessiné deux fois au même endroit sur le même calque ne compte qu'une fois.
+        var polys = plan.Contours.Where(c => zone.Contains(c.Polygone.InteriorPoint.Coordinate))
+            .DistinctBy(c => (c.Calque, Math.Round(c.Polygone.Centroid.X, 2), Math.Round(c.Polygone.Centroid.Y, 2), Math.Round(c.Polygone.Area, 2)))
+            .Select(c => (Role: Role(roles, c.Calque), c.Calque, P: c.Polygone)).ToList();
 
         // Dalle : le plus grand contour des calques de dalle ou de voile, complété par les contours de voiles périphériques accolés.
         var grands = polys.Where(x => x.Role is Dalle or Voiles && x.P.Area > 5).Select(x => x.P).OrderByDescending(p => p.Area).ToList();
@@ -131,15 +136,15 @@ public static class FondPlan
         dalle = Simplifie(Fabrique.CreatePolygon(dalle.ExteriorRing.Coordinates));
         var pres = dalle.Buffer(0.3);
 
-        // Sur un calque de poteaux : une forme ramassée est un poteau, une forme allongée un voile, une grande forme une cage.
+        // Sur un calque de poteaux : une forme ramassée est un poteau, une forme plus de quatre fois plus longue qu'épaisse un voile, une grande forme une cage.
         var calquesPoteaux = polys.Where(x => x.Role == Poteaux && pres.Contains(x.P.Centroid)).ToList();
         var surPoteaux = calquesPoteaux.Select(x => x.P).ToList();
-        var poteaux = surPoteaux.Where(p => p.Area <= 1.5 && !Allonge(p)).ToList();
+        var poteaux = surPoteaux.Where(p => p.Area <= 1.5 && !Allonge(p, 4)).ToList();
         var ronds = plan.Ronds.Where(r => Role(roles, r.Calque) == Poteaux && pres.Contains(Fabrique.CreatePoint(new Coordinate(r.X, r.Y)))).ToList();
 
         // Voiles : rectangles allongés des calques de voile ; les morceaux alignés bout à bout sont réunis.
         var brins = polys.Where(x => x.Role == Voiles && x.P.Area < 5 && Allonge(x.P) && pres.Intersects(x.P))
-            .Concat(calquesPoteaux.Where(x => x.P.Area <= 1.5 && Allonge(x.P))).Select(x => (x.Calque, x.P)).ToList();
+            .Concat(calquesPoteaux.Where(x => x.P.Area <= 1.5 && Allonge(x.P, 4))).Select(x => (x.Calque, x.P)).ToList();
 
         // Voiles dessinés par deux contours emboîtés (périphérie d'un sous-sol, cage) : un rectangle par côté du contour extérieur.
         var anneaux = polys.Where(x => x.Role == Voiles && x.P.Area > 5).Select(x => x.P).Concat(surPoteaux.Where(p => p.Area > 1.5)).ToList();
@@ -185,16 +190,25 @@ public static class FondPlan
             }
 
         var voiles = new List<Polygon>();
-        // Les morceaux d'un même calque se réunissent ; deux calques différents ne se fondent pas en un seul voile.
+        // Les morceaux d'un même calque alignés bout à bout se réunissent en un seul rectangle. Deux voiles en équerre restent deux voiles,
+        // et deux calques différents ne se fondent pas en un seul voile.
         foreach (var calque in brins.GroupBy(b => b.Calque))
         {
-            var reunis = UnaryUnionOp.Union(calque.Select(b => b.P.Buffer(0.005)).ToList());
-            for (var i = 0; i < reunis.NumGeometries; i++)
+            var morceaux = calque.Select(b => b.P).ToList();
+            for (var fusion = true; fusion;)
             {
-                if (PlusGrand(reunis.GetGeometryN(i).Buffer(-0.005)) is not { } g) continue;
-                var r = Rectangle(g);
-                voiles.Add(r is not null && g.Area > 0.9 * r.Area ? r : Simplifie(Fabrique.CreatePolygon(g.ExteriorRing.Coordinates)));
+                fusion = false;
+                for (var i = 0; i < morceaux.Count && !fusion; i++)
+                    for (var j = i + 1; j < morceaux.Count && !fusion; j++)
+                    {
+                        if (morceaux[i].Distance(morceaux[j]) > 0.01) continue;
+                        if (PlusGrand(morceaux[i].Buffer(0.005, AngleVif).Union(morceaux[j].Buffer(0.005, AngleVif)).Buffer(-0.005, AngleVif)) is not { } u
+                            || Rectangle(u) is not { } r || u.Area < 0.97 * r.Area || u.Area < 0.97 * (morceaux[i].Area + morceaux[j].Area)) continue;
+                        morceaux[i] = r; morceaux.RemoveAt(j); fusion = true;
+                    }
             }
+            foreach (var g in morceaux)
+                voiles.Add(Rectangle(g) is { } r && g.Area > 0.9 * r.Area ? r : Simplifie(Fabrique.CreatePolygon(g.ExteriorRing.Coordinates)));
         }
         voiles.AddRange(peripherie);
 
@@ -204,6 +218,25 @@ public static class FondPlan
                 && Rectangle(x.P) is { } r && x.P.Area > 0.8 * r.Area).Select(x => x.P).Concat(cages).ToList();
 
         return new FondPlanNiveau(dalle, poteaux, ronds, voiles, reservations);
+    }
+
+    /// <summary>
+    /// Facteur qui ramène le dessin au mètre. L'unité déclarée dans le fichier est gardée si elle donne un bâtiment plausible
+    /// (plus grand contour entre 4 m et 400 m) ; sinon on retient, entre mètre, centimètre et millimètre, celle qui en donne un,
+    /// en départageant par l'épaisseur courante des poteaux et des voiles (8 cm à 1,20 m). Des dessins en mètres sont souvent déclarés en millimètres.
+    /// </summary>
+    public static double Echelle(double declaree, IReadOnlyList<double> etendues, IReadOnlyList<double> epaisseurs)
+    {
+        if (etendues.Count == 0) return declaree;
+        var plusGrand = etendues.Max();
+        bool Plausible(double k) => plusGrand * k is >= 4 and <= 400;
+        if (Plausible(declaree)) return declaree;
+        var possibles = new[] { 1.0, 0.01, 0.001 }.Where(Plausible).ToList();
+        if (possibles.Count == 0) return declaree;
+        var triees = epaisseurs.Where(e => e > 0).OrderBy(e => e).ToList();
+        if (possibles.Count == 1 || triees.Count == 0) return possibles[0];
+        var mediane = triees[triees.Count / 2];
+        return possibles.FirstOrDefault(k => mediane * k is >= 0.08 and <= 1.2, possibles[0]);
     }
 
     /// <summary>Polygone à partir des sommets d'une polyligne, ou null si elle ne délimite pas une surface.</summary>
@@ -226,13 +259,14 @@ public static class FondPlan
     }
 
     /// <summary>Forme allongée : un voile plutôt qu'un poteau.</summary>
-    internal static bool Allonge(Polygon p)
+    /// <param name="rapport">Rapport minimal de la longueur à l'épaisseur. Sur un calque de poteaux, 4 : en dessous c'est un poteau rectangulaire.</param>
+    internal static bool Allonge(Polygon p, double rapport = 2.4)
     {
         if (Rectangle(p) is not { } r) return false;
         var c = r.ExteriorRing.Coordinates;
         var (a, b) = (c[0].Distance(c[1]), c[1].Distance(c[2]));
         var (petit, grand) = (Math.Min(a, b), Math.Max(a, b));
-        return petit < 0.45 && grand > 0.6 && grand > 2.4 * petit && p.Area > 0.85 * r.Area;
+        return petit < 0.45 && grand > 0.6 && grand > rapport * petit && p.Area > 0.85 * r.Area;
     }
 
     private static Polygon? Rectangle(Geometry g) => g.IsEmpty ? null : MinimumAreaRectangle.GetMinimumRectangle(g) as Polygon;

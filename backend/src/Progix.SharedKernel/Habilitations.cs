@@ -31,7 +31,8 @@ public static class Habilitations
     public const string Chantier = "chantier";
     public const string Logistique = "logistique";
     public const string RepartitionIngenieurs = "repartition_ingenieurs";
-    public const string Performance = "performance";
+    public const string PerformanceDessinateurs = "performance_dessinateurs";
+    public const string PerformanceIngenieurs = "performance_ingenieurs";
     public const string Niveaux = "niveaux";
     public const string Parametrage = "parametrage";
 
@@ -67,7 +68,8 @@ public static class Habilitations
         new(Chantier, "Chantier", "Suivi des dalles sur le terrain : étapes, fiches, photos et dépenses de chantier. Un chef de chantier n'y voit que les projets où il est affecté ; l'affectation reste aux responsables.", false, false, [.. Direction, .. Chantiers], []),
         new(Logistique, "Logistique", "Commandes usine et stock.", false, true, Policies.RolesLogistique, []),
         new(RepartitionIngenieurs, "Répartition des ingénieurs", "Charge des ingénieurs par projet.", true, false, [], [.. Direction, Roles.IngenieurChef]),
-        new(Performance, "Performance", "Graphes de performance.", true, false, [], [.. Direction, Roles.IngenieurChef, Roles.DessinateurChef]),
+        new(PerformanceDessinateurs, "Performance des dessinateurs", "Dalles finies et surface étudiée par dessinateur.", true, false, [], [.. Direction, Roles.DessinateurChef]),
+        new(PerformanceIngenieurs, "Performance des ingénieurs", "Projets et surface suivis par ingénieur.", true, false, [], [.. Direction, Roles.IngenieurChef]),
         new(Niveaux, "Niveaux des dalles", "Liste des niveaux proposés à la création d'une dalle.", false, false, Direction, []),
         new(Parametrage, "Paramétrage", "Réglages de l'application. Les utilisateurs et les habilitations restent au directeur et au chef de projet.", false, false, [.. Direction, Roles.ResponsableLogistique], []),
     ];
@@ -109,7 +111,8 @@ public static class Habilitations
         (new(@"^/api/chantier(/|$)", RegexOptions.Compiled), Chantier, Mode.Normal),
         (new(@"^/api/logistique(/|$)", RegexOptions.Compiled), Logistique, Mode.Normal),
         (new(@"^/api/repartition/ingenieurs(/|$)", RegexOptions.Compiled), RepartitionIngenieurs, Mode.Normal),
-        (new(@"^/api/statistiques/performance(/|$)", RegexOptions.Compiled), Performance, Mode.Normal),
+        (new(@"^/api/statistiques/performance/dessinateurs(/|$)", RegexOptions.Compiled), PerformanceDessinateurs, Mode.Normal),
+        (new(@"^/api/statistiques/performance/ingenieurs(/|$)", RegexOptions.Compiled), PerformanceIngenieurs, Mode.Normal),
         // Les listes de paramètres se lisent partout (formulaires) : seule leur modification dépend du module.
         (new(@"^/api/parametres/niveaux(/|$)", RegexOptions.Compiled), Niveaux, Mode.EcrituresSeulement),
         (new(@"^/api/parametres(/|$)", RegexOptions.Compiled), Parametrage, Mode.EcrituresSeulement),

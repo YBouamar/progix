@@ -13,7 +13,8 @@ const ITEMS: Record<string, NavItem> = {
   chantier: { id: "chantier", label: "Chantier", href: "/chantier", pret: true, icon: "M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6M9 11h.01M15 11h.01" },
   logistique: { id: "logistique", label: "Logistique", href: "/logistique", pret: true, icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8" },
   repIng: { id: "repIng", label: "Répartition des ingénieurs", href: "/repartition/ingenieurs", pret: true, icon: "M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" },
-  perf: { id: "perf", label: "Performance", href: "/performance", pret: true, icon: "M3 3v18h18M7 15l4-5 3 3 5-7" },
+  perfDes: { id: "perfDes", label: "Performance des dessinateurs", href: "/performance/dessinateurs", pret: true, icon: "M3 3v18h18M7 15l4-5 3 3 5-7" },
+  perfIng: { id: "perfIng", label: "Performance des ingénieurs", href: "/performance/ingenieurs", pret: true, icon: "M3 3v18h18M8 17V11M13 17V7M18 17v-4" },
   niveaux: { id: "niveaux", label: "Niveaux des dalles", href: "/niveaux", pret: true, icon: "M4 20h16M4 15h16M4 10h16M4 5h16" },
   param: { id: "param", label: "Paramétrage", href: "/parametrage", pret: true, icon: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4" },
 };
@@ -21,12 +22,12 @@ const ITEMS: Record<string, NavItem> = {
 /** Module d'habilitation de chaque entrée du menu. Le tableau de bord n'en dépend pas. */
 const MODULES: Record<string, string> = {
   projets: "projets", devis: "devis", clients: "clients", livraisons: "livraisons", facturation: "facturation", tresorerie: "tresorerie",
-  etude: "etude", execution: "execution", chantier: "chantier", logistique: "logistique", repIng: "repartition_ingenieurs", perf: "performance",
+  etude: "etude", execution: "execution", chantier: "chantier", logistique: "logistique", repIng: "repartition_ingenieurs", perfDes: "performance_dessinateurs", perfIng: "performance_ingenieurs",
   niveaux: "niveaux", param: "parametrage",
 };
 
 /** Modules de consultation : ils n'ont pas de niveau « écriture ». */
-const CONSULTATION = ["tresorerie", "repartition_ingenieurs", "performance"];
+const CONSULTATION = ["tresorerie", "repartition_ingenieurs", "performance_dessinateurs", "performance_ingenieurs"];
 
 type Droits = { droits?: Record<string, number> };
 
@@ -34,7 +35,7 @@ type Droits = { droits?: Record<string, number> };
 const GROUPES: { label: string; ids: string[] }[] = [
   { label: "Suivi", ids: ["tdb", "projets"] },
   { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"] },
-  { label: "Études et chantier", ids: ["etude", "execution", "chantier", "logistique", "repIng", "perf", "niveaux"] },
+  { label: "Études et chantier", ids: ["etude", "execution", "chantier", "logistique", "repIng", "perfDes", "perfIng", "niveaux"] },
   { label: "Réglages", ids: ["param"] },
 ];
 

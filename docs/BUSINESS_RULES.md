@@ -16,7 +16,7 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 
 ### Habilitations par fonction
 
-- [décidé 2026-11-11, code] Les accès se règlent **par fonction et par module**, depuis le paramétrage : aucun accès, lecture, ou écriture. Quatorze modules : projets, devis, clients et partenaires, livraisons, facturation, trésorerie, étude, exécution, chantier, logistique, répartition des ingénieurs, performance, niveaux des dalles, paramétrage. La trésorerie, les deux répartitions et la performance sont des modules de consultation : ils s'arrêtent à la lecture.
+- [décidé 2026-11-11, code] Les accès se règlent **par fonction et par module**, depuis le paramétrage : aucun accès, lecture, ou écriture. Quinze modules : projets, devis, clients et partenaires, livraisons, facturation, trésorerie, étude, exécution, chantier, logistique, répartition des ingénieurs, performance des dessinateurs, performance des ingénieurs, niveaux des dalles, paramétrage. La trésorerie, les deux répartitions et la performance sont des modules de consultation : ils s'arrêtent à la lecture.
 - [décidé 2026-11-11, code] Le réglage revient au **directeur et au chef de projet**. Les droits du directeur ne se règlent pas : il garde l'accès à tout.
 - [décidé 2026-11-11, code] Des **fonctions peuvent être créées**, en plus des douze d'origine. Une fonction créée a une **fonction de référence** parmi les douze (sauf directeur), dont elle prend les validations, les signatures, le tableau de bord et la visibilité des montants. Elle se supprime tant qu'aucun utilisateur ne la porte.
 - [décidé 2026-11-11, code] Les **validations du chantier restent fixes** (technique, administrative, chantier, blocage par le directeur, suppression d'un projet, signataires) : elles suivent la fonction d'origine ou la fonction de référence, pas le réglage.
@@ -104,7 +104,8 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [décidé 2026-11-11, code] Un dossier partagé compte **à parts égales** pour chacun de ses dessinateurs, dossier et surface (performance).
 - [code] **Suivi par jour** : pour chaque jour, les dossiers ouverts ce jour-là (référence, projet, client, BCT, BET, niveau, surface EXE ou MODIF, dessinateurs, ingénieurs de l'étude, état, date d'envoi) et les dalles planifiées ce jour-là qui n'ont pas encore de dossier, signalées en retard une fois le jour passé. Le jour prévu se règle par les responsables.
 - [décidé 2026-11-11] Pas de reprise du fichier « ETAT EXE » 2026 : le suivi démarre avec les dossiers saisis dans PROGIX.
-- [décidé 2026-11-11, à faire] Évaluation des dessinateurs (onglet de la page Performance) d'après le fichier d'évaluation : rendement par jour travaillé, les jours étant les mois de présence (dates d'arrivée et de départ sur la fiche de la personne) multipliés par un nombre de jours par mois réglable.
+- [décidé 2026-11-11, code] La performance se lit sur **deux pages séparées**, chacune avec son module d'habilitation : « Performance des dessinateurs » (directeur, chef de projet, dessinateur en chef) et « Performance des ingénieurs » (directeur, chef de projet, ingénieur en chef). L'état des paiements de l'année, qui figurait sur l'ancienne page unique, est en bas de la Trésorerie.
+- [décidé 2026-11-11, à faire] Évaluation des dessinateurs (sur la page « Performance des dessinateurs ») d'après le fichier d'évaluation : rendement par jour travaillé, les jours étant les mois de présence (dates d'arrivée et de départ sur la fiche de la personne) multipliés par un nombre de jours par mois réglable.
 
 ### Suivi de chantier (menu Chantier)
 

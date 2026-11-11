@@ -1,5 +1,6 @@
 "use client";
 
+import { EtatPaiementsAnnee } from "@/components/etat-paiements";
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { FileDown, Plus, Search } from "lucide-react";
@@ -165,6 +166,8 @@ export default function TresoreriePage() {
           <div className="mt-4 flex justify-end gap-2"><Button variant="outline" onClick={() => setAAnnuler(null)}>Fermer</Button><Button disabled={!motif.trim()} onClick={annuler}>Confirmer l&apos;annulation</Button></div>
         </Sheet>
       )}
+
+      <EtatPaiementsAnnee />
     </div>
   );
 }

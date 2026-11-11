@@ -15,9 +15,9 @@ public class HabilitationsTests
         { Roles.ResponsableAdministratif, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
         { Roles.Administrateur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
         { Roles.AgentCommercial, [Habilitations.Projets] },
-        { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude, Habilitations.RepartitionIngenieurs, Habilitations.Performance] },
+        { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude, Habilitations.RepartitionIngenieurs, Habilitations.PerformanceIngenieurs] },
         { Roles.Ingenieur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude] },
-        { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.Execution, Habilitations.Performance] },
+        { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.Execution, Habilitations.PerformanceDessinateurs] },
         { Roles.Dessinateur, [Habilitations.Projets, Habilitations.Execution] },
         { Roles.ResponsableLogistique, [Habilitations.Projets, Habilitations.Logistique, Habilitations.Parametrage] },
         { Roles.ResponsableChantier, [Habilitations.Chantier] },
@@ -39,7 +39,7 @@ public class HabilitationsTests
     public void Les_modules_de_consultation_s_arretent_a_la_lecture()
     {
         Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.Administrateur, Habilitations.Tresorerie));
-        Assert.Equal(Habilitations.Lecture, Habilitations.Trouver(Habilitations.Performance)!.Maximum);
+        Assert.Equal(Habilitations.Lecture, Habilitations.Trouver(Habilitations.PerformanceDessinateurs)!.Maximum);
         Assert.Equal(Habilitations.Ecriture, Habilitations.ParDefaut(Roles.Administrateur, Habilitations.Facturation));
     }
 
@@ -78,7 +78,8 @@ public class HabilitationsTests
     [InlineData("POST", "/api/chantier/projets/3f2a/chefs", Habilitations.Chantier, Habilitations.Ecriture)]
     [InlineData("POST", "/api/execution/dossiers/3f2a/terminer", Habilitations.Execution, Habilitations.Ecriture)]
     [InlineData("GET", "/api/repartition/ingenieurs", Habilitations.RepartitionIngenieurs, Habilitations.Lecture)]
-    [InlineData("GET", "/api/statistiques/performance", Habilitations.Performance, Habilitations.Lecture)]
+    [InlineData("GET", "/api/statistiques/performance/dessinateurs", Habilitations.PerformanceDessinateurs, Habilitations.Lecture)]
+    [InlineData("GET", "/api/statistiques/performance/ingenieurs", Habilitations.PerformanceIngenieurs, Habilitations.Lecture)]
     [InlineData("PUT", "/api/parametres/niveaux", Habilitations.Niveaux, Habilitations.Ecriture)]
     [InlineData("PUT", "/api/parametres/tension", Habilitations.Parametrage, Habilitations.Ecriture)]
     [InlineData("GET", "/api/projets/3f2a/dalles", Habilitations.Projets, Habilitations.Lecture)]
@@ -136,5 +137,16 @@ public class HabilitationsTests
             Assert.Equal(Habilitations.Chantier, a.Module);
             Assert.Equal(Guid.Parse("3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d"), a.ProjetId);
         }
+    }
+
+    [Fact]
+    public void La_performance_des_dessinateurs_et_celle_des_ingenieurs_sont_deux_modules_separes()
+    {
+        Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.DessinateurChef, Habilitations.PerformanceDessinateurs));
+        Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(Roles.DessinateurChef, Habilitations.PerformanceIngenieurs));
+        Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.IngenieurChef, Habilitations.PerformanceIngenieurs));
+        Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(Roles.IngenieurChef, Habilitations.PerformanceDessinateurs));
+        Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.ChefProjet, Habilitations.PerformanceDessinateurs));
+        Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.ChefProjet, Habilitations.PerformanceIngenieurs));
     }
 }

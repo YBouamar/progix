@@ -10,25 +10,33 @@ using Progix.SharedKernel;
 namespace Progix.Modules.Projets.Endpoints;
 
 /// <summary>
-/// Statistiques de performance : dalles dont les plans d'exécution sont terminés, par dessinateur,
+/// Statistiques de performance, en deux vues séparées : dalles dont les plans d'exécution sont terminés, par dessinateur,
 /// et projets suivis, par ingénieur. Par mois et sur l'année.
 /// </summary>
 public static class PerformanceEndpoints
 {
     public static void Map(IEndpointRouteBuilder app)
     {
-        app.MapGet("/api/statistiques/performance", async (int? annee, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
+        // Deux pages, deux modules d'habilitation : la performance des dessinateurs et celle des ingénieurs.
+        app.MapGet("/api/statistiques/performance/dessinateurs", (int? annee, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
+            VueAsync(annee, dessinateurs: true, db, users, user)).WithTags("Statistiques").RequireAuthorization();
+        app.MapGet("/api/statistiques/performance/ingenieurs", (int? annee, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
+            VueAsync(annee, dessinateurs: false, db, users, user)).WithTags("Statistiques").RequireAuthorization();
+    }
+
+    private static async Task<IResult> VueAsync(int? annee, bool dessinateurs, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user)
+    {
         {
             var direction = user.IsInRole(Roles.Directeur) || user.IsInRole(Roles.ChefProjet);
-            var voitIngenieurs = direction || user.IsInRole(Roles.IngenieurChef);
-            var voitDessinateurs = direction || user.IsInRole(Roles.DessinateurChef);
+            var voitIngenieurs = !dessinateurs && (direction || user.IsInRole(Roles.IngenieurChef));
+            var voitDessinateurs = dessinateurs && (direction || user.IsInRole(Roles.DessinateurChef));
             if (!voitIngenieurs && !voitDessinateurs) return Results.Forbid();
 
             var jour = DateOnly.FromDateTime(DateTime.UtcNow.AddHours(1));
             var an = annee is >= 2000 and <= 2100 ? annee.Value : jour.Year;
             var vivants = await db.Projets.AsNoTracking().Where(p => !p.Supprime).Select(p => p.Id).ToListAsync();
 
-            object? dessinateurs = null, ingenieurs = null;
+            object? parDessinateur = null, parIngenieur = null;
             // Production année par année, toutes personnes confondues, pour le graphe d'évolution.
             List<object>? dessinateursParAn = null, ingenieursParAn = null;
             var premiere = jour.Year;
@@ -44,7 +52,7 @@ public static class PerformanceEndpoints
                 if (lignes.Count > 0) premiere = Math.Min(premiere, lignes.Min(x => x.Le.Year));
                 var noms = (await users.ParRolesAsync([Roles.Dessinateur, Roles.DessinateurChef])).ToDictionary(u => u.Id, u => u.Nom);
                 foreach (var l in lignes) noms.TryAdd(l.Id, l.Nom);
-                dessinateurs = noms.Select(n =>
+                parDessinateur = noms.Select(n =>
                 {
                     var siennes = lignes.Where(l => l.Id == n.Key && l.Le.Year == an).ToList();
                     return new
@@ -68,7 +76,7 @@ public static class PerformanceEndpoints
                 var dalles = await db.Dalles.AsNoTracking().Where(d => vivants.Contains(d.ProjetId)).Select(d => new { d.ProjetId, d.Surface }).ToListAsync();
                 List<Guid> ProjetsSuivis(Guid id, DateOnly du, DateOnly au) =>
                     du > jour ? [] : aff.Where(a => a.UserId == id && a.Debut <= au && (a.Fin ?? jour) >= du).Select(a => a.ProjetId).Distinct().ToList();
-                ingenieurs = noms.Select(n =>
+                parIngenieur = noms.Select(n =>
                 {
                     var projetsAnnee = ProjetsSuivis(n.Key, new DateOnly(an, 1, 1), new DateOnly(an, 12, 31));
                     return new
@@ -88,7 +96,7 @@ public static class PerformanceEndpoints
                 }).ToList();
             }
 
-            return Results.Ok(new { annee = an, annees = Enumerable.Range(premiere, jour.Year - premiere + 1).Reverse(), moisCourant = an == jour.Year ? jour.Month : (int?)null, dessinateurs, ingenieurs, dessinateursParAn, ingenieursParAn });
-        }).WithTags("Statistiques").RequireAuthorization();
+            return Results.Ok(new { annee = an, annees = Enumerable.Range(premiere, jour.Year - premiere + 1).Reverse(), moisCourant = an == jour.Year ? jour.Month : (int?)null, dessinateurs = parDessinateur, ingenieurs = parIngenieur, dessinateursParAn, ingenieursParAn });
+        }
     }
 }

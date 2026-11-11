@@ -19,10 +19,22 @@ public class AdaptDalle
     /// <summary>Projet, plancher et fichier ADAPT, tels qu'ils figurent dans l'en-tête de l'export.</summary>
     public string? Plancher { get; set; }
     public List<SystemeAdapt> Systemes { get; set; } = [];
+    /// <summary>Nom de l'export PTTotal lu ; vide tant qu'il manque (les deux exports peuvent arriver séparément).</summary>
     public string FichierPt { get; set; } = "";
     public string FichierRebar { get; set; } = "";
+
+    /// <summary>Fichiers d'origine conservés (contexte « adapt »), pour les rouvrir ; null pour un import d'avant leur conservation.</summary>
+    public Guid? FichierPtId { get; set; }
+    public Guid? FichierRebarId { get; set; }
     public DateTime ImporteLe { get; set; }
     public string ImportePar { get; set; } = "";
+
+    public const string Contexte = "adapt";
+    public const string CategoriePt = "pt";
+    public const string CategorieRebar = "rebar";
+
+    public bool AvecPt => FichierPt.Length > 0;
+    public bool AvecRebar => FichierRebar.Length > 0;
 }
 
 /// <summary>Câbles d'un même type d'ancrage (Number Of Strands).</summary>
@@ -184,6 +196,37 @@ internal static class LectureAdapt
         return v.Length == 0 ? null : v;
     }
 
+    /// <summary>Un export lu seul : son genre, la surface et le ratio du plan courant, et pour PTTotal les câbles par type d'ancrage.</summary>
+    public record Fichier(Genre Genre, decimal Surface, decimal Ratio, string? Plancher, List<SystemeAdapt> Systemes, string? Erreur)
+    {
+        public string Nom => Genre == Genre.Armatures ? "RebarTotal" : "PTTotal";
+    }
+
+    /// <summary>
+    /// Lit un seul export, PTTotal ou RebarTotal : les deux fichiers d'une dalle peuvent être déposés séparément.
+    /// Mêmes refus que la lecture des deux fichiers ensemble.
+    /// </summary>
+    public static Fichier AnalyserUn(string rtf)
+    {
+        Fichier Refus(Genre g, string erreur) => new(g, 0, 0, null, [], erreur);
+        if (!rtf.StartsWith(@"{\rtf")) return Refus(Genre.Inconnu, "Ce fichier n'est pas un export RTF d'ADAPT (fichier .rtf ou .rtf.doc).");
+        var doc = Lire(rtf);
+        if (doc.Genre == Genre.Inconnu) return Refus(Genre.Inconnu, "Ce fichier n'est ni un PTTotal (PT TOTALS) ni un RebarTotal (REBAR TOTALS).");
+        var cables = new List<SystemeAdapt>();
+        if (doc.Genre == Genre.Precontrainte)
+        {
+            if (Cables(doc, out var erreur) is not { } lus) return Refus(doc.Genre, $"PTTotal : {erreur}.");
+            if (lus.Count == 0) return Refus(doc.Genre, "PTTotal : aucun câble sur le plan courant (Current plane).");
+            if (lus.FirstOrDefault(s => !SystemesAncrage.Existe(s.Torons)) is { } inconnu)
+                return Refus(doc.Genre, $"PTTotal : câbles à {inconnu.Torons} torons (S{inconnu.Torons}), type d'ancrage inconnu ; les types existants sont {SystemesAncrage.Liste}.");
+            cables = lus;
+        }
+        var nom = doc.Genre == Genre.Armatures ? "RebarTotal" : "PTTotal";
+        if (Resume(doc) is not { } resume) return Refus(doc.Genre, $"{nom} : ratio du plan courant introuvable (tableau Summary, colonne Rate en kg/m2).");
+        var plancher = string.Join(" · ", new[] { Champ(doc.Entete, "Project Name:"), Champ(doc.Entete, "Specific Data:"), Champ(doc.Entete, "File Name:") }.Where(s => s is not null));
+        return new(doc.Genre, resume.Surface, resume.Ratio, plancher.Length == 0 ? null : plancher[..Math.Min(plancher.Length, 300)], cables, null);
+    }
+
     /// <summary>
     /// Lit les deux exports, dans n'importe quel ordre. Refuse un type d'ancrage absent de la liste des systèmes existants.
     /// </summary>
@@ -226,5 +269,69 @@ internal static class LectureAdapt
         return l;
     }
 
+    /// <summary>
+    /// Reporte un export lu sur les données de la dalle, sans toucher à celles de l'autre export.
+    /// PTTotal apporte le ratio actif, les câbles et la surface du plancher ; RebarTotal le ratio passif.
+    /// </summary>
+    public static AdaptDalle Reporter(AdaptDalle? avant, Fichier f, string nom)
+    {
+        var a = new AdaptDalle
+        {
+            RatioActif = avant?.RatioActif ?? 0, RatioPassif = avant?.RatioPassif ?? 0, SurfacePlancher = avant?.SurfacePlancher ?? 0, Plancher = avant?.Plancher,
+            Systemes = (avant?.Systemes ?? []).Select(s => new SystemeAdapt { Torons = s.Torons, Cables = s.Cables, LongueurTorons = s.LongueurTorons, LongueurGaines = s.LongueurGaines }).ToList(),
+            FichierPt = avant?.FichierPt ?? "", FichierRebar = avant?.FichierRebar ?? "", FichierPtId = avant?.FichierPtId, FichierRebarId = avant?.FichierRebarId,
+        };
+        if (f.Genre == Genre.Precontrainte)
+        {
+            a.RatioActif = f.Ratio; a.Systemes = f.Systemes; a.SurfacePlancher = f.Surface; a.Plancher = f.Plancher ?? a.Plancher; a.FichierPt = nom; a.FichierPtId = null;
+        }
+        else
+        {
+            a.RatioPassif = f.Ratio; a.FichierRebar = nom; a.FichierRebarId = null;
+            if (!a.AvecPt) { a.SurfacePlancher = f.Surface; a.Plancher = f.Plancher ?? a.Plancher; }
+        }
+        return a;
+    }
+
+    /// <summary>Écarts d'un export déposé seul : surface différente de celle de la dalle, ou de celle de l'autre export déjà lu.</summary>
+    public static List<string> Avertissements(Fichier f, AdaptDalle? avant, decimal surfaceDalle)
+    {
+        var l = new List<string>();
+        var autre = f.Genre == Genre.Precontrainte ? avant?.AvecRebar == true : avant?.AvecPt == true;
+        if (autre && Math.Round(avant!.SurfacePlancher, 2) != Math.Round(f.Surface, 2))
+            l.Add($"{f.Nom} donne {M2(f.Surface)} de plancher, l'autre export de la dalle {M2(avant.SurfacePlancher)} : vérifiez qu'ils portent sur le même plancher.");
+        if (surfaceDalle > 0 && Math.Round(f.Surface, 2) != surfaceDalle)
+            l.Add($"Surface du plancher ADAPT : {M2(f.Surface)}, surface de la dalle : {M2(surfaceDalle)}. La surface de la dalle est conservée.");
+        return l;
+    }
+
     private static string M2(decimal v) => v.ToString("N2", CultureInfo.GetCultureInfo("fr-FR")) + " m²";
+}
+
+/// <summary>
+/// Rattachement d'un export ADAPT déposé sans dalle désignée : il se rapproche par la surface de plancher lue.
+/// Dans le doute, rien n'est rattaché : la personne choisit la dalle.
+/// </summary>
+internal static class RapprochementAdapt
+{
+    /// <param name="Surface">Surface de la dalle, 0 si elle reste à renseigner.</param>
+    /// <param name="SurfaceAdapt">Surface de plancher des exports déjà lus pour la dalle.</param>
+    public record Candidat(Guid Id, decimal Surface, decimal? SurfaceAdapt, bool AvecPt, bool AvecRebar);
+
+    /// <summary>
+    /// La dalle sûre, ou null. Sûre : la seule dalle possible, ou la seule dont la surface, ou celle de ses exports déjà lus, égale celle du fichier.
+    /// </summary>
+    public static Guid? Deviner(decimal surfaceFichier, IReadOnlyList<Candidat> dalles)
+    {
+        if (dalles.Count == 1) return dalles[0].Id;
+        var s = Math.Round(surfaceFichier, 2);
+        var egales = dalles.Where(d => (d.Surface > 0 && d.Surface == s) || (d.SurfaceAdapt is decimal a && Math.Round(a, 2) == s)).ToList();
+        return egales.Count == 1 ? egales[0].Id : null;
+    }
+
+    /// <summary>Dalle proposée quand rien n'est sûr : d'abord celles à qui cet export manque, puis la surface la plus proche.</summary>
+    public static Guid? Proposer(decimal surfaceFichier, LectureAdapt.Genre genre, IReadOnlyList<Candidat> dalles) =>
+        dalles.OrderBy(d => genre == LectureAdapt.Genre.Precontrainte ? d.AvecPt : d.AvecRebar)
+            .ThenBy(d => Math.Abs((d.SurfaceAdapt ?? (d.Surface > 0 ? d.Surface : decimal.MaxValue / 4)) - surfaceFichier))
+            .Select(d => (Guid?)d.Id).FirstOrDefault();
 }

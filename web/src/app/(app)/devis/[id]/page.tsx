@@ -15,6 +15,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { SignatureDoc } from "@/components/signature-doc";
 import { Documents } from "@/components/documents";
 import { ImportDevis, type LigneImport } from "./import";
+import { FichiersAdapt } from "./fichiers-adapt";
 import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 
 type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; sys: Record<number, { a: string; g: string }> };
@@ -55,6 +56,8 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const [envoi, setEnvoi] = useState(false);
   const [modifie, setModifie] = useState(false);
   const [annulation, setAnnulation] = useState<string | null>(null);
+  // Étapes de la fiche : 1, fichiers ADAPT ; 2, chiffrage. Un brouillon pas encore chiffré s'ouvre sur les fichiers.
+  const [etape, setEtape] = useState<1 | 2 | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -151,11 +154,13 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     try {
       const r = await api<DevisDetail>(`/devis/${id}/${chemin}`, { method: "POST", body: JSON.stringify(corps ?? {}) });
       setAnnulation(null);
-      if (r.id !== id) { router.push(`/devis/${r.id}`); return; }
+      if (r.id !== id) { router.push(`/devis/${r.id}`); return true; }
       setD(r); setF(versForm(r)); setModifie(false);
+      return true;
     } catch (e) {
       setAnnulation(null);
       setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Action impossible." });
+      return false;
     } finally {
       setEnvoi(false);
     }
@@ -192,6 +197,13 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const pctOk = Math.abs(calcul.totalPct - 100) < 0.001;
   const aRetenue = f.echeances.some((e) => e.retenue);
   const nbCols = 5 + f.systemes.length * 2 + 3;
+  const brouillon = d.etat === "brouillon";
+  const etapeVue = etape ?? (brouillon && d.actions.modifier && d.totalHT === 0 ? 1 : 2);
+  const nbAdapt = d.lignes.filter((l) => l.adapt).length;
+  const etapes: { n: 1 | 2; titre: string; detail: string }[] = [
+    { n: 1, titre: "Fichiers ADAPT", detail: nbAdapt === 0 ? "PTTotal et RebarTotal de chaque dalle" : `${nbAdapt} dalle${nbAdapt > 1 ? "s" : ""} sur ${d.lignes.length} avec des fichiers lus` },
+    { n: 2, titre: "Chiffrage", detail: calcul.ttc > 0 ? `${formatDH(calcul.ttc)} TTC` : "Prix, remise, échéances" },
+  ];
 
   return (
     <div className="pb-24">
@@ -214,11 +226,6 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           </span>
           {d.actions.trame && <a href={`/api/devis/${d.id}/import/modele`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold hover:bg-fond"><FileDown size={14} />Trame de calcul Excel</a>}
           {d.actions.modifier && <Button size="sm" variant="outline" onClick={() => setImportOuvert(true)}>Importer depuis Excel</Button>}
-          {d.actions.modifier && d.lignes.some((l) => l.adapt) && (
-            <Button size="sm" variant="outline" disabled={envoi || modifie}
-              title={modifie ? "Enregistrez d'abord le brouillon" : "Ratios, types d'ancrage, ancrages et gaines repris des fichiers ADAPT importés sur les dalles"}
-              onClick={() => transition("adapt")}>Reprendre les données ADAPT</Button>
-          )}
           {/* Impression du brouillon pour relecture avant l'envoi : document de travail non signé, tel qu'enregistré. */}
           {d.etat === "brouillon" && (modifie
             ? <Button size="sm" variant="outline" disabled title="Enregistrez d'abord le brouillon : le PDF reprend la version enregistrée"><Printer size={14} />Imprimer le brouillon</Button>
@@ -257,6 +264,28 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         </div>
       </div>
 
+      <ol className="mt-5 flex flex-wrap gap-3">
+        {etapes.map((e) => (
+          <li key={e.n} className="min-w-[220px] flex-1">
+            <button type="button" onClick={() => setEtape(e.n)} aria-current={etapeVue === e.n ? "step" : undefined}
+              className={cn("w-full cursor-pointer rounded-xl bg-white px-4 py-3 text-left", etapeVue === e.n ? "border-2 border-marine" : "border border-bordure hover:border-bordure-forte")}>
+              <div className={cn("text-[12px] font-semibold", etapeVue === e.n ? "text-marine" : "text-secondaire")}>Étape {e.n}{etapeVue === e.n ? ", affichée" : ""}</div>
+              <div className="font-display text-[17px] font-bold">{e.titre}</div>
+              <div className="text-[13px] text-secondaire">{e.detail}</div>
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      {etapeVue === 1 && (
+        <FichiersAdapt devis={d} modifiable={brouillon && d.actions.modifier} occupe={envoi}
+          bloque={modifie ? "Enregistrez d'abord le brouillon" : null}
+          onSaisir={() => setEtape(2)}
+          onImporte={() => api<DevisDetail>(`/devis/${id}`).then(setD).catch(() => undefined)}
+          onGenerer={async () => { if (await transition("adapt")) { setEtape(2); setMessage({ ok: true, texte: "Chiffrage généré depuis les fichiers ADAPT. Vérifiez-le." }); } }} />
+      )}
+
+      {etapeVue === 2 && <>
       <div className="mt-5 rounded-xl border border-bordure bg-white">
         <div className="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
           <div>
@@ -429,6 +458,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           {d.exonereTva && <p className="mt-3 text-[12px] text-attenue">L&apos;exonération vient de la case « Client exonéré de TVA » de la fiche du client.</p>}
         </div>
       </div>
+      </>}
 
       <div className="mt-5 rounded-xl border border-bordure bg-white p-6">
         <h3 className="mb-3 text-[15px] font-bold">Historique</h3>

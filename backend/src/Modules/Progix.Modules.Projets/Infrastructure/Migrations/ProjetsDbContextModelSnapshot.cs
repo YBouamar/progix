@@ -1334,9 +1334,15 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                                 .IsRequired()
                                 .HasColumnType("text");
 
+                            b1.Property<Guid?>("FichierPtId")
+                                .HasColumnType("uuid");
+
                             b1.Property<string>("FichierRebar")
                                 .IsRequired()
                                 .HasColumnType("text");
+
+                            b1.Property<Guid?>("FichierRebarId")
+                                .HasColumnType("uuid");
 
                             b1.Property<DateTime>("ImporteLe")
                                 .HasColumnType("timestamp with time zone");

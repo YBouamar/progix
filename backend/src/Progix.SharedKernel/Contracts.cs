@@ -158,7 +158,9 @@ public record DalleResume(Guid Id, string Reference, string Emplacement, decimal
     AdaptResume? Adapt = null, decimal? SurfaceCommande = null);
 
 /// <summary>Données ADAPT d'une dalle, telles qu'un devis les reprend.</summary>
-public record AdaptResume(decimal RatioActif, decimal RatioPassif, IReadOnlyList<SystemeAdaptResume> Systemes);
+/// <param name="AvecPt">PTTotal lu : ratio actif et câbles connus. Les deux exports peuvent arriver séparément.</param>
+/// <param name="AvecRebar">RebarTotal lu : ratio passif connu.</param>
+public record AdaptResume(decimal RatioActif, decimal RatioPassif, IReadOnlyList<SystemeAdaptResume> Systemes, bool AvecPt = true, bool AvecRebar = true);
 
 /// <param name="Ancrages">Nombre de câbles du type d'ancrage.</param>
 /// <param name="Gaine">Cumul de Strand Length, en mètres.</param>

@@ -46,7 +46,7 @@ public class ProjetsLookup(ProjetsDbContext db, IDevisLookup devis) : IProjetsLo
                 .Select(d => new DalleResume(d.Id, $"{p.Code}-{d.Suffixe}",
                     string.Join(" · ", new[] { d.Bloc, d.Immeuble, Dalle.NiveauLabel(d.Niveau) }.Where(s => !string.IsNullOrWhiteSpace(s))), d.Surface, d.EtapesFaites, d.Conforme,
                     d.Adapt is null ? null : new AdaptResume(d.Adapt.RatioActif, d.Adapt.RatioPassif,
-                        d.Adapt.Systemes.Select(s => new SystemeAdaptResume(s.Torons, s.Cables, s.LongueurTorons)).ToList()),
+                        d.Adapt.Systemes.Select(s => new SystemeAdaptResume(s.Torons, s.Cables, s.LongueurTorons)).ToList(), d.Adapt.AvecPt, d.Adapt.AvecRebar),
                     commandes.GetValueOrDefault(d.Id))).ToList()
             : [];
         return Resume(p, dalles);

@@ -268,7 +268,7 @@ public static class DevisEndpoints
         var projet = await projets.ProjetAsync(d.ProjetId, avecDalles: true);
         if (projet is null) return Results.NotFound();
         var reprises = d.Lignes.Count(l => projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle && RepriseAdapt(l, dalle));
-        if (reprises == 0) return Conflit("Aucune dalle de ce devis n'a de fichiers ADAPT importés : importez-les depuis l'onglet Dalles du projet.");
+        if (reprises == 0) return Conflit("Aucune dalle de ce devis n'a de fichiers ADAPT importés : déposez d'abord les fichiers PTTotal et RebarTotal.");
         foreach (var l in d.Lignes)
             if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) l.Surface = dalle.Surface;
         Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires));
@@ -281,14 +281,18 @@ public static class DevisEndpoints
     /// <summary>
     /// Reprise des exports ADAPT de la dalle : ratios actif et passif, puis par type d'ancrage le nombre de câbles (ancrages)
     /// et le cumul de Strand Length (gaine). Sans import ADAPT, la ligne reste telle quelle.
+    /// Un seul export lu : seule sa part est reprise (PTTotal : ratio actif et câbles ; RebarTotal : ratio passif).
     /// </summary>
     internal static bool RepriseAdapt(LigneDevis l, DalleResume dalle)
     {
         if (dalle.Adapt is not { } a) return false;
-        l.RatioActif = a.RatioActif;
-        l.RatioPassif = a.RatioPassif;
-        l.Systemes = a.Systemes.OrderBy(s => s.Torons).Select(s => new SystemeLigne { Torons = s.Torons, Ancrages = s.Ancrages, Gaine = s.Gaine }).ToList();
-        return true;
+        if (a.AvecPt)
+        {
+            l.RatioActif = a.RatioActif;
+            l.Systemes = a.Systemes.OrderBy(s => s.Torons).Select(s => new SystemeLigne { Torons = s.Torons, Ancrages = s.Ancrages, Gaine = s.Gaine }).ToList();
+        }
+        if (a.AvecRebar) l.RatioPassif = a.RatioPassif;
+        return a.AvecPt || a.AvecRebar;
     }
 
     internal static bool PeutParametrer(ClaimsPrincipal u) => u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ChefProjet) || u.IsInRole(Roles.ResponsableAdministratif);
@@ -339,7 +343,7 @@ public static class DevisEndpoints
             historique = d.Evenements.OrderByDescending(e => e.CreatedAt).Select(e => new { quand = e.CreatedAt, quoi = e.Quoi, qui = e.Qui }),
             lignes = d.Lignes.OrderBy(l => l.Ordre).Select(l => new
             {
-                id = l.Id, reference = l.Reference, emplacement = l.Emplacement, surface = l.Surface,
+                id = l.Id, dalleId = l.DalleId, reference = l.Reference, emplacement = l.Emplacement, surface = l.Surface,
                 ratioActif = l.RatioActif, ratioPassif = l.RatioPassif, prixM2 = l.PrixM2, montantHT = l.MontantHT,
                 systemes = l.Systemes.Select(s => new { torons = s.Torons, ancrages = s.Ancrages, gaine = s.Gaine }),
                 adapt = p?.Dalles.FirstOrDefault(x => x.Id == l.DalleId)?.Adapt is not null,

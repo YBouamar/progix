@@ -9,7 +9,7 @@ import { Sheet } from "@/components/ui/sheet";
 export type SystemeAdapt = { torons: number; ancrages: number; gaine: number; longueurGaines: number };
 export type Adapt = {
   ratioActif: number; ratioPassif: number; surfacePlancher: number; plancher: string | null;
-  fichierPt: string; fichierRebar: string; importeLe: string; importePar: string; systemes: SystemeAdapt[];
+  fichierPt: string; fichierRebar: string; fichierPtId?: string | null; fichierRebarId?: string | null; importeLe: string; importePar: string; systemes: SystemeAdapt[];
 };
 type DalleAdapt = { id: string; reference: string; surface: number; adapt: Adapt | null };
 

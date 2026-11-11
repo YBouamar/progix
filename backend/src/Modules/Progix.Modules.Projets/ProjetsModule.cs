@@ -13,7 +13,7 @@ public class ProjetsModule : IModule
     public string Name => "Projets";
 
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddMemoryCache().AddScoped<IContexteFichiers, FichiersProjet>().AddScoped<IContexteFichiers, FichiersEtude>().AddScoped<IContexteFichiers, FichiersPlans>().AddScoped<IContexteFichiers, FichiersPhotos>().AddScoped<IContexteFichiers, FichiersRapport>().AddScoped<IProjetsStatut, ProjetsLookup>().AddScoped<IProjetsLookup, ProjetsLookup>().AddScoped<IFichesChantier, FichesChantier>().AddDbContext<ProjetsDbContext>(o => o.UseNpgsql(
+        services.AddMemoryCache().AddScoped<IContexteFichiers, FichiersProjet>().AddScoped<IContexteFichiers, FichiersEtude>().AddScoped<IContexteFichiers, FichiersPlans>().AddScoped<IContexteFichiers, FichiersPhotos>().AddScoped<IContexteFichiers, FichiersRapport>().AddScoped<IContexteFichiers, FichiersAdapt>().AddScoped<IProjetsStatut, ProjetsLookup>().AddScoped<IProjetsLookup, ProjetsLookup>().AddScoped<IFichesChantier, FichesChantier>().AddDbContext<ProjetsDbContext>(o => o.UseNpgsql(
             configuration.GetConnectionString("Postgres"),
             npgsql => npgsql.MigrationsHistoryTable("__ef_migrations", ProjetsDbContext.Schema)));
 

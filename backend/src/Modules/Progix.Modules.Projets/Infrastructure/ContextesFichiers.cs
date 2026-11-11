@@ -133,3 +133,16 @@ public class FichiersEtude(ProjetsDbContext db) : IContexteFichiers
         return EtudeDalle.RefusDeposer(EtudeDalle.RolesAffectation.Any(user.IsInRole), affecte);
     }
 }
+
+/// <summary>
+/// Exports ADAPT d'origine (PTTotal, RebarTotal), gardés avec la dalle pour être rouverts.
+/// Ils entrent seulement par l'import, qui les lit : ni dépôt direct ni suppression.
+/// </summary>
+public class FichiersAdapt : IContexteFichiers
+{
+    public string Contexte => AdaptDalle.Contexte;
+    public IReadOnlyList<string> Categories => [AdaptDalle.CategoriePt, AdaptDalle.CategorieRebar];
+    public bool PeutDeposer(ClaimsPrincipal user) => false;
+    public Task<string?> RefusAsync(Guid cibleId, string? categorie, CancellationToken ct = default) =>
+        Task.FromResult<string?>("Les exports ADAPT se déposent par l'import, depuis le devis ou la fiche de la dalle.");
+}

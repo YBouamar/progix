@@ -80,4 +80,96 @@ public class LectureAdaptTests
         // Dalle sans surface : pas d'écart, la surface du plancher sera reprise.
         Assert.Empty(LectureAdapt.Avertissements(Pt(), Rebar(), a, 0m));
     }
+
+    [Fact]
+    public void Un_export_se_lit_seul()
+    {
+        var pt = LectureAdapt.AnalyserUn(Pt());
+        Assert.Null(pt.Erreur);
+        Assert.Equal(LectureAdapt.Genre.Precontrainte, pt.Genre);
+        Assert.Equal(1.74m, pt.Ratio);
+        Assert.Equal(1409.58m, pt.Surface);
+        Assert.Equal(3, pt.Systemes.Count);
+
+        var rebar = LectureAdapt.AnalyserUn(Rebar());
+        Assert.Null(rebar.Erreur);
+        Assert.Equal(LectureAdapt.Genre.Armatures, rebar.Genre);
+        Assert.Equal(12.85m, rebar.Ratio);
+        Assert.Empty(rebar.Systemes);
+    }
+
+    [Fact]
+    public void Un_export_seul_garde_les_memes_refus()
+    {
+        Assert.Contains("S5", LectureAdapt.AnalyserUn(Pt(toronsInconnus: 5)).Erreur);
+        Assert.Contains("RTF", LectureAdapt.AnalyserUn("PK\u0003\u0004 classeur").Erreur);
+        Assert.Contains("ni un PTTotal", LectureAdapt.AnalyserUn(Rtf("AUTRE TABLEAU", "PH", Ligne("a", "b"))).Erreur);
+    }
+
+    [Fact]
+    public void Chaque_export_ne_touche_que_sa_part()
+    {
+        // RebarTotal d'abord : ratio passif seul, la surface du plancher vient de lui tant que PTTotal manque.
+        var a = LectureAdapt.Reporter(null, LectureAdapt.AnalyserUn(Rebar("1400.00")), "RebarTotal.rtf.doc");
+        Assert.False(a.AvecPt);
+        Assert.True(a.AvecRebar);
+        Assert.Equal(12.85m, a.RatioPassif);
+        Assert.Equal(0m, a.RatioActif);
+        Assert.Equal(1400.00m, a.SurfacePlancher);
+
+        // PTTotal ensuite : ratio actif, câbles et surface du plancher, sans perdre le ratio passif.
+        a.FichierRebarId = Guid.NewGuid();
+        var b = LectureAdapt.Reporter(a, LectureAdapt.AnalyserUn(Pt()), "PTTotal.rtf.doc");
+        Assert.True(b.AvecPt && b.AvecRebar);
+        Assert.Equal(1.74m, b.RatioActif);
+        Assert.Equal(12.85m, b.RatioPassif);
+        Assert.Equal(1409.58m, b.SurfacePlancher);
+        Assert.Equal(a.FichierRebarId, b.FichierRebarId);
+        Assert.Equal(3, b.Systemes.Count);
+
+        // Un RebarTotal remplacé ne change ni les câbles ni la surface du plancher lue dans PTTotal.
+        var c = LectureAdapt.Reporter(b, LectureAdapt.AnalyserUn(Rebar("1400.00")), "RebarTotal (2).rtf.doc");
+        Assert.Equal(1409.58m, c.SurfacePlancher);
+        Assert.Equal("RebarTotal (2).rtf.doc", c.FichierRebar);
+        Assert.Null(c.FichierRebarId);
+        Assert.Equal(3, c.Systemes.Count);
+    }
+
+    [Fact]
+    public void Ecarts_d_un_export_seul()
+    {
+        var pt = LectureAdapt.AnalyserUn(Pt());
+        Assert.Empty(LectureAdapt.Avertissements(pt, null, 0m));
+        Assert.Single(LectureAdapt.Avertissements(pt, null, 1500m));
+        var avecRebar = LectureAdapt.Reporter(null, LectureAdapt.AnalyserUn(Rebar("1400.00")), "RebarTotal.rtf.doc");
+        Assert.Equal(2, LectureAdapt.Avertissements(pt, avecRebar, 1500m).Count);
+    }
+
+    private static RapprochementAdapt.Candidat Dalle(Guid id, decimal surface, decimal? adapt = null, bool pt = false, bool rebar = false) => new(id, surface, adapt, pt, rebar);
+
+    [Fact]
+    public void Un_fichier_se_rattache_par_la_surface_seulement_sans_doute()
+    {
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid(), c = Guid.NewGuid();
+        // Une seule dalle : c'est elle.
+        Assert.Equal(a, RapprochementAdapt.Deviner(999m, [Dalle(a, 0m)]));
+        // Surface de la dalle égale à celle du fichier.
+        Assert.Equal(b, RapprochementAdapt.Deviner(198.004m, [Dalle(a, 230.45m), Dalle(b, 198.00m)]));
+        // Surface du plancher déjà lue pour la dalle : le RebarTotal suit le PTTotal, même si la dalle porte une autre surface.
+        Assert.Equal(b, RapprochementAdapt.Deviner(201.30m, [Dalle(a, 230.45m), Dalle(b, 198.00m, 201.30m, pt: true)]));
+        // Aucune surface égale, ou deux dalles possibles : on ne devine pas.
+        Assert.Null(RapprochementAdapt.Deviner(201.30m, [Dalle(a, 230.45m), Dalle(b, 198.00m)]));
+        Assert.Null(RapprochementAdapt.Deviner(198.00m, [Dalle(a, 198.00m), Dalle(b, 198.00m)]));
+        Assert.Null(RapprochementAdapt.Deviner(201.30m, [Dalle(a, 201.30m), Dalle(b, 198.00m, 201.30m, pt: true)]));
+        Assert.Null(RapprochementAdapt.Deviner(150m, [Dalle(a, 0m), Dalle(c, 0m)]));
+    }
+
+    [Fact]
+    public void Dans_le_doute_la_dalle_proposee_est_celle_a_qui_l_export_manque_puis_la_plus_proche()
+    {
+        Guid a = Guid.NewGuid(), b = Guid.NewGuid();
+        Assert.Equal(b, RapprochementAdapt.Proposer(201.30m, LectureAdapt.Genre.Armatures, [Dalle(a, 230.45m), Dalle(b, 198.00m)]));
+        // La dalle la plus proche a déjà son RebarTotal : l'autre est proposée.
+        Assert.Equal(a, RapprochementAdapt.Proposer(201.30m, LectureAdapt.Genre.Armatures, [Dalle(a, 230.45m), Dalle(b, 198.00m, 198.00m, rebar: true)]));
+    }
 }

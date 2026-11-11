@@ -53,12 +53,16 @@ public static class FondPlan
 
     private static readonly GeometryFactory Fabrique = new();
     private static readonly Regex RePoteau = new("pot[e]?au|^pot", RegexOptions.IgnoreCase | RegexOptions.Compiled);
-    private static readonly Regex ReVoile = new("voile|hachure", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+    // Un calque de hachures ne désigne des voiles que s'il le dit (« HACHURE POT.V ») : seul, il porte aussi bien des remplissages non porteurs.
+    private static readonly Regex ReVoile = new(@"voile|hachure.*pot|pot.*hachure", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ReDalle = new("coffrage|dalle", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ReVide = new("poutre|vide|tr[eé]mie|r[eé]serv", RegexOptions.IgnoreCase | RegexOptions.Compiled);
     private static readonly Regex ReNiveau = new(@"\bPH\b|MEZZ|[EÉ]TAGE|\bRDC|SOUS.?SOL|TERRASSE|PLANCHER", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
-    /// <summary>Rôle proposé pour un calque, d'après son nom. Les bureaux d'études n'ont pas de convention commune : la proposition se corrige.</summary>
+    /// <summary>
+    /// Rôle proposé pour un calque, d'après son nom. Les bureaux d'études n'ont pas de convention commune : la proposition se corrige.
+    /// Un calque de hachures sans autre précision est proposé ignoré ; l'ingénieur le passe en voiles au besoin.
+    /// </summary>
     public static string RolePropose(string calque) =>
         RePoteau.IsMatch(calque) ? Poteaux : ReVoile.IsMatch(calque) ? Voiles : ReDalle.IsMatch(calque) ? Dalle : ReVide.IsMatch(calque) ? Reservations : Ignore;
 
@@ -111,7 +115,7 @@ public static class FondPlan
     /// <summary>Fond de plan de la zone d'un niveau, ou null si aucun contour de dalle n'y est trouvé.</summary>
     public static FondPlanNiveau? Extraire(PlanCoffrage plan, Envelope zone, IReadOnlyDictionary<string, string> roles)
     {
-        var polys = plan.Contours.Where(c => zone.Contains(c.Polygone.InteriorPoint.Coordinate)).Select(c => (Role: Role(roles, c.Calque), P: c.Polygone)).ToList();
+        var polys = plan.Contours.Where(c => zone.Contains(c.Polygone.InteriorPoint.Coordinate)).Select(c => (Role: Role(roles, c.Calque), c.Calque, P: c.Polygone)).ToList();
 
         // Dalle : le plus grand contour des calques de dalle ou de voile, complété par les contours de voiles périphériques accolés.
         var grands = polys.Where(x => x.Role is Dalle or Voiles && x.P.Area > 5).Select(x => x.P).OrderByDescending(p => p.Area).ToList();
@@ -128,13 +132,14 @@ public static class FondPlan
         var pres = dalle.Buffer(0.3);
 
         // Sur un calque de poteaux : une forme ramassée est un poteau, une forme allongée un voile, une grande forme une cage.
-        var surPoteaux = polys.Where(x => x.Role == Poteaux && pres.Contains(x.P.Centroid)).Select(x => x.P).ToList();
+        var calquesPoteaux = polys.Where(x => x.Role == Poteaux && pres.Contains(x.P.Centroid)).ToList();
+        var surPoteaux = calquesPoteaux.Select(x => x.P).ToList();
         var poteaux = surPoteaux.Where(p => p.Area <= 1.5 && !Allonge(p)).ToList();
         var ronds = plan.Ronds.Where(r => Role(roles, r.Calque) == Poteaux && pres.Contains(Fabrique.CreatePoint(new Coordinate(r.X, r.Y)))).ToList();
 
         // Voiles : rectangles allongés des calques de voile ; les morceaux alignés bout à bout sont réunis.
-        var brins = polys.Where(x => x.Role == Voiles && x.P.Area < 5 && Allonge(x.P) && pres.Intersects(x.P)).Select(x => x.P)
-            .Concat(surPoteaux.Where(p => p.Area <= 1.5 && Allonge(p))).ToList();
+        var brins = polys.Where(x => x.Role == Voiles && x.P.Area < 5 && Allonge(x.P) && pres.Intersects(x.P))
+            .Concat(calquesPoteaux.Where(x => x.P.Area <= 1.5 && Allonge(x.P))).Select(x => (x.Calque, x.P)).ToList();
 
         // Voiles dessinés par deux contours emboîtés (périphérie d'un sous-sol, cage) : un rectangle par côté du contour extérieur.
         var anneaux = polys.Where(x => x.Role == Voiles && x.P.Area > 5).Select(x => x.P).Concat(surPoteaux.Where(p => p.Area > 1.5)).ToList();
@@ -149,26 +154,41 @@ public static class FondPlan
                 // L'intérieur d'une cage d'escalier ou d'ascenseur est un vide de la dalle.
                 if (inte.Area < 0.2 * dalle.Area && surPoteaux.Any(p => ReferenceEquals(p, ext))) cages.Add(inte);
                 var anneau = ext.Difference(inte);
+                // Un rectangle dessiné dans l'épaisseur du voile est une ouverture (porte de la cage) : il coupe le voile, il n'en est pas un.
+                var ouvertures = brins.Where(b => b.P.Intersection(anneau).Area > 0.9 * b.P.Area).Select(b => b.P).ToList();
+                brins.RemoveAll(b => ouvertures.Contains(b.P));
+                var cotes = new List<Polygon>();
                 var c = ext.ExteriorRing.Coordinates;
                 for (var i = 0; i + 1 < c.Length; i++)
                 {
                     var (p, q) = (c[i], c[i + 1]);
                     var n = p.Distance(q);
                     if (n < 0.3) continue;
-                    var (nx, ny) = (-(q.Y - p.Y) / n * epaisseur * 1.02, (q.X - p.X) / n * epaisseur * 1.02);
+                    var (nx, ny) = (-(q.Y - p.Y) / n * epaisseur, (q.X - p.X) / n * epaisseur);
                     foreach (var s in new[] { 1, -1 })
                     {
                         var bande = Fabrique.CreatePolygon([p, q, new Coordinate(q.X + s * nx, q.Y + s * ny), new Coordinate(p.X + s * nx, p.Y + s * ny), p]);
                         var utile = bande.Intersection(anneau);
-                        if (utile.Area > 0.9 * bande.Area && Rectangle(utile) is { } r) { peripherie.Add(r); break; }
+                        if (utile.Area > 0.9 * bande.Area && Rectangle(utile) is { } r) { cotes.Add(r); break; }
                     }
+                }
+                // Les côtés ne se recouvrent pas aux angles : un côté percé d'une ouverture garde l'angle, puis les plus longs.
+                Geometry pris = Fabrique.CreatePolygon();
+                foreach (var ouverture in ouvertures) pris = pris.Union(ouverture);
+                foreach (var cote in cotes.OrderByDescending(r => ouvertures.Any(o => o.Intersects(r))).ThenByDescending(r => r.Area))
+                {
+                    var reste = SansFil(cote.Difference(pris));
+                    for (var i = 0; i < reste.NumGeometries; i++)
+                        if (reste.GetGeometryN(i) is Polygon { Area: > 0.01 } morceau && Rectangle(morceau) is { } r) peripherie.Add(r);
+                    pris = pris.Union(cote);
                 }
             }
 
         var voiles = new List<Polygon>();
-        if (brins.Count > 0)
+        // Les morceaux d'un même calque se réunissent ; deux calques différents ne se fondent pas en un seul voile.
+        foreach (var calque in brins.GroupBy(b => b.Calque))
         {
-            var reunis = UnaryUnionOp.Union(brins.Select(b => b.Buffer(0.005)).ToList());
+            var reunis = UnaryUnionOp.Union(calque.Select(b => b.P.Buffer(0.005)).ToList());
             for (var i = 0; i < reunis.NumGeometries; i++)
             {
                 if (PlusGrand(reunis.GetGeometryN(i).Buffer(-0.005)) is not { } g) continue;
@@ -216,6 +236,11 @@ public static class FondPlan
     }
 
     private static Polygon? Rectangle(Geometry g) => g.IsEmpty ? null : MinimumAreaRectangle.GetMinimumRectangle(g) as Polygon;
+
+    private static readonly NetTopologySuite.Operation.Buffer.BufferParameters AngleVif = new() { JoinStyle = NetTopologySuite.Operation.Buffer.JoinStyle.Mitre };
+
+    /// <summary>Retire les filets de moins de deux centimètres laissés par une découpe, sans arrondir les angles.</summary>
+    private static Geometry SansFil(Geometry g) => g.Buffer(-0.01, AngleVif).Buffer(0.01, AngleVif);
 
     private static Polygon? PlusGrand(Geometry g) => g switch
     {

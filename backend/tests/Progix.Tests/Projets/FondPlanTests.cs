@@ -30,6 +30,8 @@ public class FondPlanTests
     [InlineData("00-BETB-POTAUX", FondPlan.Poteaux)]
     [InlineData("Voile contreventement", FondPlan.Voiles)]
     [InlineData("L00-BA-HACHURE POT.V", FondPlan.Voiles)]
+    [InlineData("HACHURES", FondPlan.Ignore)]
+    [InlineData("Hachure", FondPlan.Ignore)]
     [InlineData("L03-BA-DALLE", FondPlan.Dalle)]
     [InlineData("-0-limites des dalles mise a jour", FondPlan.Dalle)]
     [InlineData("BET-coffrage", FondPlan.Dalle)]
@@ -99,6 +101,42 @@ public class FondPlanTests
         Assert.Equal(4, fond.Poteaux.Count);
         Assert.Equal(1 + 1 + 4, fond.Voiles.Count);
         Assert.Contains(fond.Reservations, r => Math.Abs(r.Area - 2.24) < 0.01);
+    }
+
+    [Fact]
+    public void La_porte_d_une_cage_coupe_son_voile_et_les_voiles_ne_se_recouvrent_pas_aux_angles()
+    {
+        var plan = Etage();
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(9, 2, 2, 1.8)));
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(9.2, 2.2, 1.6, 1.4)));
+        // Porte de 1,10 m dessinée dans l'épaisseur du voile de droite.
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(10.8, 2.33, 0.2, 1.1)));
+        var cage = FondPlan.Plans(plan, FondPlan.RolesProposes(plan))[0].Fond.Voiles.Where(v => v.Centroid.X is > 9 and < 11 && v.Centroid.Y is > 2 and < 3.8).ToList();
+        // Deux trumeaux de part et d'autre de la porte, les deux voiles horizontaux arrêtés au nu du voile percé, le voile de gauche entre eux.
+        Assert.Equal(5, cage.Count);
+        Assert.Equal(2 * 1.8 - 2.24 - 0.2 * 1.1, cage.Sum(v => v.Area), 2);
+        Assert.Contains(cage, v => Math.Abs(v.Area - 0.2 * 0.33) < 0.005);
+        Assert.Contains(cage, v => Math.Abs(v.Area - 0.2 * 0.37) < 0.005);
+        Assert.Equal(2, cage.Count(v => Math.Abs(v.Area - 0.2 * 1.8) < 0.005));
+        Assert.All(cage, v => Assert.All(cage, w => Assert.True(ReferenceEquals(v, w) || v.Intersection(w).Area < 0.001)));
+    }
+
+    [Fact]
+    public void Deux_calques_de_voiles_accoles_ne_se_fondent_pas_en_un_seul_voile()
+    {
+        var plan = Etage();
+        // Un voile sur le calque des poteaux, prolongé par une bande d'un calque de hachures puis par un retour d'équerre.
+        plan.Contours.Add(new ContourPlan("1-poteaux", Rect(4, 0, 1.0, 0.2)));
+        plan.Contours.Add(new ContourPlan("HACHURES", Rect(5, 0, 4.2, 0.2)));
+        plan.Contours.Add(new ContourPlan("HACHURES", Rect(5.8, 0.2, 0.2, 2.5)));
+        var roles = FondPlan.RolesProposes(plan);
+        // Le calque de hachures est ignoré par défaut : le voile porteur reste seul avec celui de l'étage.
+        Assert.Equal(2, FondPlan.Plans(plan, roles)[0].Fond.Voiles.Count);
+        // L'ingénieur le passe en voiles : ses bandes s'ajoutent sans absorber le voile porteur.
+        roles["HACHURES"] = FondPlan.Voiles;
+        var voiles = FondPlan.Plans(plan, roles)[0].Fond.Voiles;
+        Assert.Equal(3, voiles.Count);
+        Assert.Contains(voiles, v => Math.Abs(v.Area - 1.0 * 0.2) < 0.005);
     }
 
     [Fact]

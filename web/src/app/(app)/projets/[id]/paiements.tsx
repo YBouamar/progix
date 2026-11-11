@@ -80,7 +80,7 @@ export function PaiementsProjet({ projetId, onChange }: { projetId: string; onCh
         <div className="px-6 py-8 text-center text-secondaire">Aucune dalle chiffrée dans un devis validé : pas de paiement à suivre.</div>
       ) : (
         <div className="overflow-x-auto"><table className="w-full text-left text-[13px]">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-2.5 font-semibold">Dalle</th>
               <th className="px-5 py-2.5 text-right font-semibold">Devis, TTC</th>
@@ -252,7 +252,7 @@ export function SaisiePaiement({ projetId, vue: initiale, titre, onClose, onFait
       {vue && ouvertes.length === 0 ? <p className="text-secondaire">Toutes les dalles chiffrées de ce projet sont entièrement payées.</p> : (
         <>
           <table className="mb-4 w-full text-left text-[13px]">
-            <thead className="border-b border-bordure text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure text-[12px] text-secondaire">
               <tr><th className="py-2 font-semibold">Dalle</th><th className="py-2 font-semibold">Taux</th><th className="py-2 text-right font-semibold">Reste à payer</th><th className="w-40 py-2 text-right font-semibold">Montant affecté</th></tr>
             </thead>
             <tbody>

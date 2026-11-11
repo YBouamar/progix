@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { cn, filtrerDecimal, formatDate, formatDateHeure, formatDH, formatNombre, lireNombre } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
+import { AttenteFiche } from "@/components/ui/attente";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { SignatureDoc } from "@/components/signature-doc";
@@ -107,7 +108,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   }, [f, d]);
 
   if (!d || !f || !calcul) {
-    return <div><Retour /><div className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{message?.texte ?? "Chargement..."}</div></div>;
+    return <div><Retour />{message ? <div role="alert" className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{message.texte}</div> : <AttenteFiche />}</div>;
   }
 
   // Lecture seule : devis émis, ou rôle qui consulte seulement (administrateur).
@@ -276,7 +277,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         </div>
         <div className="overflow-x-auto border-t border-bordure">
           <table className="w-full text-left text-[13px]">
-            <thead className="bg-fond text-[11px] uppercase tracking-wide text-secondaire">
+            <thead className="bg-fond text-[11px] text-secondaire">
               <tr>
                 <th rowSpan={2} className="sticky left-0 z-10 bg-fond px-4 py-2 font-semibold">Dalle</th>
                 <th rowSpan={2} className="px-2 py-2 text-right font-semibold">Surface m²</th>
@@ -454,7 +455,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
       </Modal>
 
       {!lecture && (
-        <div className="fixed bottom-0 left-[248px] right-0 z-20 flex items-center justify-end gap-4 border-t border-bordure bg-white px-8 py-3">
+        <div className="fixed bottom-0 left-0 right-0 z-20 flex flex-wrap items-center justify-end gap-x-4 gap-y-2 border-t border-bordure bg-white px-4 py-3 lg:left-[var(--largeur-menu)] lg:px-8">
           {message && <span role={message.ok ? "status" : "alert"} className={cn("text-[13px]", message.ok ? "text-vert-texte" : "text-rouge-texte")}>{message.texte}</span>}
           {modifie && !message && <span className="text-[13px] text-secondaire">Modifications non enregistrées</span>}
           <span className="font-display font-bold">{formatDH(calcul.ttc)} TTC</span>

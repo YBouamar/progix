@@ -34,6 +34,21 @@ const MENUS: Record<string, string[]> = {
   chef_chantier: ["tdb", "projets"],
 };
 
+/** Regroupement du menu par domaine. L'ordre des groupes est celui de l'affichage. */
+const GROUPES: { label: string; ids: string[] }[] = [
+  { label: "Suivi", ids: ["tdb", "projets"] },
+  { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"] },
+  { label: "Études et chantier", ids: ["logistique", "repIng", "repDes", "perf", "niveaux"] },
+  { label: "Réglages", ids: ["param"] },
+];
+
+/** Menu du rôle, par groupes non vides. */
+export function groupesPour(role: string): { label: string; items: NavItem[] }[] {
+  const ids = MENUS[role] ?? ["tdb"];
+  return GROUPES.map((g) => ({ label: g.label, items: g.ids.filter((i) => ids.includes(i)).map((i) => ITEMS[i]) }))
+    .filter((g) => g.items.length > 0);
+}
+
 export function menuPour(role: string): NavItem[] {
   return (MENUS[role] ?? ["tdb"]).map((id) => ITEMS[id]);
 }

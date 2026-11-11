@@ -5,8 +5,9 @@ import Link from "next/link";
 import { ArrowLeft, ArrowLeftRight, Lock, Pencil, RotateCcw, Trash2, Unlock } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { peutDiriger, peutGererCommercial, useAuth, voitMontants } from "@/lib/auth";
-import { cn, formatDate, formatDateHeure } from "@/lib/utils";
+import { cn, formatDate, formatDateHeure, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { AttenteFiche } from "@/components/ui/attente";
 import { Button } from "@/components/ui/button";
 import { Modal } from "@/components/ui/modal";
 import { ProjetSheet } from "../projet-sheet";
@@ -24,6 +25,9 @@ import { PaiementsProjet } from "./paiements";
 import { TON_STATUT, type ProjetDetail, type Referentiel } from "../types";
 
 type Action = "bloquer" | "supprimer";
+/** Une dalle est réalisée à la fin de ses 11 étapes. */
+const NB_ETAPES = 11;
+type Avancement = { nb: number; surface: number; realisees: number; etapes: number };
 
 export default function ProjetFiche({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -54,10 +58,19 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
   const [envoi, setEnvoi] = useState(false);
   const [reaffectation, setReaffectation] = useState(false);
   const [version, setVersion] = useState(0);
+  const [avancement, setAvancement] = useState<Avancement | null>(null);
 
   const charger = useCallback(() => {
     api<ProjetDetail>(`/projets/${id}`).then(setP)
       .catch((e) => setErreur(e instanceof ApiError && e.status === 404 ? "Projet introuvable." : "Chargement impossible."));
+    // Avancement du chantier, relu après chaque action de suivi.
+    api<{ dalles: { surface: number; etapesFaites: number }[] }>(`/projets/${id}/dalles`)
+      .then((r) => setAvancement({
+        nb: r.dalles.length, surface: r.dalles.reduce((s, d) => s + d.surface, 0),
+        realisees: r.dalles.filter((d) => d.etapesFaites >= NB_ETAPES).length,
+        etapes: r.dalles.reduce((s, d) => s + Math.min(d.etapesFaites, NB_ETAPES), 0),
+      }))
+      .catch(() => setAvancement(null));
   }, [id]);
 
   useEffect(() => { charger(); api<Referentiel>("/projets/referentiel").then(setRef).catch(() => undefined); }, [charger]);
@@ -78,7 +91,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
     return (
       <div>
         <Retour />
-        <div className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{erreur || "Chargement..."}</div>
+        {erreur ? <div role="alert" className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{erreur}</div> : <AttenteFiche />}
       </div>
     );
   }
@@ -122,6 +135,29 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
 
         {erreur && !action && <div role="alert" className="mt-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
 
+        {avancement && avancement.nb > 0 && (() => {
+          const part = avancement.etapes / (avancement.nb * NB_ETAPES) * 100;
+          return (
+            <div className="mt-5 flex flex-wrap items-end gap-x-10 gap-y-4 border-t border-bordure pt-4">
+              {([["Dalles", String(avancement.nb)], ["Surface", formatSurface(avancement.surface)], ["Dalles réalisées", `${avancement.realisees} sur ${avancement.nb}`]] as [string, string][]).map(([k, v]) => (
+                <div key={k}>
+                  <div className="text-[12px] font-semibold text-attenue">{k}</div>
+                  <div className="font-display text-[17px] font-bold">{v}</div>
+                </div>
+              ))}
+              <button type="button" onClick={() => ouvrir("dalles")} title="Ouvrir les dalles et le suivi" className="min-w-[220px] flex-1 cursor-pointer text-left">
+                <div className="flex items-baseline justify-between gap-3 text-[12px] font-semibold text-attenue">
+                  <span>Avancement du chantier</span>
+                  <span className="font-display text-[13px] text-texte">{avancement.etapes} étape{avancement.etapes > 1 ? "s" : ""} sur {avancement.nb * NB_ETAPES}</span>
+                </div>
+                <div className="mt-2 h-2 overflow-hidden rounded-full bg-neutre-fond" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(part)} aria-label="Avancement du chantier">
+                  <div className={cn("h-full rounded-full", part >= 100 ? "bg-vert-texte" : "bg-marine")} style={{ width: `${part}%` }} />
+                </div>
+              </button>
+            </div>
+          );
+        })()}
+
         {p.bloque && !p.supprime && (
           <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-rouge-vif/30 bg-rouge-fond px-4 py-3 text-rouge-texte">
             <div>
@@ -143,7 +179,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
         )}
       </div>
 
-      <div role="tablist" className="mt-5 flex gap-1 overflow-x-auto border-b border-bordure">
+      <div role="tablist" className="sticky top-16 z-[5] -mx-4 mt-5 flex gap-1 overflow-x-auto border-b border-bordure bg-fond px-4 lg:-mx-8 lg:px-8">
         {onglets.map(([code, label]) => (
           <button key={code} role="tab" type="button" aria-selected={onglet === code} onClick={() => ouvrir(code)}
             className={cn("-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-[14px] font-semibold transition-colors",
@@ -160,7 +196,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
           <dl className="grid gap-x-8 gap-y-4 sm:grid-cols-2">
             {infos.map(([k, v]) => (
               <div key={k} className={k === "Description" ? "sm:col-span-2" : undefined}>
-                <dt className="text-[12px] font-semibold uppercase tracking-wide text-attenue">{k}</dt>
+                <dt className="text-[12px] font-semibold text-attenue">{k}</dt>
                 <dd className="mt-0.5 whitespace-pre-line">{v}</dd>
               </div>
             ))}

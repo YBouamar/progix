@@ -1,6 +1,6 @@
 # Avancement de PROGIX
 
-**Dernière mise à jour** : 2026-10-28
+**Dernière mise à jour** : 2026-11-11
 
 Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historique.
 
@@ -42,6 +42,7 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - **2026-10-28** : paiements par dalle (saisie ventilée, taux de paiement par dalle pour les rôles financiers, reçu imprimable avec détail par dalle, remboursement d'un trop-perçu sur la dalle), statut des factures déduit par imputation, factures uniquement sur BL (acompte supprimé), surface saisie sur la commande usine reprise sur BL et facture. Migrations Facturation `PaiementsParDalle` et Projets `SurfaceCommande`. 126 tests. Vérifié par l'API (refus, droits par rôle, imputation, situation, reçu PDF) et à l'écran. Les 17 paiements de démonstration ont été repris au prorata ; un paiement d'essai REC-00011-2026 a été saisi puis annulé.
 - **Points à surveiller (2026-10-28)** : la reprise des parts de facture relit toutes les factures à chaque démarrage tant qu'une facture d'acompte n'a pas retrouvé son devis validé ; à alléger si le volume grandit. La saisie des paiements n'est plus possible depuis l'écran Facturation (consultation et lien vers le projet).
 - **2026-10-28** : page Performance enrichie de graphes (composants maison `web/src/components/graphes.tsx`, sans bibliothèque) : dalles finies par dessinateur et par mois, surface suivie par ingénieur, projets suivis par mois, production par an, état des paiements par mode et encaissé par mois et par mode (nouvelle route `/api/statistiques/paiements`, rôles qui voient les montants). Palette des modes validée (daltonisme).
+- **2026-11-11, refonte visuelle et confort d'usage (web seulement, aucune règle métier touchée)** : polices IBM Plex Sans et IBM Plex Sans Condensed (chargées par `next/font/google`, les paquets `@fontsource-variable` sont retirés) ; menu groupé par domaine, repliable (choix gardé sur l'appareil) et en tiroir sous 1024 px ; recherche globale Ctrl+K ou « / » (`web/src/components/recherche.tsx` : pages, projets, devis, clients, fiches récentes, « Nouveau projet ») ; bandeau d'accueil avec le tracé du câble (`trace-cable.tsx`) ; avancement des dalles dans la liste des projets et dans l'en-tête de la fiche projet ; onglets de la fiche projet fixes au défilement ; étapes du suivi reliées par un trait ; blocs d'attente (`ui/attente.tsx`) à la place de « Chargement... » ; en-têtes de tableaux en minuscules ; repère de focus commun. Corrigé au passage : le filtre `?statut=` du lien « Projets par statut » du tableau de bord était ignoré par la liste des projets. Vérifié : `npm run lint`, `npm run build`, et captures d'écran avec une API simulée (tableau de bord, projets, fiche projet, suivi, recherche, menu replié, largeur téléphone). **Pas encore regardé avec la base réelle ni les données de démonstration.**
 - Dossiers non suivis laissés en place : `logos_icons/` et `web/files/` (sources identiques, copiées dans `docs/marque/`) : à supprimer après accord.
 
 ## Production
@@ -52,7 +53,8 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 
 - Écrans du 2026-10-23 (situation financière, avertissement de doublon, fiche de tension, boutons de validation), fiche projet (liste des types, commercial), devis en rôle administrateur et ouverture de la trame dans Excel : vérifiés par l'API, le build et les tests, **pas encore regardés à l'écran**.
 - Brouillons de devis existants : leur forfait est recalculé avec la nouvelle grille à leur prochain enregistrement (ex. une villa passe de 120 à 100 DH/m² avec la grille initiale).
-- Travail du 2026-10-28 non commité.
+- Refonte visuelle du 2026-11-11 : à contrôler à l'écran avec les données de démonstration, sur chaque rôle. Les écrans devis, facturation, livraisons, trésorerie, logistique, répartition, performance et paramétrage n'ont reçu que les changements communs (police, menu, tableaux, fenêtres), sans retouche écran par écran.
+- Après récupération de cette version : reconstruire le service web (`docker compose up --build`), `package.json` ayant changé.
 
 ## Pas commencé
 

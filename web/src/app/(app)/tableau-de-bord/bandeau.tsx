@@ -1,8 +1,7 @@
 "use client";
 
-import Image from "next/image";
 import { useAuth } from "@/lib/auth";
-import { initiales } from "@/lib/utils";
+import { TraceCable } from "@/components/trace-cable";
 
 /** Bandeau d'accueil du tableau de bord : salue la personne connectée et rappelle sa fonction et la date du jour. */
 export function BandeauAccueil() {
@@ -11,22 +10,14 @@ export function BandeauAccueil() {
   const jour = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Casablanca" });
 
   return (
-    <section aria-label="Accueil" className="relative mb-6 overflow-hidden rounded-xl bg-gradient-to-r from-marine to-[#1f4fa3] px-6 py-5 text-white">
-      <Image src="/marque/icone.png" alt="" width={160} height={160} aria-hidden
-        className="pointer-events-none absolute -right-6 -top-8 h-40 w-40 opacity-15" />
-      <div className="relative flex items-center gap-4">
-        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/15 font-display text-[15px] font-bold">
-          {initiales(user.fullName)}
-        </div>
-        <div className="min-w-0">
-          <h2 className="truncate font-display text-xl font-bold">Bonjour, {user.fullName}</h2>
-          <p className="text-[14px] text-white/80">
-            <span className="font-semibold text-white">{user.roleLabel}</span>
-            <span className="mx-2 text-white/40">·</span>
-            <span className="first-letter:uppercase">{jour}</span>
-          </p>
-        </div>
+    <section aria-label="Accueil" className="relative mb-6 overflow-hidden rounded-xl bg-marine text-white">
+      <div className="relative z-10 px-6 pb-16 pt-6 sm:pb-6 sm:pr-[46%]">
+        <p className="text-[13px] text-white/70 first-letter:uppercase">{jour}</p>
+        <h2 className="mt-1 truncate font-display text-2xl font-bold">Bonjour, {user.fullName}</h2>
+        <p className="mt-1 text-[14px] text-white/80">{user.roleLabel}</p>
       </div>
+      {/* Coupe de dalle et tracé du câble : le métier de l'entreprise, en signature. */}
+      <TraceCable className="pointer-events-none absolute bottom-0 right-0 h-16 w-full text-white sm:h-full sm:w-[44%] sm:pt-5" />
     </section>
   );
 }

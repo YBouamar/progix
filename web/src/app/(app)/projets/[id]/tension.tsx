@@ -115,7 +115,7 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
       {lignes.length > 0 && (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-[13px]">
-            <thead className="text-[11px] uppercase tracking-wide text-secondaire">
+            <thead className="text-[11px] text-secondaire">
               <tr>
                 <th rowSpan={2} className="py-1 pr-2 align-bottom font-semibold">Tendon</th>
                 <th rowSpan={2} className="px-1 py-1 align-bottom font-semibold">Syst.</th>

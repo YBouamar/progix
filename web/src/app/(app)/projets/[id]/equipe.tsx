@@ -40,7 +40,7 @@ export function EquipeProjet({ projetId, lectureSeule }: { projetId: string; lec
     const peut = droit && !lectureSeule;
     return (
       <div>
-        <div className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-attenue">{titre}</div>
+        <div className="mb-2 text-[12px] font-semibold text-attenue">{titre}</div>
         {membres.length === 0 && <div className="text-secondaire">Non assigné</div>}
         <ul className="space-y-2">
           {membres.map((m) => (

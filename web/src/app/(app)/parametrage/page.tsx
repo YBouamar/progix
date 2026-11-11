@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "@/lib/api";
 import { cn, formatDateHeure, lireNombre } from "@/lib/utils";
+import { AttenteFiche } from "@/components/ui/attente";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { AccessoiresParam } from "./accessoires";
@@ -28,7 +29,7 @@ export default function ParametragePage() {
   const charger = (r: Params) => { setP(r); setF({ forceKn: fr(r.forceKn), sectionMm2: fr(r.sectionMm2), moduleMpa: fr(r.moduleMpa), pertesPct: fr(r.pertesPct) }); };
   useEffect(() => { api<Params>("/parametres/tension").then(charger).catch(() => setMessage({ ok: false, texte: "Chargement impossible." })); }, []);
 
-  if (!p) return <div className="text-secondaire">{message?.texte ?? "Chargement..."}</div>;
+  if (!p) return message ? <div role="alert" className="text-secondaire">{message.texte}</div> : <AttenteFiche />;
 
   // Même calcul que le serveur : P × (1 − pertes) / (A × E), en mm par mètre.
   const A = lireNombre(f.sectionMm2), E = lireNombre(f.moduleMpa);

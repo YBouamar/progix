@@ -131,7 +131,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
 
       <div className="mt-2 max-h-[420px] overflow-auto rounded-md border border-bordure">
         <table className="w-full text-left text-[13px]">
-          <thead className="sticky top-0 z-10 bg-fond text-[11px] uppercase tracking-wide text-secondaire">
+          <thead className="sticky top-0 z-10 bg-fond text-[11px] text-secondaire">
             <tr>
               <th className="px-2 py-1.5 font-semibold">N° tendon</th>
               <th className="px-1 py-1.5 font-semibold">Type d&apos;ancrage</th>
@@ -184,7 +184,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
         </dl>
       )}
 
-      <div className="mt-3 text-[12px] font-bold uppercase tracking-wide text-secondaire">Accessoires</div>
+      <div className="mt-3 text-[12px] font-bold text-secondaire">Accessoires</div>
       {accessoires.length === 0 && lecture && <div className="text-[13px] text-attenue">Aucun accessoire.</div>}
       <div className="mt-1 space-y-1.5">
         {accessoires.map((a, i) => (

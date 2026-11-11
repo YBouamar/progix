@@ -13,8 +13,8 @@ export function Sheet({ open, onOpenChange, title, description, children, footer
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-40 bg-texte/40" />
         <Dialog.Content className={large
-          ? "fixed left-1/2 top-1/2 z-50 flex h-[calc(100vh-48px)] w-[calc(100vw-48px)] max-w-[1280px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl focus:outline-none max-sm:h-screen max-sm:w-screen max-sm:rounded-none"
-          : "fixed inset-y-0 right-0 z-50 flex w-full max-w-[640px] flex-col bg-white shadow-2xl focus:outline-none"}>
+          ? "apparition fixed left-1/2 top-1/2 z-50 flex h-[calc(100vh-48px)] w-[calc(100vw-48px)] max-w-[1280px] -translate-x-1/2 -translate-y-1/2 flex-col overflow-hidden rounded-2xl bg-white shadow-2xl focus:outline-none max-sm:h-screen max-sm:w-screen max-sm:rounded-none"
+          : "glissement fixed inset-y-0 right-0 z-50 flex w-full max-w-[640px] flex-col bg-white shadow-2xl focus:outline-none"}>
           <div className="flex items-start justify-between gap-4 border-b border-bordure px-6 py-4">
             <div>
               <Dialog.Title className="font-display text-lg font-bold">{title}</Dialog.Title>

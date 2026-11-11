@@ -128,7 +128,7 @@ export default function TresoreriePage() {
 
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Date</th><th className="px-5 py-3 font-semibold">Type</th><th className="px-5 py-3 font-semibold">Libellé</th>
               <th className="px-5 py-3 font-semibold">Projet</th><th className="px-5 py-3 font-semibold">Mode</th><th className="px-5 py-3 text-right font-semibold">Montant</th><th className="px-5 py-3" />

@@ -47,7 +47,7 @@ export function UtilisateursParam() {
       </label>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-[13px]">
-          <thead className="border-b border-bordure text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure text-[12px] text-secondaire">
             <tr><th className="py-2 pr-4 font-semibold">Nom</th><th className="py-2 pr-4 font-semibold">Identifiant</th><th className="py-2 pr-4 font-semibold">Email</th><th className="py-2 pr-4 font-semibold">Rôle</th><th className="py-2 pr-4 font-semibold">Dernière connexion</th><th className="py-2 font-semibold">État</th></tr>
           </thead>
           <tbody>

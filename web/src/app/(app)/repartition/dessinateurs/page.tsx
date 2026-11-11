@@ -179,7 +179,7 @@ export default function RepartitionDessinateurs() {
       ) : (
         <div className="rounded-xl border border-bordure bg-white">
           <div className="overflow-x-auto"><table className="w-full text-left text-[13px]">
-            <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
               <tr>
                 <th className="px-5 py-3 font-semibold">Dalle</th>
                 <th className="px-5 py-3 font-semibold">Projet</th>

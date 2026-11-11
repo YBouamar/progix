@@ -89,7 +89,7 @@ function CommandesUsine() {
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Dalle</th>
               <th className="px-5 py-3 font-semibold">Projet</th>
@@ -228,7 +228,7 @@ function EtatStock() {
 
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Article</th>
               <th className="px-5 py-3 text-right font-semibold">Stock initial</th>
@@ -388,7 +388,7 @@ function SyntheseAnnuelle() {
     </tr>
   );
   const entete = (titre: string) => (
-    <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+    <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
       <tr><th className="px-5 py-2.5 font-semibold">{titre}</th><th className="px-5 py-2.5 text-right font-semibold">Commandes livrées</th><th className="px-5 py-2.5 text-right font-semibold">Surface m²</th>
         <th className="px-5 py-2.5 text-right font-semibold">Ancrages</th><th className="px-5 py-2.5 text-right font-semibold">Gaine m</th><th className="px-5 py-2.5 text-right font-semibold">Torons m</th><th className="px-5 py-2.5 text-right font-semibold">Torons, tonnes</th></tr>
     </thead>

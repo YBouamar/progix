@@ -43,7 +43,7 @@ export function FicheAutoControle({ projetId, dalleId }: { projetId: string; dal
           const titreRubrique = p.rubrique && p.rubrique !== rubrique ? (rubrique = p.rubrique, p.rubrique) : null;
           return (
             <div key={p.code}>
-              {titreSection && <div className="mt-3 border-b border-bordure pb-1 font-display text-[13px] font-bold uppercase tracking-wide text-marine">{titreSection}</div>}
+              {titreSection && <div className="mt-3 border-b border-bordure pb-1 font-display text-[13px] font-bold text-marine">{titreSection}</div>}
               {titreRubrique && <div className="mt-2 text-[12px] font-semibold text-secondaire">{titreRubrique}</div>}
               <div className="flex flex-wrap items-center gap-2 py-1.5 text-[13px]">
                 <span className="min-w-48 flex-1">{p.libelle}</span>

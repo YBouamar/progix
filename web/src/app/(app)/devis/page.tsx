@@ -66,9 +66,9 @@ export default function DevisPage() {
 
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
 
-      <div className="overflow-hidden rounded-xl border border-bordure bg-white">
+      <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Devis</th>
               <th className="px-5 py-3 font-semibold">Projet et client</th>

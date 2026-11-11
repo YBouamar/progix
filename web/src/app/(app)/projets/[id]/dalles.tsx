@@ -162,7 +162,7 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
         <div className="border-t border-bordure px-6 py-10 text-center text-secondaire">Aucune dalle pour ce projet.</div>
       ) : (
         <div className="overflow-x-auto border-t border-bordure"><table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Référence</th>
               <th className="px-5 py-3 font-semibold">Produit</th>
@@ -216,10 +216,11 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
                           ) : <span className={d.dessinateur ? "" : "text-secondaire"}>{d.dessinateur ?? "Non assigné"}</span>}
                         </td>
                         <td className="px-5 py-3">
-                          <div className="flex gap-0.5" aria-hidden>
+                          <div className="flex items-center gap-0.5" title={`${Math.min(d.etapesFaites, 11)} étape${d.etapesFaites > 1 ? "s" : ""} sur 11`}>
                             {Array.from({ length: 11 }, (_, i) => (
-                              <span key={i} className={`h-1.5 w-3 rounded-sm ${i < d.etapesFaites ? "bg-[#1e9e58]" : i === d.etapesFaites && d.etapesFaites > 0 ? "bg-marine" : "bg-bordure"}`} />
+                              <span key={i} aria-hidden className={`h-2 w-3 rounded-sm ${i < d.etapesFaites ? "bg-[#1e9e58]" : i === d.etapesFaites && d.etapesFaites > 0 ? "bg-marine" : "bg-bordure"}`} />
                             ))}
+                            <span className="ml-1.5 font-display text-[12px] font-bold text-secondaire">{Math.min(d.etapesFaites, 11)}/11</span>
                           </div>
                           <div className={`mt-1 whitespace-nowrap text-[12px] ${d.etapesFaites >= 11 ? "font-semibold text-vert-texte" : "text-secondaire"}`}>{d.etape}</div>
                         </td>

@@ -40,7 +40,7 @@ export function TableauLogistique() {
         </div>
         {bas.length === 0 ? <div className="px-5 py-8 text-center text-[13px] text-secondaire">Aucun article sous son seuil.</div> : (
           <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
               <tr><th className="px-5 py-2.5 font-semibold">Article</th><th className="px-5 py-2.5 font-semibold">Entité</th><th className="px-5 py-2.5 text-right font-semibold">Restant</th><th className="px-5 py-2.5 text-right font-semibold">Seuil</th><th className="px-5 py-2.5 font-semibold">Niveau</th></tr>
             </thead>
             <tbody>
@@ -62,7 +62,7 @@ export function TableauLogistique() {
         </div>
         {aTraiter.length === 0 ? <div className="px-5 py-8 text-center text-[13px] text-secondaire">Aucune commande à traiter.</div> : (
           <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
               <tr><th className="px-5 py-2.5 font-semibold">Dalle</th><th className="px-5 py-2.5 font-semibold">Projet</th><th className="px-5 py-2.5 font-semibold">Demandée le</th><th className="px-5 py-2.5 font-semibold">État</th></tr>
             </thead>
             <tbody>

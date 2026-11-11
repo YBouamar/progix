@@ -61,7 +61,7 @@ export default function LivraisonsPage() {
 
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Bon de livraison</th>
               <th className="px-5 py-3 font-semibold">Date</th>
@@ -132,7 +132,7 @@ function Apercu({ entite, numero, date, client, projet, dalles }: {
         <div><dt className="inline text-secondaire">Projet : </dt><dd className="inline font-semibold">{projet}</dd></div>
       </dl>
       <table className="mt-4 w-full text-left text-[13px]">
-        <thead className="border-b border-bordure-forte text-[11px] uppercase tracking-wide text-secondaire">
+        <thead className="border-b border-bordure-forte text-[11px] text-secondaire">
           <tr><th className="py-1.5 font-semibold">Dalle</th><th className="py-1.5 text-right font-semibold">Surface</th></tr>
         </thead>
         <tbody>

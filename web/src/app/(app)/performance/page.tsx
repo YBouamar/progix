@@ -5,6 +5,7 @@ import { api, ApiError } from "@/lib/api";
 import { cn, formatDH, formatNombre } from "@/lib/utils";
 import { BarresHorizontales, Colonnes, COULEUR_UNIQUE, COULEURS_SERIES } from "@/components/graphes";
 import { Select } from "@/components/ui/input";
+import { AttenteFiche } from "@/components/ui/attente";
 
 type Ligne = { id: string; nom: string; mois: number[]; total: number; surface?: number; enCours?: number };
 type ParAn = { annee: number; total: number; surface: number };
@@ -34,7 +35,7 @@ export default function Performance() {
   }, [v]);
 
   if (erreur) return <p className="text-rouge-texte">{erreur}</p>;
-  if (!v) return <p className="text-secondaire">Chargement...</p>;
+  if (!v) return <AttenteFiche />;
 
   return (
     <div>
@@ -178,7 +179,7 @@ function Tableau({ titre, aide, lignes, moisCourant, colonneTotal, extra, sommeA
       </div>
       <div className="overflow-x-auto border-t border-bordure">
         <table className="w-full text-left text-[13px]">
-          <thead className="bg-fond text-[11px] uppercase tracking-wide text-secondaire">
+          <thead className="bg-fond text-[11px] text-secondaire">
             <tr>
               <th className="px-6 py-2.5 font-semibold">Nom</th>
               {MOIS.map((m, i) => <th key={m} className={cn("px-2 py-2.5 text-right font-semibold", moisCourant === i + 1 && "text-marine")}>{m}</th>)}

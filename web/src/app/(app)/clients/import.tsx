@@ -59,7 +59,7 @@ export function ImportPartenaires({ onClose, onImporte }: { onClose: () => void;
           </div>
           <div className="mt-3 max-h-[55vh] overflow-auto rounded-lg border border-bordure">
             <table className="w-full text-left text-[13px]">
-              <thead className="sticky top-0 border-b border-bordure bg-fond text-[11px] uppercase tracking-wide text-secondaire">
+              <thead className="sticky top-0 border-b border-bordure bg-fond text-[11px] text-secondaire">
                 <tr><th className="px-3 py-2 font-semibold">Ligne</th><th className="px-3 py-2 font-semibold">Nom</th><th className="px-3 py-2 font-semibold">Type</th><th className="px-3 py-2 font-semibold">Contrôle</th></tr>
               </thead>
               <tbody>

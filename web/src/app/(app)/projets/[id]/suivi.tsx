@@ -77,9 +77,12 @@ export function SuiviDalle({ projetId, dalleId, onClose, onChange }: {
             const choisie = x.numero === e?.numero, active = x.etat === "courante" || x.etat === "validation";
             return (
               <button key={x.numero} type="button" aria-current={choisie ? "step" : undefined} onClick={() => { setSel(x.numero); setDeverrou(null); }}
-                className={cn("flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left max-md:shrink-0",
+                className={cn("relative flex min-h-[52px] cursor-pointer items-center gap-2.5 rounded-lg border px-2.5 py-1.5 text-left max-md:shrink-0",
                   choisie ? "border-marine bg-white" : "border-transparent hover:bg-white/70")}>
-                <span className={cn("flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-[12px] font-bold",
+                {x.numero < (vue?.etapes.length ?? 0) && (
+                  <span aria-hidden className={cn("absolute left-[23px] top-[calc(50%+14px)] h-[calc(100%-24px)] w-0.5 max-md:hidden", x.etat === "terminee" ? "bg-[#1e9e58]" : "bg-bordure-forte")} />
+                )}
+                <span className={cn("relative flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-[12px] font-bold",
                   x.etat === "terminee" ? "bg-[#1e9e58] text-white" : active ? "bg-marine text-white" : "bg-bordure text-secondaire")}>
                   {x.etat === "terminee" ? <Check size={14} /> : x.numero}
                 </span>

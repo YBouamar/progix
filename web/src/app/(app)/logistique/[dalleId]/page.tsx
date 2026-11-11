@@ -6,6 +6,7 @@ import { ArrowLeft } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { cn, formatDate, formatDateHeure, formatSurface, formatNombre } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { AttenteFiche } from "@/components/ui/attente";
 
 type Tendon = { numero: string; torons: number; sens: string; longueur: number; ancrages: number };
 type Accessoire = { libelle: string; unite: string | null; quantite: number };
@@ -49,7 +50,7 @@ export default function FicheCommande({ params }: { params: Promise<{ dalleId: s
     return (
       <div>
         <Retour />
-        <div className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{erreur || "Chargement..."}</div>
+        {erreur ? <div role="alert" className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{erreur}</div> : <AttenteFiche />}
       </div>
     );
   }
@@ -118,7 +119,7 @@ export default function FicheCommande({ params }: { params: Promise<{ dalleId: s
         </div>
         <div className="overflow-x-auto rounded-md border border-bordure">
           <table className="w-full text-left text-[13px]">
-            <thead className="bg-fond text-[11px] uppercase tracking-wide text-secondaire">
+            <thead className="bg-fond text-[11px] text-secondaire">
               <tr>
                 <th className="px-3 py-2 font-semibold">N° tendon</th>
                 <th className="px-3 py-2 font-semibold">Système</th>
@@ -173,7 +174,7 @@ export default function FicheCommande({ params }: { params: Promise<{ dalleId: s
 function Info({ label, value, className }: { label: string; value: string; className?: string }) {
   return (
     <div className={className}>
-      <dt className="text-[12px] font-semibold uppercase tracking-wide text-attenue">{label}</dt>
+      <dt className="text-[12px] font-semibold text-attenue">{label}</dt>
       <dd className={cn("mt-0.5")}>{value}</dd>
     </div>
   );

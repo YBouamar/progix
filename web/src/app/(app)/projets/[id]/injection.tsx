@@ -89,7 +89,7 @@ export function FicheInjection({ projetId, dalleId }: { projetId: string; dalleI
         {champ("pompe", "Pompe")}
       </div>
 
-      <div className="mt-4 text-[12px] font-bold uppercase tracking-wide text-secondaire">Composition du coulis pour une gâchée</div>
+      <div className="mt-4 text-[12px] font-bold text-secondaire">Composition du coulis pour une gâchée</div>
       <div className="mt-2 grid grid-cols-3 gap-3">
         {champ("cimentType", "Ciment, type")}
         {champ("cimentKg", "Ciment, kg", { inputMode: "decimal" })}
@@ -101,10 +101,10 @@ export function FicheInjection({ projetId, dalleId }: { projetId: string; dalleI
         {champ("adjuvantGrammes", "Adjuvant n° 1, grammes", { inputMode: "decimal" })}
       </div>
 
-      <div className="mt-4 text-[12px] font-bold uppercase tracking-wide text-secondaire">Mesures par câble</div>
+      <div className="mt-4 text-[12px] font-bold text-secondaire">Mesures par câble</div>
       <div className="mt-1 overflow-x-auto">
         <table className="w-full text-left text-[13px]">
-          <thead className="text-[11px] uppercase tracking-wide text-secondaire">
+          <thead className="text-[11px] text-secondaire">
             <tr>
               <th className="py-1 pr-2 font-semibold">N° du tendon</th>
               <th className="px-1 py-1 font-semibold">Syst.</th>
@@ -148,13 +148,13 @@ export function FicheInjection({ projetId, dalleId }: { projetId: string; dalleI
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <div>
-          <div className="text-[12px] font-bold uppercase tracking-wide text-secondaire">Exécution</div>
+          <div className="text-[12px] font-bold text-secondaire">Exécution</div>
           <p className="mt-1 text-[13px]">
             {vue.signePar ? `Signée par ${vue.signePar} le ${formatDateHeure(vue.signeLe)}.` : "L'exécutant signe avec son mot de passe à la validation de l'étape."}
           </p>
         </div>
         <div>
-          <div className="mb-1 text-[12px] font-bold uppercase tracking-wide text-secondaire">Entreprise cliente</div>
+          <div className="mb-1 text-[12px] font-bold text-secondaire">Entreprise cliente</div>
           <Input className="mb-2 h-9" disabled={lecture} placeholder="Nom du signataire" aria-label="Nom du signataire du client" value={f.clientNom} onChange={(e) => maj({ clientNom: e.target.value })} />
           <Signature valeur={f.clientSignature} disabled={lecture} onChange={(v) => maj({ clientSignature: v })} />
         </div>

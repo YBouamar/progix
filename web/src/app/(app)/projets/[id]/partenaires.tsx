@@ -38,7 +38,7 @@ export function PartenairesProjet({ projetId, ecriture }: { projetId: string; ec
         {lignes.map((l) => (
           <div key={l.role} className="flex items-center justify-between gap-3 rounded-lg border border-bordure p-4">
             <div className="min-w-0">
-              <div className="text-[12px] font-semibold uppercase tracking-wide text-attenue">{l.label}</div>
+              <div className="text-[12px] font-semibold text-attenue">{l.label}</div>
               <div className={l.nom ? "truncate font-semibold" : "text-secondaire"}>{l.nom ?? "Non renseigné"}</div>
               <div className="truncate text-[13px] text-secondaire">
                 {l.nom ? l.contact : l.role === "laboratoire" ? "Requis avant le rapport d'écrasement" : ""}

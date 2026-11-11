@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { peutGererCommercial, useAuth } from "@/lib/auth";
@@ -9,18 +9,25 @@ import { cn, formatDate, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { AttenteLignes } from "@/components/ui/attente";
 import { ProjetSheet } from "./projet-sheet";
 import { TON_STATUT, type ProjetListe, type Referentiel } from "./types";
 
 const PAGE = 20;
 const ANNEE = new Date().getFullYear();
 
+/** L'adresse porte le filtre de statut (lien du tableau de bord) et la demande de création (recherche globale). */
 export default function ProjetsPage() {
+  return <Suspense fallback={null}><Projets /></Suspense>;
+}
+
+function Projets() {
   const { user } = useAuth();
   const router = useRouter();
+  const adresse = useSearchParams();
   const ecriture = peutGererCommercial(user);
   const [ref, setRef] = useState<Referentiel | null>(null);
-  const [statut, setStatut] = useState("");
+  const [statut, setStatut] = useState(adresse.get("statut") ?? "");
   const [entite, setEntite] = useState("");
   const [annee, setAnnee] = useState(String(ANNEE));
   const [supprimes, setSupprimes] = useState(false);
@@ -32,6 +39,14 @@ export default function ProjetsPage() {
   const [creation, setCreation] = useState(false);
 
   useEffect(() => { api<Referentiel>("/projets/referentiel").then(setRef).catch(() => undefined); }, []);
+
+  // « Nouveau projet » lancé depuis la recherche globale : la fiche de création s'ouvre, puis l'adresse est nettoyée.
+  const demandeCreation = adresse.get("nouveau") === "1";
+  useEffect(() => {
+    if (!demandeCreation || !ecriture) return;
+    setCreation(true);
+    router.replace("/projets");
+  }, [demandeCreation, ecriture, router]);
 
   useEffect(() => {
     const t = setTimeout(() => { setQ(saisie.trim()); setPage(1); }, 300);
@@ -98,42 +113,51 @@ export default function ProjetsPage() {
 
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
 
-      <div className="overflow-hidden rounded-xl border border-bordure bg-white">
+      <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="whitespace-nowrap border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
-              <th className="px-5 py-3 font-semibold">Code</th>
-              <th className="px-5 py-3 font-semibold">Libellé et client</th>
-              <th className="px-5 py-3 font-semibold">Ville</th>
-              <th className="px-5 py-3 font-semibold">Créé le</th>
-              <th className="px-5 py-3 font-semibold">Entité</th>
-              <th className="px-5 py-3 font-semibold">Type</th>
-              <th className="px-5 py-3 font-semibold">Ingénieur</th>
-              <th className="px-5 py-3 font-semibold">Statut</th>
-              <th className="px-5 py-3 text-right font-semibold">Dalles</th>
-              <th className="px-5 py-3 text-right font-semibold">Surface</th>
+              <th className="px-4 py-3 font-semibold">Code</th>
+              <th className="px-4 py-3 font-semibold">Libellé et client</th>
+              <th className="px-4 py-3 font-semibold">Ville</th>
+              <th className="px-4 py-3 font-semibold">Créé le</th>
+              <th className="px-4 py-3 font-semibold">Entité</th>
+              <th className="px-4 py-3 font-semibold">Type</th>
+              <th className="px-4 py-3 font-semibold">Ingénieur</th>
+              <th className="px-4 py-3 font-semibold">Statut</th>
+              <th className="px-4 py-3 text-right font-semibold">Dalles</th>
+              <th className="px-4 py-3 text-right font-semibold">Surface</th>
             </tr>
           </thead>
           <tbody>
             {data?.items.map((p) => (
               <tr key={p.id} onClick={() => router.push(`/projets/${p.id}`)}
                 className={cn("cursor-pointer border-b border-bordure last:border-0 hover:bg-fond", p.supprime && "bg-fond text-secondaire")}>
-                <td className={cn("whitespace-nowrap px-5 py-3 font-display font-bold", p.supprime ? "text-secondaire" : "text-marine")}>{p.code}</td>
-                <td className="px-5 py-3">
+                <td className={cn("whitespace-nowrap px-4 py-3 font-display font-bold", p.supprime ? "text-secondaire" : "text-marine")}>{p.code}</td>
+                <td className="min-w-[240px] px-4 py-3">
                   <div className="font-semibold">{p.libelle}</div>
                   <div className="text-[13px] text-secondaire">{p.supprime ? p.suppressionInfo : p.client}</div>
                 </td>
-                <td className="px-5 py-3 text-secondaire">{p.ville}</td>
-                <td className="whitespace-nowrap px-5 py-3 font-display text-secondaire">{formatDate(p.dateCreation)}</td>
-                <td className="px-5 py-3 font-display">{p.entite}</td>
-                <td className="px-5 py-3 text-secondaire">{p.typeLabel}</td>
-                <td className="px-5 py-3 text-secondaire">{p.ingenieurs || "Non assigné"}</td>
-                <td className="whitespace-nowrap px-5 py-3">
+                <td className="px-4 py-3 text-secondaire">{p.ville}</td>
+                <td className="whitespace-nowrap px-4 py-3 font-display text-secondaire">{formatDate(p.dateCreation)}</td>
+                <td className="px-4 py-3 font-display">{p.entite}</td>
+                <td className="px-4 py-3 text-secondaire">{p.typeLabel}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-secondaire">{p.ingenieurs || "Non assigné"}</td>
+                <td className="whitespace-nowrap px-4 py-3">
                   <Badge ton={TON_STATUT[p.statut] ?? "neutre"}>{p.statutLabel}</Badge>
                   {p.bloque && <Badge ton="rouge" className="ml-1.5">Bloqué</Badge>}
                 </td>
-                <td className="whitespace-nowrap px-5 py-3 text-right font-display">{p.dallesRealisees} sur {p.nbDalles}</td>
-                <td className="whitespace-nowrap px-5 py-3 text-right font-display">{formatSurface(p.surface)}</td>
+                <td className="whitespace-nowrap px-4 py-3 text-right font-display">
+                  {p.dallesRealisees} sur {p.nbDalles}
+                  {/* Part des dalles réalisées : lisible d'un coup d'oeil dans la liste. */}
+                  {p.nbDalles > 0 && (
+                    <span className="ml-auto mt-1.5 block h-1 w-20 overflow-hidden rounded-full bg-neutre-fond" aria-hidden>
+                      <span className={cn("block h-full rounded-full", p.dallesRealisees >= p.nbDalles ? "bg-vert-texte" : "bg-marine")}
+                        style={{ width: `${Math.min(100, p.dallesRealisees / p.nbDalles * 100)}%` }} />
+                    </span>
+                  )}
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-right font-display">{formatSurface(p.surface)}</td>
               </tr>
             ))}
           </tbody>
@@ -144,7 +168,7 @@ export default function ProjetsPage() {
             <div className="text-secondaire">Modifiez la recherche ou les filtres.</div>
           </div>
         )}
-        {!data && !erreur && <div className="px-6 py-14 text-center text-secondaire">Chargement...</div>}
+        {!data && !erreur && <AttenteLignes />}
       </div>
 
       {data && (

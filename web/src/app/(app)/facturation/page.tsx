@@ -115,7 +115,7 @@ export default function FacturationPage() {
       {vueAvoirs && (
         <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
           <table className="w-full text-left">
-            <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
               <tr><th className="px-5 py-3 font-semibold">Avoir</th><th className="px-5 py-3 font-semibold">Date</th><th className="px-5 py-3 font-semibold">Facture</th>
                 <th className="px-5 py-3 font-semibold">Projet et client</th><th className="px-5 py-3 font-semibold">Motif</th><th className="px-5 py-3 text-right font-semibold">Montant TTC</th></tr>
             </thead>
@@ -137,7 +137,7 @@ export default function FacturationPage() {
       )}
       <div className={cn("overflow-x-auto rounded-xl border border-bordure bg-white", vueAvoirs && "hidden")}>
         <table className="w-full text-left">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr>
               <th className="px-5 py-3 font-semibold">Document</th>
               <th className="px-5 py-3 font-semibold">Émise le, échéance</th>
@@ -217,7 +217,7 @@ function Apercu({ entite, numero, date, echeance, client, identifiants, projet, 
         <div><dt className="inline text-secondaire">Projet : </dt><dd className="inline font-semibold">{projet}</dd></div>
       </dl>
       <table className="mt-4 w-full text-left text-[13px]">
-        <thead className="border-b border-bordure-forte text-[11px] uppercase tracking-wide text-secondaire">
+        <thead className="border-b border-bordure-forte text-[11px] text-secondaire">
           <tr><th className="py-1.5 font-semibold">Désignation</th><th className="py-1.5 pl-4 text-right whitespace-nowrap font-semibold">m²</th><th className="py-1.5 text-right font-semibold">DH/m²</th><th className="py-1.5 text-right font-semibold">HT</th></tr>
         </thead>
         <tbody>

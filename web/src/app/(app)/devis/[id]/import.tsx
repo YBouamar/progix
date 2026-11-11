@@ -50,7 +50,7 @@ export function ImportDevis({ devisId, onClose, onImporter }: { devisId: string;
           {r.colonnesIgnorees.length > 0 && <div className="mt-1 text-[12px] text-orange-texte">Colonnes non reconnues, ignorées : {r.colonnesIgnorees.join(", ")}.</div>}
           <div className="mt-3 overflow-x-auto rounded-lg border border-bordure">
             <table className="w-full text-left text-[13px]">
-              <thead className="border-b border-bordure bg-fond text-[11px] uppercase tracking-wide text-secondaire">
+              <thead className="border-b border-bordure bg-fond text-[11px] text-secondaire">
                 <tr><th className="px-3 py-2 font-semibold">Ligne</th><th className="px-3 py-2 font-semibold">Dalle</th><th className="px-3 py-2 text-right font-semibold">Surface</th><th className="px-3 py-2 font-semibold">Systèmes</th><th className="px-3 py-2 text-right font-semibold">Ratio actif</th><th className="px-3 py-2 font-semibold">Contrôle</th></tr>
               </thead>
               <tbody>

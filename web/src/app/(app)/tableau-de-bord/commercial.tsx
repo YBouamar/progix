@@ -55,7 +55,7 @@ export function TableauCommercial() {
             </div>
             {b.lignes.length === 0 ? <div className="px-5 py-6 text-center text-[13px] text-secondaire">Rien à signaler.</div> : (
               <table className="w-full text-left text-[13px]">
-                <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+                <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
                   <tr><th className="px-5 py-2.5 font-semibold">{b.c1}</th><th className="px-5 py-2.5 font-semibold">Client</th><th className="px-5 py-2.5 font-semibold">{b.c3}</th><th className="px-5 py-2.5 text-right font-semibold">Montant TTC</th><th className="px-5 py-2.5" /></tr>
                 </thead>
                 <tbody>

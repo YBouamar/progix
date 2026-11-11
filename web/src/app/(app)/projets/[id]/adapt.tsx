@@ -104,7 +104,7 @@ export function AdaptDalle<T extends DalleAdapt>({ projetId, dalle, peutImporter
             <p className="mt-2 text-[13px] text-orange-texte">La surface de la dalle ({formatSurface(dalle.surface)}) diffère de celle du plancher ADAPT.</p>
           )}
           <table className="mt-4 w-full text-left text-[13px]">
-            <thead className="border-b border-bordure text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure text-[12px] text-secondaire">
               <tr>
                 <th className="py-2 font-semibold">Type d&apos;ancrage</th>
                 <th className="py-2 text-right font-semibold">Ancrages</th>

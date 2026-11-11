@@ -36,7 +36,7 @@ function MesProjets({ v, client }: { v: Vue; client?: boolean }) {
       </div>
       {v.projets.length === 0 ? <div className="px-5 py-8 text-center text-[13px] text-secondaire">Aucun projet pour le moment.</div> : (
         <table className="w-full text-left text-[13px]">
-          <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+          <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
             <tr><th className="px-5 py-2.5 font-semibold">Code</th><th className="px-5 py-2.5 font-semibold">Libellé</th>{client && <th className="px-5 py-2.5 font-semibold">Client</th>}<th className="px-5 py-2.5 font-semibold">Statut</th><th className="px-5 py-2.5 font-semibold">Dalles réalisées</th></tr>
           </thead>
           <tbody>
@@ -135,7 +135,7 @@ export function TableauPersonnel({ variante }: { variante: "etudes" | "chantier"
         <div className="border-b border-bordure px-5 py-3 font-display font-bold">Mes dalles en cours</div>
         {v.dalles.length === 0 ? <div className="px-5 py-8 text-center text-[13px] text-secondaire">Aucune dalle en cours.</div> : (
           <table className="w-full text-left text-[13px]">
-            <thead className="border-b border-bordure bg-fond text-[12px] uppercase tracking-wide text-secondaire">
+            <thead className="border-b border-bordure bg-fond text-[12px] text-secondaire">
               <tr><th className="px-5 py-2.5 font-semibold">Référence</th><th className="px-5 py-2.5 font-semibold">Étape courante</th><th className="px-5 py-2.5 font-semibold">Progression sur 11 étapes</th></tr>
             </thead>
             <tbody>

@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import { AttenteFiche } from "@/components/ui/attente";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
@@ -97,7 +98,7 @@ export function PartenaireSheet({ id, ecriture, types, typeInitial, onClose, onS
         </>
       ) : undefined}>
       {message && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{message}</div>}
-      {!pret ? <div className="text-secondaire">Chargement...</div> : (
+      {!pret ? <AttenteFiche className="border-0 p-0" /> : (
         <div className="space-y-6">
           <div className="grid gap-4">
             <Field label="Type" required error={err("type")}>

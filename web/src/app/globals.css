@@ -1,10 +1,8 @@
 @import "tailwindcss";
-@import "@fontsource-variable/space-grotesk";
-@import "@fontsource-variable/manrope";
 
 @theme {
-  --font-sans: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Space Grotesk Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: var(--police-texte), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--police-titre), ui-sans-serif, system-ui, sans-serif;
 
   --color-marine: #1b2a6b;
   --color-marine-fonce: #14205a;
@@ -26,6 +24,9 @@
   --color-rouge-vif: #d93636;
   --color-violet-fond: #ece9fb;
   --color-violet-texte: #4c3aa8;
+
+  /* Couleur de la gaine des câbles de précontrainte : réservée au tracé du câble et au repère du menu. */
+  --color-gaine: #f2913d;
 }
 
 body {
@@ -35,4 +36,31 @@ body {
   font-size: 14px;
 }
 
-h1, h2, h3 { font-family: var(--font-display); }
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0.005em; }
+
+/* Les chiffres s'alignent en colonne dans les tableaux et les totaux. */
+.font-display { font-variant-numeric: tabular-nums; }
+
+/* Repère de navigation au clavier, identique partout. */
+@layer base {
+  :focus-visible { outline: 2px solid var(--color-marine); outline-offset: 2px; }
+  aside :focus-visible { outline-color: #fff; }
+}
+
+::selection { background: color-mix(in srgb, var(--color-marine) 18%, transparent); }
+
+/* Bloc d'attente affiché pendant un chargement. */
+@keyframes attente { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+.attente { animation: attente 1.4s ease-in-out infinite; border-radius: 6px; background: var(--color-neutre-fond); }
+
+/* Ouverture de la recherche et du menu mobile. */
+@keyframes apparition { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.apparition { animation: apparition 0.14s ease-out; }
+
+/* Ouverture des fiches en panneau latéral. */
+@keyframes glissement { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
+.glissement { animation: glissement 0.16s ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .attente, .apparition, .glissement { animation: none; }
+}

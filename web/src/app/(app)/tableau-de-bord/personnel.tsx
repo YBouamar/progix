@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import { peutLire, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { TON_STATUT } from "../projets/types";
@@ -28,7 +29,21 @@ function Tuiles({ items }: { items: [string, string | number][] }) {
   );
 }
 
+/**
+ * Liens du tableau de bord : vers la fiche du projet, ou vers le menu Chantier pour qui n'a pas le menu Projets
+ * (le suivi de la dalle s'y ouvre directement).
+ */
+function useLiens() {
+  const { user } = useAuth();
+  const chantier = !peutLire(user, "projets") && peutLire(user, "chantier");
+  return {
+    projet: (p: { id: string; code: string }) => (chantier ? `/chantier?q=${encodeURIComponent(p.code)}` : `/projets/${p.id}`),
+    dalle: (d: { id: string; projetId: string }) => (chantier ? `/chantier?projet=${d.projetId}&dalle=${d.id}` : `/projets/${d.projetId}`),
+  };
+}
+
 function MesProjets({ v, client }: { v: Vue; client?: boolean }) {
+  const liens = useLiens();
   return (
     <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
       <div className="flex items-center justify-between gap-3 border-b border-bordure px-5 py-3">
@@ -42,7 +57,7 @@ function MesProjets({ v, client }: { v: Vue; client?: boolean }) {
           <tbody>
             {v.projets.map((p) => (
               <tr key={p.id} className="border-b border-bordure last:border-0">
-                <td className="whitespace-nowrap px-5 py-2.5"><Link href={`/projets/${p.id}`} className="font-display font-bold text-marine hover:underline">{p.code}</Link></td>
+                <td className="whitespace-nowrap px-5 py-2.5"><Link href={liens.projet(p)} className="font-display font-bold text-marine hover:underline">{p.code}</Link></td>
                 <td className="px-5 py-2.5 font-semibold">{p.libelle}</td>
                 {client && <td className="px-5 py-2.5 text-secondaire">{p.client}</td>}
                 <td className="px-5 py-2.5"><Badge ton={TON_STATUT[p.statut] ?? "neutre"}>{p.statutLabel}</Badge>{p.bloque && <Badge ton="rouge" className="ml-1.5">Bloqué</Badge>}</td>
@@ -62,6 +77,7 @@ function MesProjets({ v, client }: { v: Vue; client?: boolean }) {
 }
 
 export function TableauPersonnel({ variante }: { variante: "etudes" | "chantier" | "agent" }) {
+  const liens = useLiens();
   const [v, setV] = useState<Vue | null>(null);
   const [erreur, setErreur] = useState(false);
   useEffect(() => { api<Vue>("/tableau-de-bord/mes-projets").then(setV).catch(() => setErreur(true)); }, []);
@@ -101,7 +117,7 @@ export function TableauPersonnel({ variante }: { variante: "etudes" | "chantier"
                     <div className="font-semibold">{d.etapeLabel}</div>
                     {d.verrou && <div className="text-[12px] text-rouge-texte">{d.verrou}</div>}
                   </div>
-                  <Link href={`/projets/${d.projetId}`} className={cn("rounded-lg border px-4 py-2.5 text-[13px] font-semibold", d.verrou ? "border-bordure-forte bg-white hover:bg-fond" : "border-marine bg-marine text-white")}>{d.verrou ? "Voir" : "Commencer"}</Link>
+                  <Link href={liens.dalle(d)} className={cn("rounded-lg border px-4 py-2.5 text-[13px] font-semibold", d.verrou ? "border-bordure-forte bg-white hover:bg-fond" : "border-marine bg-marine text-white")}>{d.verrou ? "Voir" : "Commencer"}</Link>
                 </li>
               ))}
             </ul>
@@ -124,7 +140,7 @@ export function TableauPersonnel({ variante }: { variante: "etudes" | "chantier"
                 <span className="font-semibold">{d.etape} · {d.etapeLabel}</span>
                 <span className="font-display font-bold text-marine">{d.reference}</span>
                 <span className="flex-1 text-secondaire">· {d.projet}{d.emplacement ? ` · ${d.emplacement}` : ""}</span>
-                <Link href={`/projets/${d.projetId}`} className="font-semibold text-marine hover:underline">Ouvrir la dalle</Link>
+                <Link href={liens.dalle(d)} className="font-semibold text-marine hover:underline">Ouvrir la dalle</Link>
               </li>
             ))}
           </ul>
@@ -141,7 +157,7 @@ export function TableauPersonnel({ variante }: { variante: "etudes" | "chantier"
             <tbody>
               {v.dalles.map((d) => (
                 <tr key={d.id} className="border-b border-bordure last:border-0">
-                  <td className="whitespace-nowrap px-5 py-2.5"><Link href={`/projets/${d.projetId}`} className="font-display font-bold text-marine hover:underline">{d.reference}</Link></td>
+                  <td className="whitespace-nowrap px-5 py-2.5"><Link href={liens.dalle(d)} className="font-display font-bold text-marine hover:underline">{d.reference}</Link></td>
                   <td className="px-5 py-2.5">{d.etape} · {d.etapeLabel}{d.verrou && <span className="text-[12px] text-rouge-texte"> · {d.verrou}</span>}</td>
                   <td className="px-5 py-2.5"><Progression faites={d.faites} verrou={!!d.verrou} /></td>
                 </tr>

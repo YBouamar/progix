@@ -16,11 +16,11 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 
 ### Habilitations par fonction
 
-- [décidé 2026-11-11, code] Les accès se règlent **par fonction et par module**, depuis le paramétrage : aucun accès, lecture, ou écriture. Treize modules : projets, devis, clients et partenaires, livraisons, facturation, trésorerie, étude, exécution, logistique, répartition des ingénieurs, performance, niveaux des dalles, paramétrage. La trésorerie, les deux répartitions et la performance sont des modules de consultation : ils s'arrêtent à la lecture.
+- [décidé 2026-11-11, code] Les accès se règlent **par fonction et par module**, depuis le paramétrage : aucun accès, lecture, ou écriture. Quatorze modules : projets, devis, clients et partenaires, livraisons, facturation, trésorerie, étude, exécution, chantier, logistique, répartition des ingénieurs, performance, niveaux des dalles, paramétrage. La trésorerie, les deux répartitions et la performance sont des modules de consultation : ils s'arrêtent à la lecture.
 - [décidé 2026-11-11, code] Le réglage revient au **directeur et au chef de projet**. Les droits du directeur ne se règlent pas : il garde l'accès à tout.
 - [décidé 2026-11-11, code] Des **fonctions peuvent être créées**, en plus des douze d'origine. Une fonction créée a une **fonction de référence** parmi les douze (sauf directeur), dont elle prend les validations, les signatures, le tableau de bord et la visibilité des montants. Elle se supprime tant qu'aucun utilisateur ne la porte.
 - [décidé 2026-11-11, code] Les **validations du chantier restent fixes** (technique, administrative, chantier, blocage par le directeur, suppression d'un projet, signataires) : elles suivent la fonction d'origine ou la fonction de référence, pas le réglage.
-- [code] Deux sortes de modules (`Progix.SharedKernel/Habilitations.cs`). **Accordables** à toute fonction : devis, clients et partenaires, livraisons, facturation, trésorerie, logistique. **Liés aux fonctions d'origine** : projets, étude, exécution, répartitions, performance, niveaux, paramétrage ; le réglage ne peut qu'y restreindre le niveau de la fonction de référence.
+- [code] Deux sortes de modules (`Progix.SharedKernel/Habilitations.cs`). **Accordables** à toute fonction : devis, clients et partenaires, livraisons, facturation, trésorerie, logistique. **Liés aux fonctions d'origine** : projets, étude, exécution, chantier, répartitions, performance, niveaux, paramétrage ; le réglage ne peut qu'y restreindre le niveau de la fonction de référence.
 - [code] Sans réglage, une fonction a les niveaux d'origine, qui reproduisent les menus et les droits d'avant les habilitations. Le réglage s'applique à la requête suivante, sans reconnexion ; changer la fonction d'un utilisateur le déconnecte.
 - [code] Les listes de paramètres (niveaux, types de construction, accessoires...) se lisent quel que soit le niveau : seule leur modification dépend du module. Les fichiers, le tableau de bord et les documents signés par identifiant gardent leurs propres règles.
 
@@ -105,6 +105,15 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] **Suivi par jour** : pour chaque jour, les dossiers ouverts ce jour-là (référence, projet, client, BCT, BET, niveau, surface EXE ou MODIF, dessinateurs, ingénieurs de l'étude, état, date d'envoi) et les dalles planifiées ce jour-là qui n'ont pas encore de dossier, signalées en retard une fois le jour passé. Le jour prévu se règle par les responsables.
 - [décidé 2026-11-11] Pas de reprise du fichier « ETAT EXE » 2026 : le suivi démarre avec les dossiers saisis dans PROGIX.
 - [décidé 2026-11-11, à faire] Évaluation des dessinateurs (onglet de la page Performance) d'après le fichier d'évaluation : rendement par jour travaillé, les jours étant les mois de présence (dates d'arrivée et de départ sur la fiche de la personne) multipliés par un nombre de jours par mois réglable.
+
+### Suivi de chantier (menu Chantier)
+
+- [décidé 2026-11-11, code] Menu « Chantier » pour le responsable des chantiers, les chefs de chantier, le chef de projet et le directeur : les dalles à suivre sur le terrain, leur étape en cours sur les 11, ce qui la retient, et les chefs de chantier de leur projet. Ouvrir une dalle ouvre son suivi, où les étapes se réalisent comme avant.
+- [décidé 2026-11-11, code] Un **chef de chantier ne voit que les dalles des projets où il est affecté**, et n'ouvre le suivi et les dépenses que de ces projets. Le responsable des chantiers, le chef de projet et le directeur voient tout.
+- [décidé 2026-11-11, code] L'affectation reste **par projet** : le chef de chantier affecté à un projet suit toutes ses dalles. Elle se fait par le responsable des chantiers, le chef de projet ou le directeur, depuis le menu Chantier comme depuis l'équipe du projet ; plusieurs chefs de chantier par projet, historique gardé.
+- [décidé 2026-11-11, code] Le **menu Projets est fermé par défaut** au responsable des chantiers et aux chefs de chantier : ils n'ont que le tableau de bord et le menu Chantier. Il peut leur être rouvert depuis les habilitations (lecture ou écriture).
+- [code] États d'une dalle dans ce menu : « À affecter » tant que son projet n'a pas de chef de chantier, « Avant chantier » jusqu'à la validation du BCT, « Commande usine » pendant l'étape 4, « À réaliser » pour les autres étapes, « Terminée » après la onzième.
+- [code] Les dépenses de chantier se saisissent depuis le menu Chantier (même écran que l'onglet du projet). Les règles des étapes, des validations et des signatures ne changent pas.
 
 ## 6. Mise en tension
 

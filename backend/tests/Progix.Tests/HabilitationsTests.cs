@@ -7,7 +7,8 @@ public class HabilitationsTests
 {
     /// <summary>
     /// Menus de chaque fonction avant les habilitations : les niveaux d'origine doivent ouvrir exactement les mêmes modules,
-    /// plus le menu Exécution ajouté depuis pour les dessinateurs, qui remplace la répartition des dessinateurs.
+    /// plus le menu Exécution ajouté depuis pour les dessinateurs, qui remplace la répartition des dessinateurs,
+    /// et le menu Chantier, qui remplace le menu Projets pour le responsable des chantiers et les chefs de chantier.
     /// </summary>
     public static readonly TheoryData<string, string[]> MenusDorigine = new()
     {
@@ -19,8 +20,8 @@ public class HabilitationsTests
         { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.Execution, Habilitations.Performance] },
         { Roles.Dessinateur, [Habilitations.Projets, Habilitations.Execution] },
         { Roles.ResponsableLogistique, [Habilitations.Projets, Habilitations.Logistique, Habilitations.Parametrage] },
-        { Roles.ResponsableChantier, [Habilitations.Projets] },
-        { Roles.ChefChantier, [Habilitations.Projets] },
+        { Roles.ResponsableChantier, [Habilitations.Chantier] },
+        { Roles.ChefChantier, [Habilitations.Chantier] },
     };
 
     [Theory]
@@ -74,6 +75,7 @@ public class HabilitationsTests
     [InlineData("GET", "/api/tresorerie/export.xlsx", Habilitations.Tresorerie, Habilitations.Lecture)]
     [InlineData("POST", "/api/etudes/3f2a/fond-plan/deposer", Habilitations.Etude, Habilitations.Ecriture)]
     [InlineData("GET", "/api/execution/jours", Habilitations.Execution, Habilitations.Lecture)]
+    [InlineData("POST", "/api/chantier/projets/3f2a/chefs", Habilitations.Chantier, Habilitations.Ecriture)]
     [InlineData("POST", "/api/execution/dossiers/3f2a/terminer", Habilitations.Execution, Habilitations.Ecriture)]
     [InlineData("GET", "/api/repartition/ingenieurs", Habilitations.RepartitionIngenieurs, Habilitations.Lecture)]
     [InlineData("GET", "/api/statistiques/performance", Habilitations.Performance, Habilitations.Lecture)]
@@ -101,5 +103,38 @@ public class HabilitationsTests
     {
         Assert.Contains("n'a pas accès", Habilitations.Refus(Habilitations.Devis, Habilitations.Aucun));
         Assert.Contains("lecture seule", Habilitations.Refus(Habilitations.Devis, Habilitations.Lecture));
+    }
+
+    [Fact]
+    public void Le_menu_Projets_est_ferme_aux_chantiers_par_defaut_et_peut_leur_etre_rouvert()
+    {
+        foreach (var role in new[] { Roles.ResponsableChantier, Roles.ChefChantier })
+        {
+            Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(role, Habilitations.Projets));
+            Assert.Equal(Habilitations.Ecriture, Habilitations.Plafond(role, Habilitations.Projets));
+            Assert.Equal(Habilitations.Lecture, Habilitations.Niveau(role, Habilitations.Projets, Habilitations.Lecture));
+            Assert.Equal(Habilitations.Ecriture, Habilitations.ParDefaut(role, Habilitations.Chantier));
+        }
+        // Le menu Chantier reste lié aux fonctions de chantier : il ne s'ouvre pas à un dessinateur.
+        Assert.Equal(Habilitations.Aucun, Habilitations.Plafond(Roles.Dessinateur, Habilitations.Chantier));
+    }
+
+    [Theory]
+    [InlineData("/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d/etapes/3/realiser", true)]
+    [InlineData("/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d/tension", true)]
+    [InlineData("/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/depenses", true)]
+    [InlineData("/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d", false)]
+    [InlineData("/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", false)]
+    [InlineData("/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/equipe", false)]
+    [InlineData("/api/projets", false)]
+    public void Le_menu_Chantier_ouvre_le_suivi_d_une_dalle_et_les_depenses_pas_le_reste_du_projet(string chemin, bool ouvert)
+    {
+        var autre = Habilitations.Alternative(chemin);
+        Assert.Equal(ouvert, autre is not null);
+        if (autre is { } a)
+        {
+            Assert.Equal(Habilitations.Chantier, a.Module);
+            Assert.Equal(Guid.Parse("3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d"), a.ProjetId);
+        }
     }
 }

@@ -10,6 +10,7 @@ const ITEMS: Record<string, NavItem> = {
   tresorerie: { id: "tresorerie", label: "Trésorerie", href: "/tresorerie", pret: true, icon: "M2 6h20v12H2zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z" },
   etude: { id: "etude", label: "Étude", href: "/etudes", pret: true, icon: "M3 17l10-10 4 4L7 21H3zM14 6l2-2 4 4-2 2M9 11l4 4" },
   execution: { id: "execution", label: "Exécution", href: "/execution", pret: true, icon: "M4 4h12l4 4v12H4zM16 4v4h4M8 13h8M8 17h5M8 9h3" },
+  chantier: { id: "chantier", label: "Chantier", href: "/chantier", pret: true, icon: "M3 21h18M5 21V9l7-5 7 5v12M9 21v-6h6v6M9 11h.01M15 11h.01" },
   logistique: { id: "logistique", label: "Logistique", href: "/logistique", pret: true, icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8" },
   repIng: { id: "repIng", label: "Répartition des ingénieurs", href: "/repartition/ingenieurs", pret: true, icon: "M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z" },
   perf: { id: "perf", label: "Performance", href: "/performance", pret: true, icon: "M3 3v18h18M7 15l4-5 3 3 5-7" },
@@ -20,7 +21,7 @@ const ITEMS: Record<string, NavItem> = {
 /** Module d'habilitation de chaque entrée du menu. Le tableau de bord n'en dépend pas. */
 const MODULES: Record<string, string> = {
   projets: "projets", devis: "devis", clients: "clients", livraisons: "livraisons", facturation: "facturation", tresorerie: "tresorerie",
-  etude: "etude", execution: "execution", logistique: "logistique", repIng: "repartition_ingenieurs", perf: "performance",
+  etude: "etude", execution: "execution", chantier: "chantier", logistique: "logistique", repIng: "repartition_ingenieurs", perf: "performance",
   niveaux: "niveaux", param: "parametrage",
 };
 
@@ -33,7 +34,7 @@ type Droits = { droits?: Record<string, number> };
 const GROUPES: { label: string; ids: string[] }[] = [
   { label: "Suivi", ids: ["tdb", "projets"] },
   { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"] },
-  { label: "Études et chantier", ids: ["etude", "execution", "logistique", "repIng", "perf", "niveaux"] },
+  { label: "Études et chantier", ids: ["etude", "execution", "chantier", "logistique", "repIng", "perf", "niveaux"] },
   { label: "Réglages", ids: ["param"] },
 ];
 

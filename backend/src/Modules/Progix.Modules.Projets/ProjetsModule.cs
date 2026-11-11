@@ -38,6 +38,7 @@ public class ProjetsModule : IModule
         TypesConstructionEndpoints.Map(app);
         EtudesEndpoints.Map(app);
         ExecutionEndpoints.Map(app);
+        ChantierEndpoints.Map(app);
         FondPlanEndpoints.Map(app);
     }
 

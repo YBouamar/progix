@@ -37,6 +37,9 @@ public class IdentityModule : IModule
         services.Configure<JwtOptions>(configuration.GetSection(JwtOptions.Section));
         services.AddScoped<TokenService>();
         services.AddScoped<IUtilisateursLookup, UtilisateursLookup>();
+        services.AddMemoryCache();
+        services.AddScoped<HabilitationsService>();
+        services.AddScoped<IHabilitations>(sp => sp.GetRequiredService<HabilitationsService>());
 
         var jwt = configuration.GetSection(JwtOptions.Section).Get<JwtOptions>() ?? new JwtOptions();
         if (jwt.Key.Length < 32)
@@ -73,20 +76,32 @@ public class IdentityModule : IModule
                         var user = id is null ? null : await users.FindByIdAsync(id);
                         if (user is null || !user.IsActive) { context.Fail("Compte désactivé."); return; }
                         var role = (await users.GetRolesAsync(user)).FirstOrDefault();
-                        if (role is null || !context.Principal!.IsInRole(role)) context.Fail("Le rôle du compte a changé : reconnectez-vous.");
+                        if (role is null || !context.Principal!.IsInRole(role)) { context.Fail("Le rôle du compte a changé : reconnectez-vous."); return; }
+                        // La fonction de la personne, et pour une fonction créée le rôle de sa fonction de référence : les règles
+                        // de validation et de signature s'appuient sur les douze fonctions d'origine.
+                        var fonctions = await context.HttpContext.RequestServices.GetRequiredService<HabilitationsService>().FonctionsAsync();
+                        var identite = (System.Security.Claims.ClaimsIdentity)context.Principal.Identity!;
+                        identite.AddClaim(new System.Security.Claims.Claim(Habilitations.ClaimFonction, role));
+                        if (fonctions.TryGetValue(role, out var f) && !f.Origine)
+                            identite.AddClaim(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, f.Reference));
                     },
                 };
             });
 
         services.AddAuthorizationBuilder()
             .AddPolicy(Policies.GestionUtilisateurs, p => p.RequireRole(Roles.Directeur, Roles.ChefProjet))
-            .AddPolicy(Policies.Commercial, p => p.RequireRole(Policies.RolesCommercial))
-            .AddPolicy(Policies.Devis, p => p.RequireRole(Policies.RolesDevis))
-            .AddPolicy(Policies.Logistique, p => p.RequireRole(Policies.RolesLogistique))
+            // Modules accordables : les fonctions d'origine prévues, ou toute fonction dont le niveau réglé suffit.
+            .AddPolicy(Policies.Commercial, p => p.RequireAuthenticatedUser().RequireAssertion(c => Habilitations.AccordeAsync(c.User, c.Resource, Policies.RolesCommercial)))
+            .AddPolicy(Policies.Devis, p => p.RequireAuthenticatedUser().RequireAssertion(c => Habilitations.AccordeAsync(c.User, c.Resource, Policies.RolesDevis)))
+            .AddPolicy(Policies.Logistique, p => p.RequireAuthenticatedUser().RequireAssertion(c => Habilitations.AccordeAsync(c.User, c.Resource, Policies.RolesLogistique)))
             .AddPolicy(Policies.Direction, p => p.RequireRole(Policies.RolesDirection));
     }
 
-    public void MapEndpoints(IEndpointRouteBuilder app) => AuthEndpoints.Map(app);
+    public void MapEndpoints(IEndpointRouteBuilder app)
+    {
+        AuthEndpoints.Map(app);
+        HabilitationsEndpoints.Map(app);
+    }
 
     public Task InitializeAsync(IServiceProvider services, CancellationToken ct) => IdentitySeeder.SeedAsync(services, ct);
 }

@@ -10,8 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 
-type Utilisateur = { id: string; fullName: string; email: string; login: string; role: string; roleLabel: string; isActive: boolean; lastLoginAt: string | null };
-type Role = { code: string; label: string; voitMontants: boolean };
+type Utilisateur = { id: string; fullName: string; email: string; login: string; role: string; roleLabel: string; fonction: string; isActive: boolean; lastLoginAt: string | null };
+type Role = { code: string; label: string; voitMontants: boolean; origine: boolean };
 
 const message = (e: unknown, defaut: string) => {
   if (!(e instanceof ApiError)) return defaut;
@@ -48,7 +48,7 @@ export function UtilisateursParam() {
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-left text-[13px]">
           <thead className="border-b border-bordure text-[12px] text-secondaire">
-            <tr><th className="py-2 pr-4 font-semibold">Nom</th><th className="py-2 pr-4 font-semibold">Identifiant</th><th className="py-2 pr-4 font-semibold">Email</th><th className="py-2 pr-4 font-semibold">Rôle</th><th className="py-2 pr-4 font-semibold">Dernière connexion</th><th className="py-2 font-semibold">État</th></tr>
+            <tr><th className="py-2 pr-4 font-semibold">Nom</th><th className="py-2 pr-4 font-semibold">Identifiant</th><th className="py-2 pr-4 font-semibold">Email</th><th className="py-2 pr-4 font-semibold">Fonction</th><th className="py-2 pr-4 font-semibold">Dernière connexion</th><th className="py-2 font-semibold">État</th></tr>
           </thead>
           <tbody>
             {visibles.map((u) => (
@@ -83,7 +83,7 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
     return () => clearTimeout(t);
   }, [u, prenom, famille]);
   const [email, setEmail] = useState(u?.email ?? "");
-  const [role, setRole] = useState(u?.role ?? "");
+  const [role, setRole] = useState(u?.fonction ?? "");
   const [actif, setActif] = useState(u?.isActive ?? true);
   const [motDePasse, setMotDePasse] = useState("");
   const [erreur, setErreur] = useState("");
@@ -122,9 +122,9 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
           </>
         )}
         <Field label="Adresse email" required><Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} /></Field>
-        <Field label="Rôle" required>
+        <Field label="Fonction" required>
           <Select value={role} disabled={soi} onChange={(e) => setRole(e.target.value)}>
-            <option value="">Choisir un rôle</option>{roles.map((r) => <option key={r.code} value={r.code}>{r.label}{r.voitMontants ? "" : " · ne voit pas les montants"}</option>)}
+            <option value="">Choisir une fonction</option>{roles.map((r) => <option key={r.code} value={r.code}>{r.label}{r.voitMontants ? "" : " · ne voit pas les montants"}</option>)}
           </Select>
         </Field>
         {!u && <Field label="Mot de passe initial : 8 caractères au moins, avec une majuscule, une minuscule et un chiffre" required><Input type="text" autoComplete="off" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>}
@@ -135,7 +135,7 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
           </label>
         )}
         {soi && <p className="text-[12px] text-attenue">Vous ne pouvez ni désactiver votre propre compte ni changer votre propre rôle.</p>}
-        {u && u.role !== role && role && <p className="text-[12px] text-orange-texte">Le changement de rôle déconnecte la personne : elle devra se reconnecter.</p>}
+        {u && u.fonction !== role && role && <p className="text-[12px] text-orange-texte">Le changement de fonction déconnecte la personne : elle devra se reconnecter.</p>}
       </div>
       {erreur && <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-3 text-[13px] text-rouge-texte">{erreur}</div>}
       <div className="mt-4 flex justify-end gap-2">

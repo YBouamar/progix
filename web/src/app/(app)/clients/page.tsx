@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search, Upload } from "lucide-react";
 import { api, ApiError, type Paged } from "@/lib/api";
-import { peutGererCommercial, useAuth } from "@/lib/auth";
+import { peutEcrire, useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ function Clients() {
   const { user } = useAuth();
   const router = useRouter();
   const ficheDemandee = useSearchParams().get("fiche");
-  const ecriture = peutGererCommercial(user);
+  const ecriture = peutEcrire(user, "clients");
   const [compteurs, setCompteurs] = useState<Compteur[]>([]);
   const [type, setType] = useState("");
   const [saisie, setSaisie] = useState("");

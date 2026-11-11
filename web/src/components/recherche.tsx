@@ -44,7 +44,7 @@ export function Recherche({ open, onOpenChange }: { open: boolean; onOpenChange:
   const [actif, setActif] = useState(0);
   const liste = useRef<HTMLDivElement>(null);
 
-  const menu = useMemo(() => (user ? menuPour(user.role) : []), [user]);
+  const menu = useMemo(() => (user ? menuPour(user) : []), [user]);
   const ids = useMemo(() => new Set(menu.map((m) => m.id)), [menu]);
 
   useEffect(() => {

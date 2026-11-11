@@ -14,6 +14,16 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] Les documents émis ne se modifient pas et ne se suppriment pas ; ils s'annulent avec un motif obligatoire, tracé (qui, quand).
 - [code] Signature électronique par mot de passe de l'utilisateur, obligatoire avant d'imprimer ou d'envoyer devis, contrat, BL, facture, avoir, courrier ; un jeton aléatoire alimente le QR code de vérification publique.
 
+### Habilitations par fonction
+
+- [décidé 2026-11-11, code] Les accès se règlent **par fonction et par module**, depuis le paramétrage : aucun accès, lecture, ou écriture. Treize modules : projets, devis, clients et partenaires, livraisons, facturation, trésorerie, étude, logistique, répartition des ingénieurs, répartition des dessinateurs, performance, niveaux des dalles, paramétrage. La trésorerie, les deux répartitions et la performance sont des modules de consultation : ils s'arrêtent à la lecture.
+- [décidé 2026-11-11, code] Le réglage revient au **directeur et au chef de projet**. Les droits du directeur ne se règlent pas : il garde l'accès à tout.
+- [décidé 2026-11-11, code] Des **fonctions peuvent être créées**, en plus des douze d'origine. Une fonction créée a une **fonction de référence** parmi les douze (sauf directeur), dont elle prend les validations, les signatures, le tableau de bord et la visibilité des montants. Elle se supprime tant qu'aucun utilisateur ne la porte.
+- [décidé 2026-11-11, code] Les **validations du chantier restent fixes** (technique, administrative, chantier, blocage par le directeur, suppression d'un projet, signataires) : elles suivent la fonction d'origine ou la fonction de référence, pas le réglage.
+- [code] Deux sortes de modules (`Progix.SharedKernel/Habilitations.cs`). **Accordables** à toute fonction : devis, clients et partenaires, livraisons, facturation, trésorerie, logistique. **Liés aux fonctions d'origine** : projets, étude, répartitions, performance, niveaux, paramétrage ; le réglage ne peut qu'y restreindre le niveau de la fonction de référence.
+- [code] Sans réglage, une fonction a les niveaux d'origine, qui reproduisent les menus et les droits d'avant les habilitations. Le réglage s'applique à la requête suivante, sans reconnexion ; changer la fonction d'un utilisateur le déconnecte.
+- [code] Les listes de paramètres (niveaux, types de construction, accessoires...) se lisent quel que soit le niveau : seule leur modification dépend du module. Les fichiers, le tableau de bord et les documents signés par identifiant gardent leurs propres règles.
+
 ## 2. Numérotation
 
 - [décidé] Factures `FAC-XXXXX-AAAA` ; BL, devis et avoirs (préfixe `AV`) au même format, avec incrémentation indépendante.

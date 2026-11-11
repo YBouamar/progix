@@ -4,7 +4,7 @@ using Progix.SharedKernel;
 
 namespace Progix.Modules.Identity.Infrastructure;
 
-public class UtilisateursLookup(UserManager<AppUser> users) : IUtilisateursLookup
+public class UtilisateursLookup(UserManager<AppUser> users, RoleManager<AppRole> fonctions) : IUtilisateursLookup
 {
     public async Task<bool> VerifierMotDePasseAsync(Guid userId, string motDePasse)
     {
@@ -15,8 +15,11 @@ public class UtilisateursLookup(UserManager<AppUser> users) : IUtilisateursLooku
     public async Task<IReadOnlyList<UtilisateurFiche>> ParRolesAsync(IEnumerable<string> roles, CancellationToken ct = default)
     {
         var liste = new List<UtilisateurFiche>();
+        // Une fonction créée compte pour sa fonction de référence : un « ingénieur stagiaire » reste un ingénieur.
+        var creees = fonctions.Roles.Where(f => f.Base != null).Select(f => new { f.Name, f.Base }).ToList();
         foreach (var role in roles.Distinct())
-            liste.AddRange((await users.GetUsersInRoleAsync(role)).Where(u => u.IsActive).Select(u => new UtilisateurFiche(u.Id, u.FullName, role)));
+            foreach (var code in creees.Where(f => f.Base == role).Select(f => f.Name!).Prepend(role))
+                liste.AddRange((await users.GetUsersInRoleAsync(code)).Where(u => u.IsActive).Select(u => new UtilisateurFiche(u.Id, u.FullName, role)));
         return liste.OrderBy(u => u.Nom).ToList();
     }
 }

@@ -10,6 +10,8 @@ public class IdentityModuleDbContext(DbContextOptions<IdentityModuleDbContext> o
 {
     public const string Schema = "identity";
 
+    public DbSet<Habilitation> Habilitations => Set<Habilitation>();
+
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -23,6 +25,14 @@ public class IdentityModuleDbContext(DbContextOptions<IdentityModuleDbContext> o
         {
             b.ToTable("roles");
             b.Property(r => r.Label).HasMaxLength(100);
+            b.Property(r => r.Base).HasMaxLength(64);
+        });
+        builder.Entity<Habilitation>(b =>
+        {
+            b.ToTable("habilitations");
+            b.Property(h => h.Module).HasMaxLength(64);
+            b.HasIndex(h => new { h.RoleId, h.Module }).IsUnique();
+            b.HasOne<AppRole>().WithMany().HasForeignKey(h => h.RoleId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

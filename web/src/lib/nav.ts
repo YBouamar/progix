@@ -17,23 +17,17 @@ const ITEMS: Record<string, NavItem> = {
   param: { id: "param", label: "Paramétrage", href: "/parametrage", pret: true, icon: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4" },
 };
 
-const TOUT = Object.keys(ITEMS);
-const COMMERCIAL = ["tdb", "projets", "devis", "clients", "livraisons", "facturation", "tresorerie"];
-
-const MENUS: Record<string, string[]> = {
-  directeur: TOUT,
-  chef_projet: TOUT,
-  responsable_administratif: COMMERCIAL,
-  administrateur: COMMERCIAL,
-  agent_commercial: ["tdb", "projets"],
-  ingenieur_chef: ["tdb", "projets", "devis", "etude", "repIng", "perf"],
-  ingenieur: ["tdb", "projets", "devis", "etude"],
-  dessinateur_chef: ["tdb", "projets", "repDes", "perf"],
-  dessinateur: ["tdb", "projets"],
-  responsable_logistique: ["tdb", "projets", "logistique", "param"],
-  responsable_chantier: ["tdb", "projets"],
-  chef_chantier: ["tdb", "projets"],
+/** Module d'habilitation de chaque entrée du menu. Le tableau de bord n'en dépend pas. */
+const MODULES: Record<string, string> = {
+  projets: "projets", devis: "devis", clients: "clients", livraisons: "livraisons", facturation: "facturation", tresorerie: "tresorerie",
+  etude: "etude", logistique: "logistique", repIng: "repartition_ingenieurs", repDes: "repartition_dessinateurs", perf: "performance",
+  niveaux: "niveaux", param: "parametrage",
 };
+
+/** Modules de consultation : ils n'ont pas de niveau « écriture ». */
+const CONSULTATION = ["tresorerie", "repartition_ingenieurs", "repartition_dessinateurs", "performance"];
+
+type Droits = { droits?: Record<string, number> };
 
 /** Regroupement du menu par domaine. L'ordre des groupes est celui de l'affichage. */
 const GROUPES: { label: string; ids: string[] }[] = [
@@ -43,15 +37,23 @@ const GROUPES: { label: string; ids: string[] }[] = [
   { label: "Réglages", ids: ["param"] },
 ];
 
-/** Menu du rôle, par groupes non vides. */
-export function groupesPour(role: string): { label: string; items: NavItem[] }[] {
-  const ids = MENUS[role] ?? ["tdb"];
-  return GROUPES.map((g) => ({ label: g.label, items: g.ids.filter((i) => ids.includes(i)).map((i) => ITEMS[i]) }))
-    .filter((g) => g.items.length > 0);
+/** Une entrée apparaît dès que la fonction de la personne a au moins la lecture sur son module. */
+const visible = (u: Droits, id: string) => !MODULES[id] || (u.droits?.[MODULES[id]] ?? 0) >= 1;
+
+/** Menu de la personne, par groupes non vides. */
+export function groupesPour(u: Droits): { label: string; items: NavItem[] }[] {
+  return GROUPES.map((g) => ({ label: g.label, items: g.ids.filter((i) => visible(u, i)).map((i) => ITEMS[i]) })).filter((g) => g.items.length > 0);
 }
 
-export function menuPour(role: string): NavItem[] {
-  return (MENUS[role] ?? ["tdb"]).map((id) => ITEMS[id]);
+export function menuPour(u: Droits): NavItem[] {
+  return Object.keys(ITEMS).filter((i) => visible(u, i)).map((i) => ITEMS[i]);
+}
+
+/** Accès de la personne à la page ouverte : son module, son niveau, et si ce module connaît l'écriture. */
+export function accesPage(u: Droits, pathname: string): { module: string; label: string; niveau: number; consultation: boolean } | null {
+  const item = Object.values(ITEMS).filter((i) => i.href !== "/").find((i) => pathname.startsWith(i.href));
+  const code = item && MODULES[item.id];
+  return item && code ? { module: code, label: item.label, niveau: u.droits?.[code] ?? 0, consultation: CONSULTATION.includes(code) } : null;
 }
 
 export function titrePour(pathname: string): string {

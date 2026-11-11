@@ -68,6 +68,8 @@ if (app.Environment.IsDevelopment())
 }
 app.UseAuthentication();
 app.UseAuthorization();
+// Niveau d'accès de la fonction sur le module de la requête, réglé dans l'écran des habilitations.
+app.UseHabilitations();
 
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok", modules = modules.Select(m => m.Name) })).WithTags("Système");
 foreach (var m in modules) m.MapEndpoints(app);

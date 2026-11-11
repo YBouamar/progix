@@ -9,6 +9,7 @@ import { Field, Input } from "@/components/ui/input";
 import { AccessoiresParam } from "./accessoires";
 import { EntitesParam } from "./entites";
 import { UtilisateursParam } from "./utilisateurs";
+import { HabilitationsParam } from "./habilitations";
 import { CoulisParam, DevisParam } from "./defauts";
 import { CategoriesDepenseParam } from "./categories-depense";
 import { ForfaitsParam } from "./forfaits";
@@ -87,6 +88,7 @@ export default function ParametragePage() {
       </div>
       <div className="empty:hidden"><TypesConstructionParam /></div>
       <div className="empty:hidden xl:col-span-2"><UtilisateursParam /></div>
+      <div className="empty:hidden xl:col-span-2"><HabilitationsParam /></div>
       <div className="empty:hidden xl:col-span-2"><EntitesParam /></div>
       <div className="empty:hidden"><AccessoiresParam /></div>
       <div className="empty:hidden"><CategoriesDepenseParam /></div>

@@ -7,7 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, X } from "lucide-react";
 import { useAuth } from "@/lib/auth";
-import { groupesPour, titrePour } from "@/lib/nav";
+import { accesPage, groupesPour, titrePour } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { MonCompte } from "@/components/mon-compte";
 import { Recherche } from "@/components/recherche";
@@ -36,7 +36,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     );
   }
 
-  const groupes = groupesPour(user.role);
+  const groupes = groupesPour(user);
+  const acces = accesPage(user, pathname);
   const actif = (href: string) => (href === "/" ? pathname === "/" : pathname.startsWith(href));
   const basculer = () => setReplie((r) => { try { localStorage.setItem(CLE_MENU, r ? "0" : "1"); } catch { /* idem */ } return !r; });
 
@@ -128,7 +129,23 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             <kbd className="rounded border border-bordure-forte bg-white px-1.5 py-0.5 font-sans text-[11px] font-semibold max-sm:hidden">Ctrl K</kbd>
           </button>
         </header>
-        <main id="contenu" className="p-4 lg:p-8">{children}</main>
+        <main id="contenu" className="p-4 lg:p-8">
+          {acces && acces.niveau === 0 ? (
+            <div role="alert" className="rounded-xl border border-bordure bg-white px-6 py-14 text-center">
+              <div className="font-display font-bold">Votre fonction n&apos;a pas accès au module « {acces.label} »</div>
+              <div className="text-secondaire">Les accès se règlent dans le paramétrage, par le directeur ou le chef de projet.</div>
+            </div>
+          ) : (
+            <>
+              {acces && acces.niveau === 1 && !acces.consultation && (
+                <p role="status" className="mb-4 rounded-lg bg-violet-fond px-4 py-2.5 text-[13px] text-violet-texte">
+                  Lecture seule : votre fonction consulte ce module sans pouvoir y enregistrer.
+                </p>
+              )}
+              {children}
+            </>
+          )}
+        </main>
       </div>
 
       <Recherche open={recherche} onOpenChange={setRecherche} />

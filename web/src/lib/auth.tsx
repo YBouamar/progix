@@ -7,6 +7,10 @@ import { api } from "./api";
 export type User = {
   id: string; fullName: string; email: string; login: string; role: string; roleLabel: string;
   voitMontants: boolean; isActive: boolean; phoneNumber: string | null;
+  /** Code de la fonction de la personne ; `role` en est la fonction de référence, l'une des douze fonctions d'origine. */
+  fonction: string;
+  /** Niveau d'accès par module, réglé dans les habilitations : 0 aucun, 1 lecture, 2 écriture. */
+  droits: Record<string, number>;
 };
 
 type AuthState = {
@@ -46,7 +50,12 @@ export function useAuth() {
 }
 
 const COMMERCIAL = ["directeur", "chef_projet", "responsable_administratif", "administrateur"];
-export const peutGererCommercial = (u: User | null) => !!u && COMMERCIAL.includes(u.role);
+/** Niveau d'accès de la personne sur un module : 0 aucun, 1 lecture, 2 écriture. */
+export const niveauSur = (u: User | null, module: string) => u?.droits?.[module] ?? 0;
+export const peutLire = (u: User | null, module: string) => niveauSur(u, module) >= 1;
+export const peutEcrire = (u: User | null, module: string) => niveauSur(u, module) >= 2;
+/** Création et modification des projets et des dalles : fonctions commerciales, si le module Projets leur est ouvert en écriture. */
+export const peutGererCommercial = (u: User | null) => !!u && COMMERCIAL.includes(u.role) && peutEcrire(u, "projets");
 export const peutDiriger = (u: User | null) => !!u && ["directeur", "chef_projet"].includes(u.role);
 const MONTANTS = ["directeur", "chef_projet", "responsable_administratif", "administrateur", "ingenieur_chef", "ingenieur"];
 export const voitMontants = (u: User | null) => !!u && MONTANTS.includes(u.role);

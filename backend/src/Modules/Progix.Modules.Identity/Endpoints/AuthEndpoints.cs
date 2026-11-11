@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
 using Progix.Modules.Identity.Application;
 using Progix.Modules.Identity.Domain;
+using Progix.Modules.Identity.Infrastructure;
 using Progix.SharedKernel;
 
 namespace Progix.Modules.Identity.Endpoints;
@@ -17,7 +18,7 @@ public static class AuthEndpoints
     {
         var auth = app.MapGroup("/api/auth").WithTags("Authentification");
 
-        auth.MapPost("/login", async (LoginRequest request, UserManager<AppUser> users, RoleManager<AppRole> roles, TokenService tokens, HttpContext http, IConfiguration config) =>
+        auth.MapPost("/login", async (LoginRequest request, UserManager<AppUser> users, RoleManager<AppRole> roles, TokenService tokens, HttpContext http, IConfiguration config, HabilitationsService habilitations) =>
         {
             var user = await users.FindByNameAsync((request.Login ?? "").Trim().ToLowerInvariant());
             // Cinq mots de passe faux de suite bloquent le compte quelques minutes : une protection contre les essais en série.
@@ -45,7 +46,7 @@ public static class AuthEndpoints
             });
             user.LastLoginAt = DateTime.UtcNow;
             await users.UpdateAsync(user);
-            return Results.Ok(await ToDtoAsync(user, roleCode, roles));
+            return Results.Ok(await ToDtoAsync(user, roleCode, roles, habilitations));
         }).AllowAnonymous();
 
         auth.MapPost("/logout", (HttpContext http) =>
@@ -54,15 +55,15 @@ public static class AuthEndpoints
             return Results.NoContent();
         }).AllowAnonymous();
 
-        auth.MapGet("/me", async (ClaimsPrincipal principal, UserManager<AppUser> users, RoleManager<AppRole> roles) =>
+        auth.MapGet("/me", async (ClaimsPrincipal principal, UserManager<AppUser> users, RoleManager<AppRole> roles, HabilitationsService habilitations) =>
         {
             var user = await users.GetUserAsync(principal);
             if (user is null || !user.IsActive) return Results.Unauthorized();
             var roleCode = (await users.GetRolesAsync(user)).FirstOrDefault() ?? string.Empty;
-            return Results.Ok(await ToDtoAsync(user, roleCode, roles));
+            return Results.Ok(await ToDtoAsync(user, roleCode, roles, habilitations));
         }).RequireAuthorization();
 
-        auth.MapPut("/me", async (UpdateProfileRequest request, ClaimsPrincipal principal, UserManager<AppUser> users, RoleManager<AppRole> roles) =>
+        auth.MapPut("/me", async (UpdateProfileRequest request, ClaimsPrincipal principal, UserManager<AppUser> users, RoleManager<AppRole> roles, HabilitationsService habilitations) =>
         {
             var user = await users.GetUserAsync(principal);
             if (user is null) return Results.Unauthorized();
@@ -72,7 +73,7 @@ public static class AuthEndpoints
             user.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
             await users.UpdateAsync(user);
             var roleCode = (await users.GetRolesAsync(user)).FirstOrDefault() ?? string.Empty;
-            return Results.Ok(await ToDtoAsync(user, roleCode, roles));
+            return Results.Ok(await ToDtoAsync(user, roleCode, roles, habilitations));
         }).RequireAuthorization();
 
         auth.MapPost("/change-password", async (ChangePasswordRequest request, ClaimsPrincipal principal, UserManager<AppUser> users) =>
@@ -85,8 +86,14 @@ public static class AuthEndpoints
                 : Results.ValidationProblem(new Dictionary<string, string[]> { ["password"] = result.Errors.Select(e => e.Description).ToArray() });
         }).RequireAuthorization();
 
-        app.MapGet("/api/roles", () => Roles.All.Select(r => new RoleDto(r.Code, r.Label, r.VoitMontants)))
-            .WithTags("Utilisateurs").RequireAuthorization();
+        // Fonctions proposées dans la fiche d'un utilisateur : les douze d'origine, puis les fonctions créées.
+        app.MapGet("/api/roles", async (RoleManager<AppRole> roles) =>
+        {
+            var ordre = Roles.All.Select((r, i) => (r.Code, i)).ToDictionary(x => x.Code, x => x.i);
+            return (await roles.Roles.AsNoTracking().ToListAsync())
+                .OrderBy(r => r.Base is null ? 0 : 1).ThenBy(r => r.Base is null ? ordre.GetValueOrDefault(r.Name ?? "", 99) : 0).ThenBy(r => r.Label)
+                .Select(r => new RoleDto(r.Name ?? "", r.Label, r.VoitMontants, r.Base ?? r.Name ?? "", r.Base is null));
+        }).WithTags("Utilisateurs").RequireAuthorization();
 
         var admin = app.MapGroup("/api/users").WithTags("Utilisateurs").RequireAuthorization(Policies.GestionUtilisateurs);
 
@@ -108,9 +115,9 @@ public static class AuthEndpoints
 
         admin.MapPost("/", async (CreateUserRequest request, UserManager<AppUser> users, RoleManager<AppRole> roles, ClaimsPrincipal principal) =>
         {
-            if (request.Role == Roles.Directeur && !principal.IsInRole(Roles.Directeur)) return Results.Problem("Seul un directeur crée ou modifie un compte de directeur.", statusCode: StatusCodes.Status403Forbidden, title: "action_interdite");
-            if (Roles.Find(request.Role) is null)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["role"] = ["Rôle inconnu."] });
+            if (await ReferenceAsync(roles, request.Role) == Roles.Directeur && !principal.IsInRole(Roles.Directeur)) return Results.Problem("Seul un directeur crée ou modifie un compte de directeur.", statusCode: StatusCodes.Status403Forbidden, title: "action_interdite");
+            if (await ReferenceAsync(roles, request.Role) is null)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["role"] = ["Fonction inconnue."] });
             if (Logins.Partie(request.Prenom).Length == 0 || Logins.Partie(request.Nom).Length == 0)
                 return Results.ValidationProblem(new Dictionary<string, string[]> { ["nom"] = ["Le prénom et le nom sont obligatoires : ils forment l'identifiant de connexion."] });
             if (string.IsNullOrWhiteSpace(request.Email) || !request.Email.Contains('@')) return Results.ValidationProblem(new Dictionary<string, string[]> { ["email"] = ["Adresse email invalide."] });
@@ -129,11 +136,11 @@ public static class AuthEndpoints
         {
             var user = await users.FindByIdAsync(id.ToString());
             if (user is null) return Results.NotFound();
-            if (Roles.Find(request.Role) is null)
-                return Results.ValidationProblem(new Dictionary<string, string[]> { ["role"] = ["Rôle inconnu."] });
+            if (await ReferenceAsync(roles, request.Role) is null)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["role"] = ["Fonction inconnue."] });
             var self = users.GetUserId(principal) == user.Id.ToString();
             var actuel = (await users.GetRolesAsync(user)).FirstOrDefault();
-            if (!principal.IsInRole(Roles.Directeur) && (actuel == Roles.Directeur || request.Role == Roles.Directeur)) return Results.Problem("Seul un directeur crée ou modifie un compte de directeur.", statusCode: StatusCodes.Status403Forbidden, title: "action_interdite");
+            if (!principal.IsInRole(Roles.Directeur) && (await ReferenceAsync(roles, actuel) == Roles.Directeur || await ReferenceAsync(roles, request.Role) == Roles.Directeur)) return Results.Problem("Seul un directeur crée ou modifie un compte de directeur.", statusCode: StatusCodes.Status403Forbidden, title: "action_interdite");
             if (self && (!request.IsActive || request.Role != actuel))
                 return Results.Problem("Vous ne pouvez pas désactiver votre propre compte ni changer votre propre rôle.", statusCode: StatusCodes.Status409Conflict, title: "action_interdite");
             if (string.IsNullOrWhiteSpace(request.FullName)) return Results.ValidationProblem(new Dictionary<string, string[]> { ["fullName"] = ["Le nom est obligatoire."] });
@@ -175,9 +182,15 @@ public static class AuthEndpoints
         });
     }
 
-    private static async Task<UserDto> ToDtoAsync(AppUser user, string roleCode, RoleManager<AppRole> roles)
+    private static async Task<UserDto> ToDtoAsync(AppUser user, string roleCode, RoleManager<AppRole> roles, HabilitationsService? habilitations = null)
     {
         var role = string.IsNullOrEmpty(roleCode) ? null : await roles.FindByNameAsync(roleCode);
-        return new UserDto(user.Id, user.FullName, user.Email ?? string.Empty, roleCode, role?.Label ?? roleCode, role?.VoitMontants ?? false, user.IsActive, user.PhoneNumber, user.LastLoginAt, user.UserName ?? "");
+        var droits = habilitations is not null && (await habilitations.FonctionsAsync()).TryGetValue(roleCode, out var f) ? f.Droits() : null;
+        return new UserDto(user.Id, user.FullName, user.Email ?? string.Empty, role?.Base ?? roleCode, role?.Label ?? roleCode, role?.VoitMontants ?? false, user.IsActive, user.PhoneNumber, user.LastLoginAt, user.UserName ?? "",
+            roleCode, droits);
     }
+
+    /// <summary>Fonction de référence d'un code de fonction : le directeur ne se crée et ne se modifie que par un directeur.</summary>
+    private static async Task<string?> ReferenceAsync(RoleManager<AppRole> roles, string? code) =>
+        string.IsNullOrEmpty(code) ? null : await roles.FindByNameAsync(code) is { } r ? r.Base ?? r.Name : null;
 }

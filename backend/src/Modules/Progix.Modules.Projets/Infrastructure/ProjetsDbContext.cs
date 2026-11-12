@@ -24,6 +24,7 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
     public DbSet<FicheAutoControle> FichesAutoControle => Set<FicheAutoControle>();
     public DbSet<ParametresTension> ParametresTension => Set<ParametresTension>();
     public DbSet<ParametresCoulis> ParametresCoulis => Set<ParametresCoulis>();
+    public DbSet<ParametresEvaluation> ParametresEvaluation => Set<ParametresEvaluation>();
     public DbSet<MesureTension> MesuresTension => Set<MesureTension>();
     public DbSet<FicheTension> FichesTension => Set<FicheTension>();
     public DbSet<EtapeDalle> Etapes => Set<EtapeDalle>();
@@ -207,6 +208,16 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
             foreach (var lecture in new[] { nameof(MesureTension.A25), nameof(MesureTension.A100), nameof(MesureTension.B25), nameof(MesureTension.B100) }) b.Property(lecture).HasPrecision(8, 1);
             b.HasIndex(m => m.DalleId);
             b.HasOne<Dalle>().WithMany().HasForeignKey(m => m.DalleId).OnDelete(DeleteBehavior.Cascade);
+        });
+        builder.Entity<ParametresEvaluation>(b =>
+        {
+            b.ToTable("parametres_evaluation");
+            b.Property(x => x.Id).ValueGeneratedNever();
+            foreach (var t in new[] { nameof(Domain.ParametresEvaluation.JoursParMois), nameof(Domain.ParametresEvaluation.JoursReference), nameof(Domain.ParametresEvaluation.SeuilExcellent),
+                nameof(Domain.ParametresEvaluation.SeuilBon), nameof(Domain.ParametresEvaluation.SeuilMoyen), nameof(Domain.ParametresEvaluation.MoisMinimum),
+                nameof(Domain.ParametresEvaluation.PoidsSurface), nameof(Domain.ParametresEvaluation.PoidsDossiers), nameof(Domain.ParametresEvaluation.ObjectifSurface),
+                nameof(Domain.ParametresEvaluation.ObjectifDossiers) }) b.Property(t).HasPrecision(10, 3);
+            b.Property(x => x.ModifiePar).HasMaxLength(200);
         });
         builder.Entity<ParametresCoulis>(b =>
         {

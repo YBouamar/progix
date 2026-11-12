@@ -3,6 +3,7 @@
 import { formatNombre } from "@/lib/utils";
 import { BarresHorizontales, Colonnes, COULEUR_UNIQUE } from "@/components/graphes";
 import { AttenteFiche } from "@/components/ui/attente";
+import { EvaluationDessinateurs } from "./evaluation";
 import { Carte, ChoixAnnee, entier, MOIS, MOIS_LONGS, parAn, parMois, sommeSurface, Tableau, usePerformance } from "../commun";
 
 /** Performance des dessinateurs : dalles finies et surface étudiée, par personne, par mois et par an. */
@@ -35,6 +36,7 @@ export default function PerformanceDessinateurs() {
       <Tableau titre="Dessinateurs : dalles finies" aide="Une dalle est finie quand l'étape « Plans d'exécution » est validée. Elle compte pour le dessinateur affecté à la dalle, au mois de cette validation."
         lignes={v.dessinateurs} moisCourant={v.moisCourant} colonneTotal={`Total ${v.annee}`}
         extra={[{ label: "Surface étudiée", rendre: (l) => `${formatNombre(l.surface ?? 0)} m²`, somme: sommeSurface }]} sommeAnnuelle />
+      <EvaluationDessinateurs annee={v.annee} />
     </div>
   );
 }

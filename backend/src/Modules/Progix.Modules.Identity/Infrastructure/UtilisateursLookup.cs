@@ -22,4 +22,14 @@ public class UtilisateursLookup(UserManager<AppUser> users, RoleManager<AppRole>
                 liste.AddRange((await users.GetUsersInRoleAsync(code)).Where(u => u.IsActive).Select(u => new UtilisateurFiche(u.Id, u.FullName, role)));
         return liste.OrderBy(u => u.Nom).ToList();
     }
+
+    public async Task<IReadOnlyList<Presence>> PresencesAsync(IEnumerable<string> roles, CancellationToken ct = default)
+    {
+        var liste = new List<Presence>();
+        var creees = fonctions.Roles.Where(f => f.Base != null).Select(f => new { f.Name, f.Base }).ToList();
+        foreach (var role in roles.Distinct())
+            foreach (var code in creees.Where(f => f.Base == role).Select(f => f.Name!).Prepend(role))
+                liste.AddRange((await users.GetUsersInRoleAsync(code)).Select(u => new Presence(u.Id, u.FullName, role, u.IsActive, u.DateArrivee, u.DateDepart)));
+        return liste.OrderBy(u => u.Nom).ToList();
+    }
 }

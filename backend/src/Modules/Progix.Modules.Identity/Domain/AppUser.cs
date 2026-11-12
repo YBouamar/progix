@@ -8,6 +8,10 @@ public class AppUser : IdentityUser<Guid>
     public bool IsActive { get; set; } = true;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? LastLoginAt { get; set; }
+
+    /// <summary>Dates d'arrivée et de départ dans l'entreprise : elles donnent les mois travaillés de l'évaluation des dessinateurs.</summary>
+    public DateOnly? DateArrivee { get; set; }
+    public DateOnly? DateDepart { get; set; }
 }
 
 public class AppRole : IdentityRole<Guid>

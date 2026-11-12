@@ -25,11 +25,17 @@ public interface IUtilisateursLookup
     /// <summary>Utilisateurs actifs ayant l'un des rôles demandés, triés par nom.</summary>
     Task<IReadOnlyList<UtilisateurFiche>> ParRolesAsync(IEnumerable<string> roles, CancellationToken ct = default);
 
+    /// <summary>Personnes ayant l'un des rôles demandés, comptes désactivés compris, avec leurs dates d'arrivée et de départ.</summary>
+    Task<IReadOnlyList<Presence>> PresencesAsync(IEnumerable<string> roles, CancellationToken ct = default);
+
     /// <summary>Vérifie le mot de passe d'un utilisateur, pour les signatures.</summary>
     Task<bool> VerifierMotDePasseAsync(Guid userId, string motDePasse);
 }
 
 public record UtilisateurFiche(Guid Id, string Nom, string Role);
+
+/// <summary>Présence d'une personne dans l'entreprise : sert au calcul des mois travaillés.</summary>
+public record Presence(Guid Id, string Nom, string Role, bool Actif, DateOnly? Arrivee, DateOnly? Depart);
 
 /// <summary>Résumé d'un partenaire : nom, type et contact principal.</summary>
 public record PartenaireFiche(Guid Id, string Nom, string Type, string? Contact, bool ExonereTva);

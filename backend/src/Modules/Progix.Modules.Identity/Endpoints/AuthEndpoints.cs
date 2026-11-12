@@ -148,6 +148,9 @@ public static class AuthEndpoints
             if (!email.Contains('@')) return Results.ValidationProblem(new Dictionary<string, string[]> { ["email"] = ["Adresse email invalide."] });
             if (await users.FindByEmailAsync(email) is { } autre && autre.Id != user.Id)
                 return Results.Problem("Un utilisateur porte déjà cette adresse email.", statusCode: StatusCodes.Status409Conflict, title: "doublon");
+            if (request.DateArrivee is DateOnly arrivee && request.DateDepart is DateOnly depart && depart < arrivee)
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["dateDepart"] = ["La date de départ ne peut pas précéder la date d'arrivée."] });
+            user.DateArrivee = request.DateArrivee; user.DateDepart = request.DateDepart;
             // L'identifiant de connexion, lui, ne change jamais.
             user.Email = email; user.NormalizedEmail = users.NormalizeEmail(email);
             user.FullName = request.FullName.Trim();
@@ -187,7 +190,7 @@ public static class AuthEndpoints
         var role = string.IsNullOrEmpty(roleCode) ? null : await roles.FindByNameAsync(roleCode);
         var droits = habilitations is not null && (await habilitations.FonctionsAsync()).TryGetValue(roleCode, out var f) ? f.Droits() : null;
         return new UserDto(user.Id, user.FullName, user.Email ?? string.Empty, role?.Base ?? roleCode, role?.Label ?? roleCode, role?.VoitMontants ?? false, user.IsActive, user.PhoneNumber, user.LastLoginAt, user.UserName ?? "",
-            roleCode, droits);
+            roleCode, droits, user.DateArrivee, user.DateDepart);
     }
 
     /// <summary>Fonction de référence d'un code de fonction : le directeur ne se crée et ne se modifie que par un directeur.</summary>

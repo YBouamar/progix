@@ -780,6 +780,63 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                     b.ToTable("parametres_coulis", "projets");
                 });
 
+            modelBuilder.Entity("Progix.Modules.Projets.Domain.ParametresEvaluation", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("JoursParMois")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("JoursReference")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<DateTime?>("ModifieLe")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ModifiePar")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("MoisMinimum")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("ObjectifDossiers")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("ObjectifSurface")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("PoidsDossiers")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("PoidsSurface")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("SeuilBon")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("SeuilExcellent")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.Property<decimal>("SeuilMoyen")
+                        .HasPrecision(10, 3)
+                        .HasColumnType("numeric(10,3)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("parametres_evaluation", "projets");
+                });
+
             modelBuilder.Entity("Progix.Modules.Projets.Domain.ParametresTension", b =>
                 {
                     b.Property<int>("Id")

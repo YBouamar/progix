@@ -181,6 +181,12 @@ namespace Progix.Modules.Identity.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateOnly?>("DateArrivee")
+                        .HasColumnType("date");
+
+                    b.Property<DateOnly?>("DateDepart")
+                        .HasColumnType("date");
+
                     b.Property<string>("Email")
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");

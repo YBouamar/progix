@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 
-type Utilisateur = { id: string; fullName: string; email: string; login: string; role: string; roleLabel: string; fonction: string; isActive: boolean; lastLoginAt: string | null };
+type Utilisateur = { id: string; fullName: string; email: string; login: string; role: string; roleLabel: string; fonction: string; isActive: boolean; lastLoginAt: string | null; dateArrivee?: string | null; dateDepart?: string | null };
 type Role = { code: string; label: string; voitMontants: boolean; origine: boolean };
 
 const message = (e: unknown, defaut: string) => {
@@ -85,6 +85,9 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
   const [email, setEmail] = useState(u?.email ?? "");
   const [role, setRole] = useState(u?.fonction ?? "");
   const [actif, setActif] = useState(u?.isActive ?? true);
+  // Dates de présence dans l'entreprise : elles donnent les mois travaillés de l'évaluation des dessinateurs.
+  const [arrivee, setArrivee] = useState(u?.dateArrivee ?? "");
+  const [depart, setDepart] = useState(u?.dateDepart ?? "");
   const [motDePasse, setMotDePasse] = useState("");
   const [erreur, setErreur] = useState("");
   const [info, setInfo] = useState("");
@@ -94,7 +97,7 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
   const enregistrer = async () => {
     setEnvoi(true); setErreur(""); setInfo("");
     try {
-      if (u) await api(`/users/${u.id}`, { method: "PUT", body: JSON.stringify({ fullName: nom, email, role, isActive: actif }) });
+      if (u) await api(`/users/${u.id}`, { method: "PUT", body: JSON.stringify({ fullName: nom, email, role, isActive: actif, dateArrivee: arrivee || null, dateDepart: depart || null }) });
       else await api("/users", { method: "POST", body: JSON.stringify({ prenom, nom: famille, email, role, password: motDePasse }) });
       onFait();
     } catch (e) { setErreur(message(e, "Enregistrement impossible.")); setEnvoi(false); }
@@ -127,6 +130,13 @@ function Fiche({ u, roles, moi, onClose, onFait }: { u: Utilisateur | null; role
             <option value="">Choisir une fonction</option>{roles.map((r) => <option key={r.code} value={r.code}>{r.label}{r.voitMontants ? "" : " · ne voit pas les montants"}</option>)}
           </Select>
         </Field>
+        {u && (
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date d'arrivée"><Input type="date" value={arrivee} onChange={(e) => setArrivee(e.target.value)} /></Field>
+            <Field label="Date de départ"><Input type="date" value={depart} onChange={(e) => setDepart(e.target.value)} /></Field>
+            <p className="col-span-2 -mt-1 text-[12px] text-secondaire">Ces dates servent à l&apos;évaluation des dessinateurs : sans date d&apos;arrivée, la personne n&apos;est pas évaluée.</p>
+          </div>
+        )}
         {!u && <Field label="Mot de passe initial : 8 caractères au moins, avec une minuscule et un chiffre" required><Input type="text" autoComplete="off" value={motDePasse} onChange={(e) => setMotDePasse(e.target.value)} /></Field>}
         {u && (
           <label className={cn("flex items-start gap-3 rounded-lg border border-bordure p-3", soi ? "opacity-60" : "cursor-pointer")}>

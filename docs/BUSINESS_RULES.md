@@ -106,7 +106,15 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] **Suivi par jour** : pour chaque jour, les dossiers ouverts ce jour-là (référence, projet, client, BCT, BET, niveau, surface EXE ou MODIF, dessinateurs, ingénieurs de l'étude, état, date d'envoi) et les dalles planifiées ce jour-là qui n'ont pas encore de dossier, signalées en retard une fois le jour passé. Le jour prévu se règle par les responsables.
 - [décidé 2026-11-11] Pas de reprise du fichier « ETAT EXE » 2026 : le suivi démarre avec les dossiers saisis dans PROGIX.
 - [décidé 2026-11-11, code] La performance se lit sur **deux pages séparées**, chacune avec son module d'habilitation : « Performance des dessinateurs » (directeur, chef de projet, dessinateur en chef) et « Performance des ingénieurs » (directeur, chef de projet, ingénieur en chef). L'état des paiements de l'année, qui figurait sur l'ancienne page unique, est en bas de la Trésorerie.
-- [décidé 2026-11-11, à faire] Évaluation des dessinateurs (sur la page « Performance des dessinateurs ») d'après le fichier d'évaluation : rendement par jour travaillé, les jours étant les mois de présence (dates d'arrivée et de départ sur la fiche de la personne) multipliés par un nombre de jours par mois réglable.
+- [décidé 2026-11-11, code le 2026-11-12] **Évaluation des dessinateurs** (page « Performance des dessinateurs »), reprise de la feuille « Évaluation » du fichier d'évaluation 2026, mêmes colonnes et mêmes formules (vérifiées par des tests sur les valeurs du fichier) :
+  - **Données** : dossiers EXE et MODIF **terminés dans l'année** et leurs surfaces relevées à la clôture, hors projets supprimés ; un dossier partagé compte à parts égales (voir plus haut). Pas de reprise des chiffres 2026 du fichier.
+  - **Mois travaillés** dans l'année, au dixième : de la date d'arrivée (ou du 1er janvier) à la date de départ (ou à aujourd'hui, ou au 31 décembre), d'après les **dates d'arrivée et de départ de la fiche de la personne** (Paramétrage, Accès). Sans date d'arrivée, ou compte désactivé sans date de départ : la personne est listée mais pas calculée. Jours travaillés = mois × jours par mois (23).
+  - **Rendement** : MODIF par jour, EXE par jour, surface MODIF et EXE par jour, dossiers par jour, m² par jour, m² par dossier.
+  - **Score** = (0,8 × m² par jour ÷ médiane + 0,2 × dossiers par jour ÷ médiane) × jours de référence ÷ jours par mois ; les médianes sont celles des personnes en cours. **Niveau** : Excellent à partir de 1,25, Bon à partir de 0,90, Moyen à partir de 0,60, À renforcer en dessous. **Rang** : 1 pour le meilleur score. En dessous de 2 mois de présence : « Trop récente », un score mais pas de rang.
+  - **Personnes parties** (date de départ passée ou compte désactivé) : listées à part, comparées à la médiane des personnes en cours et classées entre elles.
+  - **Objectif normal** : 400 m² et 1 dossier par jour ; un rendement à l'objectif s'affiche en vert.
+  - Personnes évaluées : les dessinateurs, plus le dessinateur en chef s'il a terminé un dossier dans l'année.
+  - **Réglages** (jours par mois, jours de référence, seuils, mois minimum, poids, objectifs) : modifiables par le directeur et le chef de projet depuis la page ; le dessinateur en chef consulte.
 
 ### Suivi de chantier (menu Chantier)
 

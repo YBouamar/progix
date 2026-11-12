@@ -69,6 +69,11 @@ public class ProjetsLookup(ProjetsDbContext db, IDevisLookup devis) : IProjetsLo
         return rows.ToDictionary(p => p.Id, p => Resume(p, []));
     }
 
+    public async Task<IReadOnlyList<ProjetSansDevis>> SansDevisAsync(IReadOnlyCollection<Guid> avecDevis, CancellationToken ct = default) =>
+        (await db.Projets.AsNoTracking().Where(p => !p.Supprime && !avecDevis.Contains(p.Id)).OrderByDescending(p => p.DateCreation).ThenByDescending(p => p.Code)
+            .Select(p => new { p, Dalles = db.Dalles.Count(d => d.ProjetId == p.Id), Surface = db.Dalles.Where(d => d.ProjetId == p.Id).Sum(d => (decimal?)d.Surface) ?? 0 }).ToListAsync(ct))
+        .Select(x => new ProjetSansDevis(x.p.Id, x.p.Code, x.p.Libelle, x.p.Entite, x.p.ClientId, x.p.CommercialId, x.p.CommercialNom, x.Dalles, x.Surface, x.p.CreatedAt)).ToList();
+
     public async Task<IReadOnlyList<Guid>> RechercherAsync(string texte, CancellationToken ct = default)
     {
         var like = $"%{texte.Trim()}%";

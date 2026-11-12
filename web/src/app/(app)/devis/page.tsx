@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Search } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
-import { cn, formatDH } from "@/lib/utils";
+import Link from "next/link";
+import { cn, formatDH, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
@@ -16,6 +17,9 @@ const PAGE = 20;
 const SANS = "aucun";
 type Filtres = { ingenieur: string; avecSans: boolean; commercial: string; projet: string; du: string; au: string };
 const VIDE: Filtres = { ingenieur: "", avecSans: false, commercial: "", projet: "", du: "", au: "" };
+/** État fictif de la liste : les projets qui n'ont encore aucun devis. */
+const A_CREER = "a_creer";
+type ACreer = { projetId: string; projetCode: string; projet: string; entite: string; client: string; commercial: string | null; dalles: number; surface: number };
 type Choix = { commerciaux: { id: string; nom: string }[]; projets: { id: string; code: string; libelle: string }[] };
 
 export default function DevisPage() {
@@ -32,6 +36,8 @@ export default function DevisPage() {
   const [f, setF] = useState<Filtres>(parDefaut);
   const [ingenieurs, setIngenieurs] = useState<{ id: string; nom: string }[]>([]);
   const [choix, setChoix] = useState<Choix>({ commerciaux: [], projets: [] });
+  const [aCreer, setACreer] = useState<{ peutCreer: boolean; items: ACreer[] }>({ peutCreer: false, items: [] });
+  const [creation, setCreation] = useState("");
   const filtrer = (patch: Partial<Filtres>) => { setF((x) => ({ ...x, ...patch })); setPage(1); };
   const filtresActifs = JSON.stringify(f) !== JSON.stringify(VIDE);
 
@@ -45,10 +51,27 @@ export default function DevisPage() {
     return () => clearTimeout(t);
   }, [saisie]);
 
+  // Devis à créer : projets sans devis, filtrés par la recherche, le projet et le commercial (ni ingénieur ni date tant que le devis n'existe pas).
+  useEffect(() => {
+    const p = new URLSearchParams();
+    if (q) p.set("q", q);
+    if (f.commercial) p.set("commercial", f.commercial);
+    if (f.projet) p.set("projetId", f.projet);
+    api<{ peutCreer: boolean; items: ACreer[] }>(`/devis/a-creer?${p}`).then(setACreer).catch(() => undefined);
+  }, [q, f.commercial, f.projet]);
+
+  async function creer(a: ACreer) {
+    setCreation(a.projetId); setErreur("");
+    try {
+      const d = await api<{ id: string }>("/devis", { method: "POST", body: JSON.stringify({ projetId: a.projetId }) });
+      router.push(`/devis/${d.id}`);
+    } catch (e) { setErreur(e instanceof ApiError ? e.message : "Création impossible."); setCreation(""); }
+  }
+
   const charger = useCallback(async () => {
     try {
       const p = new URLSearchParams({ page: String(page), pageSize: String(PAGE) });
-      if (etat) p.set("etat", etat);
+      if (etat && etat !== A_CREER) p.set("etat", etat);
       if (q) p.set("q", q);
       if (f.ingenieur === SANS) p.set("sansIngenieur", "true");
       else if (f.ingenieur) { p.set("ingenieur", f.ingenieur); if (f.avecSans) p.set("sansIngenieur", "true"); }
@@ -66,7 +89,11 @@ export default function DevisPage() {
   useEffect(() => { charger(); }, [charger]);
 
   const compteurs = data?.compteurs ?? [];
-  const onglets = [{ etat: "", label: "Tous", nb: compteurs.reduce((s, c) => s + c.nb, 0) }, ...compteurs];
+  const onglets = [{ etat: "", label: "Tous", nb: compteurs.reduce((s, c) => s + c.nb, 0) + aCreer.items.length }, { etat: A_CREER, label: "À créer", nb: aCreer.items.length }, ...compteurs];
+  // Les devis à créer ouvrent la liste « Tous » (première page) et forment seuls la liste « À créer ».
+  const montreACreer = etat === A_CREER || (etat === "" && page === 1);
+  const devis = etat === A_CREER ? [] : data?.items ?? [];
+  const vide = !!data && devis.length === 0 && !(montreACreer && aCreer.items.length > 0);
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE)) : 1;
 
   return (
@@ -138,7 +165,27 @@ export default function DevisPage() {
             </tr>
           </thead>
           <tbody>
-            {data?.items.map((d) => (
+            {montreACreer && aCreer.items.map((a) => (
+              <tr key={a.projetId} className="border-b border-bordure bg-orange-fond/40 last:border-0">
+                <td className="whitespace-nowrap px-5 py-3">
+                  <div className="font-display font-bold text-orange-texte">Devis à créer</div>
+                  <div className="text-[12px] text-attenue">{a.entite} · {a.dalles} dalle{a.dalles > 1 ? "s" : ""}{a.surface > 0 ? ` · ${formatSurface(a.surface)}` : ""}</div>
+                </td>
+                <td className="px-5 py-3">
+                  <Link href={`/projets/${a.projetId}`} className="font-semibold hover:text-marine hover:underline">{a.projetCode} · {a.projet}</Link>
+                  <div className="text-[13px] text-secondaire">{a.client}</div>
+                </td>
+                <td className="px-5 py-3 text-secondaire" />
+                <td className="px-5 py-3 text-secondaire">{a.commercial ?? "Non renseigné"}</td>
+                <td className="px-5 py-3"><Badge ton="orange">À créer</Badge></td>
+                <td className="px-5 py-3 text-[13px] text-secondaire">{a.dalles === 0 ? "Ajoutez d'abord des dalles au projet" : ""}</td>
+                <td className="whitespace-nowrap px-5 py-3 text-right">
+                  {a.dalles === 0 ? <Link href={`/projets/${a.projetId}`} className="text-[13px] font-semibold text-marine hover:underline">Ouvrir le projet</Link>
+                    : aCreer.peutCreer && <Button size="sm" disabled={!!creation} onClick={() => creer(a)}>{creation === a.projetId ? "Création..." : "Créer le devis"}</Button>}
+                </td>
+              </tr>
+            ))}
+            {devis.map((d) => (
               <tr key={d.id} onClick={() => router.push(`/devis/${d.id}`)} className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond">
                 <td className="whitespace-nowrap px-5 py-3">
                   <div className={cn("font-display font-bold text-marine", d.etat === "remplace" && "line-through")}>{d.numero}</div>
@@ -159,7 +206,7 @@ export default function DevisPage() {
             ))}
           </tbody>
         </table>
-        {data && data.items.length === 0 && (
+        {vide && (
           <div className="px-6 py-14 text-center">
             <div className="font-display font-bold">Aucun devis ne correspond</div>
             <div className="text-secondaire">Modifiez la recherche, l&apos;état ou les filtres.</div>
@@ -169,8 +216,8 @@ export default function DevisPage() {
 
       {data && (
         <div className="mt-4 flex items-center justify-between gap-3 text-[13px] text-secondaire">
-          <span>{data.total} devis</span>
-          {data.total > PAGE && (
+          <span>{etat === A_CREER ? `${aCreer.items.length} devis à créer` : `${data.total} devis${montreACreer && aCreer.items.length > 0 ? `, et ${aCreer.items.length} à créer` : ""}`}</span>
+          {etat !== A_CREER && data.total > PAGE && (
             <span className="flex items-center gap-3">
               Page {page} sur {pages}
               <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Précédent</Button>

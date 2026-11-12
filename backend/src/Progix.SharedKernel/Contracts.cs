@@ -71,6 +71,8 @@ public interface IProjetsLookup
     Task<ProjetResume?> ProjetAsync(Guid id, bool avecDalles = false, CancellationToken ct = default);
     Task<IReadOnlyDictionary<Guid, ProjetResume>> ProjetsAsync(IEnumerable<Guid> ids, CancellationToken ct = default);
     Task<IReadOnlyList<Guid>> RechercherAsync(string texte, CancellationToken ct = default);
+    /// <summary>Projets non supprimés absents de la liste donnée (ceux qui ont déjà un devis), les plus récents d'abord : les devis à créer.</summary>
+    Task<IReadOnlyList<ProjetSansDevis>> SansDevisAsync(IReadOnlyCollection<Guid> avecDevis, CancellationToken ct = default);
     /// <summary>Vrai si la personne est aujourd'hui chef de chantier affecté au projet.</summary>
     Task<bool> EstChefChantierAsync(Guid projetId, Guid userId, CancellationToken ct = default);
     /// <summary>Maîtrise d'œuvre du projet : bureau d'études, bureau de contrôle, architecte, laboratoire.</summary>
@@ -78,6 +80,9 @@ public interface IProjetsLookup
 }
 
 public record Intervenant(string Role, string RoleLabel, Guid PartenaireId);
+
+/// <param name="Dalles">Nombre de dalles du projet : un devis ne se crée qu'avec au moins une dalle.</param>
+public record ProjetSansDevis(Guid Id, string Code, string Libelle, string Entite, Guid ClientId, Guid? CommercialId, string? CommercialNom, int Dalles, decimal Surface, DateTime Cree);
 
 /// <summary>
 /// Type de fichier géré par un module : qui peut déposer, sur quelle cible, dans quelles catégories.

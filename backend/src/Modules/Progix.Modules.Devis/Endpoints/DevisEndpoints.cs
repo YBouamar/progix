@@ -110,12 +110,31 @@ public static class DevisEndpoints
             });
         });
 
-        // Devis à traiter, pour le chiffre du menu : les brouillons. Un ingénieur compte les siens, les autres fonctions le total.
-        g.MapGet("/a-traiter", async (DevisDbContext db, ClaimsPrincipal user) =>
+        // Devis à traiter, pour le chiffre du menu. Un ingénieur compte ses brouillons ; les autres fonctions, tous les brouillons et les devis à créer.
+        g.MapGet("/a-traiter", async (DevisDbContext db, IProjetsLookup projets, ClaimsPrincipal user) =>
         {
             var brouillons = db.Devis.AsNoTracking().Where(d => d.Etat == EtatsDevis.Brouillon);
             var moi = user.UserId();
-            return Results.Ok(new { nb = user.IsInRole(Roles.Ingenieur) ? await brouillons.CountAsync(d => d.IngenieurId == moi) : await brouillons.CountAsync() });
+            if (user.IsInRole(Roles.Ingenieur)) return Results.Ok(new { nb = await brouillons.CountAsync(d => d.IngenieurId == moi) });
+            return Results.Ok(new { nb = await brouillons.CountAsync() + (await ACreer(db, projets)).Count });
+        });
+
+        // Devis à créer : les projets non supprimés qui n'ont encore aucun devis, filtrés comme la liste (texte, projet, commercial).
+        g.MapGet("/a-creer", async (DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user, string? q, Guid? projetId, Guid? commercial) =>
+        {
+            var liste = (await ACreer(db, projets)).Where(p => (projetId is null || p.Id == projetId) && (commercial is null || p.CommercialId == commercial)).ToList();
+            var noms = await partenaires.NomsAsync(liste.Select(p => p.ClientId).Distinct());
+            var texte = q?.Trim();
+            return Results.Ok(new
+            {
+                peutCreer = DevisEtatsEndpoints.PeutEcrire(user),
+                items = liste.Select(p => new
+                {
+                    projetId = p.Id, projetCode = p.Code, projet = p.Libelle, entite = p.Entite, client = noms.GetValueOrDefault(p.ClientId, ""),
+                    commercial = p.CommercialNom, dalles = p.Dalles, surface = p.Surface, cree = p.Cree,
+                }).Where(x => string.IsNullOrEmpty(texte) || x.projetCode.Contains(texte, StringComparison.OrdinalIgnoreCase)
+                    || x.projet.Contains(texte, StringComparison.OrdinalIgnoreCase) || x.client.Contains(texte, StringComparison.OrdinalIgnoreCase)),
+            });
         });
 
         // Liste filtrée par état, texte, projet, commercial, date du devis et ingénieur ; « sansIngenieur » ajoute à l'ingénieur choisi
@@ -321,6 +340,9 @@ public static class DevisEndpoints
         if (a.AvecRebar) l.RatioPassif = a.RatioPassif;
         return a.AvecPt || a.AvecRebar;
     }
+
+    private static async Task<IReadOnlyList<ProjetSansDevis>> ACreer(DevisDbContext db, IProjetsLookup projets) =>
+        await projets.SansDevisAsync(await db.Devis.AsNoTracking().Select(d => d.ProjetId).Distinct().ToListAsync());
 
     internal static bool PeutParametrer(ClaimsPrincipal u) => u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ChefProjet) || u.IsInRole(Roles.ResponsableAdministratif);
     private static object ParametresDto(ParametresDevis p, ClaimsPrincipal user) => new

@@ -93,7 +93,8 @@ public static class PdfEndpoints
 
         // Le PDF d'un devis est ouvert aux rôles qui voient les devis. Un brouillon s'imprime aussi, comme document de travail non signé,
         // pour relecture avant l'envoi ; un devis envoyé, lui, doit être signé avant d'être imprimé.
-        app.MapGet("/api/devis/{id:guid}/pdf", async (Guid id, FacturationDbContext db, IDevisDocuments devis, IProjetsLookup projets, IPartenairesLookup partenaires, IConfiguration config) =>
+        // « apercu » : le PDF s'affiche dans la page (étape « Impression et envoi » de la fiche du devis) au lieu de se télécharger.
+        app.MapGet("/api/devis/{id:guid}/pdf", async (Guid id, bool? apercu, FacturationDbContext db, IDevisDocuments devis, IProjetsLookup projets, IPartenairesLookup partenaires, IConfiguration config) =>
         {
             var d = await devis.DocumentAsync(id);
             if (d is null) return Results.NotFound();
@@ -102,7 +103,8 @@ public static class PdfEndpoints
             var p = await projets.ProjetAsync(d.ProjetId);
             var client = p is null ? null : await partenaires.LegalAsync(p.ClientId);
             if (e is null || p is null || client is null) return Results.Conflict(new { message = "Projet, client ou entité introuvable pour ce devis." });
-            return Results.File(DocumentsPdf.Devis(d, p, client, e, d.Jeton is null ? "" : Lien(config, d.Jeton)), "application/pdf", d.Jeton is null ? $"{d.Numero}-v{d.Version}-brouillon.pdf" : $"{d.Numero}-v{d.Version}.pdf");
+            return Results.File(DocumentsPdf.Devis(d, p, client, e, d.Jeton is null ? "" : Lien(config, d.Jeton)), "application/pdf",
+                apercu == true ? null : d.Jeton is null ? $"{d.Numero}-v{d.Version}-brouillon.pdf" : $"{d.Numero}-v{d.Version}.pdf");
         }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
 
         // Vérification publique d'un document signé, atteinte par son QR code : aucun compte n'est nécessaire, seul le jeton du document donne accès.

@@ -12,6 +12,9 @@ public static class NotificationsEtapes
     public const string ATour = "a_tour";
     public const string AValider = "a_valider";
 
+    /// <summary>Avis d'affectation : la personne vient d'être affectée à une dalle (étude, exécution) ou à un projet.</summary>
+    public const string Affecte = "affecte";
+
     /// <summary>Fonctions qui ne suivent que les projets ou les dalles où elles sont affectées ; les autres suivent tous les projets.</summary>
     public static readonly string[] RolesAffectes = [Roles.Ingenieur, Roles.Dessinateur, Roles.ChefChantier];
 

@@ -157,6 +157,7 @@ export default function DevisPage() {
             <tr>
               <th className="px-5 py-3 font-semibold">Devis</th>
               <th className="px-5 py-3 font-semibold">Projet et client</th>
+              <th className="px-5 py-3 font-semibold">Avancement</th>
               <th className="px-5 py-3 font-semibold">Ingénieur</th>
               <th className="px-5 py-3 font-semibold">Commercial</th>
               <th className="px-5 py-3 font-semibold">État</th>
@@ -175,6 +176,7 @@ export default function DevisPage() {
                   <Link href={`/projets/${a.projetId}`} className="font-semibold hover:text-marine hover:underline">{a.projetCode} · {a.projet}</Link>
                   <div className="text-[13px] text-secondaire">{a.client}</div>
                 </td>
+                <td className="px-5 py-3 text-[13px] text-secondaire">Devis à créer</td>
                 <td className="px-5 py-3 text-secondaire" />
                 <td className="px-5 py-3 text-secondaire">{a.commercial ?? "Non renseigné"}</td>
                 <td className="px-5 py-3"><Badge ton="orange">À créer</Badge></td>
@@ -194,6 +196,10 @@ export default function DevisPage() {
                 <td className="px-5 py-3">
                   <div className="font-semibold">{d.projet}</div>
                   <div className="text-[13px] text-secondaire">{d.client}</div>
+                </td>
+                <td className="px-5 py-3 text-[13px]">
+                  <div className="font-semibold">{d.avancement.titre}</div>
+                  {d.avancement.detail && <div className="text-secondaire">{d.avancement.detail}</div>}
                 </td>
                 <td className="px-5 py-3">{d.ingenieur ?? <span className="text-orange-texte">Sans ingénieur</span>}</td>
                 <td className="px-5 py-3 text-secondaire">{d.commercial ?? "Non renseigné"}</td>

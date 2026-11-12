@@ -161,9 +161,13 @@ public static class DevisEndpoints
             var parEtat = await query.GroupBy(d => d.Etat).Select(x => new { Etat = x.Key, Nb = x.Count() }).ToListAsync();
             if (!string.IsNullOrWhiteSpace(etat)) query = query.Where(d => d.Etat == etat);
             var total = await query.CountAsync();
-            var rows = await query.OrderByDescending(d => d.CreatedAt)
+            var rows = await query.Include(d => d.Lignes).OrderByDescending(d => d.CreatedAt)
                 .Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
             var infos = await projets.ProjetsAsync(rows.Select(r => r.ProjetId));
+            // Avancement d'un brouillon : il dépend des fichiers ADAPT lus pour ses dalles.
+            var avecFichiers = new Dictionary<Guid, HashSet<Guid>>();
+            foreach (var pid2 in rows.Where(r => r.Etat == EtatsDevis.Brouillon).Select(r => r.ProjetId).Distinct())
+                avecFichiers[pid2] = (await projets.ProjetAsync(pid2, avecDalles: true))?.Dalles.Where(x => x.Adapt is { AvecPt: true }).Select(x => x.Id).ToHashSet() ?? [];
             var noms = await partenaires.NomsAsync(infos.Values.Select(p => p.ClientId));
             return Results.Ok(new
             {
@@ -177,6 +181,7 @@ public static class DevisEndpoints
                         commercial = d.CommercialNom, ingenieur = d.IngenieurNom, etat = d.Etat, etatLabel = EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat),
                         dateDevis = d.DateDevis, echeance = d.Echeance, totalTTC = d.TotalTTC,
             info = DevisEtatsEndpoints.Info(d), alerte = DevisEtatsEndpoints.Alerte(d),
+                        avancement = Avancement(d, avecFichiers.GetValueOrDefault(d.ProjetId)),
                     };
                 }),
                 total, page, pageSize,
@@ -339,6 +344,28 @@ public static class DevisEndpoints
         }
         if (a.AvecRebar) l.RatioPassif = a.RatioPassif;
         return a.AvecPt || a.AvecRebar;
+    }
+
+    /// <summary>Où en est un devis, pour la liste : fichiers ADAPT et chiffrage d'un brouillon, puis envoi, signature et issue.</summary>
+    internal static object Avancement(DevisEntete d, HashSet<Guid>? dallesAvecFichiers)
+    {
+        if (d.Etat != EtatsDevis.Brouillon)
+            return new
+            {
+                titre = d.Etat switch
+                {
+                    EtatsDevis.Envoye => d.SignePar is null ? "Envoyé, à signer" : "Signé et envoyé",
+                    EtatsDevis.Valide => "Validé par le client", EtatsDevis.Expire => "Expiré sans réponse",
+                    EtatsDevis.Remplace => "Remplacé par une nouvelle version", _ => "Rejeté",
+                },
+                detail = (string?)null, etape = 3,
+            };
+        var lus = d.Lignes.Count(l => dallesAvecFichiers?.Contains(l.DalleId) == true);
+        var fichiers = lus == 0 ? "Aucun fichier ADAPT" : $"Fichiers ADAPT : {lus} dalle{(lus > 1 ? "s" : "")} sur {d.Lignes.Count}";
+        var chiffre = d.Lignes.Count > 0 && d.Lignes.All(l => l.PrixM2 > 0 && l.RatioActif > 0);
+        return chiffre ? new { titre = "Chiffré, à relire et envoyer", detail = (string?)fichiers, etape = 3 }
+            : lus > 0 || d.TotalHT > 0 ? new { titre = "Chiffrage à compléter", detail = (string?)fichiers, etape = 2 }
+            : new { titre = "Fichiers ADAPT à déposer", detail = (string?)"Ou saisie à la main", etape = 1 };
     }
 
     private static async Task<IReadOnlyList<ProjetSansDevis>> ACreer(DevisDbContext db, IProjetsLookup projets) =>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useAuth } from "@/lib/auth";
-import { Fragment, use, useEffect, useMemo, useState } from "react";
+import { Fragment, use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Plus, Printer, Trash2, X } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Plus, Trash2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { cn, filtrerDecimal, formatDate, formatDateHeure, formatDH, formatNombre, lireNombre } from "@/lib/utils";
@@ -12,10 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { AttenteFiche } from "@/components/ui/attente";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
-import { SignatureDoc } from "@/components/signature-doc";
-import { Documents } from "@/components/documents";
 import { ImportDevis, type LigneImport } from "./import";
 import { FichiersAdapt } from "./fichiers-adapt";
+import { ImpressionDevis, type Controle } from "./impression";
+import type { Adapt } from "../../projets/[id]/adapt";
 import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 
 type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; sys: Record<number, { a: string; g: string }> };
@@ -57,7 +57,16 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const [modifie, setModifie] = useState(false);
   const [annulation, setAnnulation] = useState<string | null>(null);
   // Étapes de la fiche : 1, fichiers ADAPT ; 2, chiffrage. Un brouillon pas encore chiffré s'ouvre sur les fichiers.
-  const [etape, setEtape] = useState<1 | 2 | null>(null);
+  const [etape, setEtape] = useState<1 | 2 | 3 | null>(null);
+  // Données lues dans les fichiers ADAPT, par dalle : elles signalent dans le chiffrage ce qui a été modifié à la main.
+  const [adapts, setAdapts] = useState<Record<string, Adapt>>({});
+  const projetId = d?.projetId;
+  const chargerAdapts = useCallback(() => {
+    if (!projetId) return;
+    api<{ dalles: { id: string; adapt: Adapt | null }[] }>(`/projets/${projetId}/dalles`)
+      .then((r) => setAdapts(Object.fromEntries(r.dalles.filter((x) => x.adapt).map((x) => [x.id, x.adapt as Adapt])))).catch(() => undefined);
+  }, [projetId]);
+  useEffect(() => { chargerAdapts(); }, [chargerAdapts]);
   const router = useRouter();
 
   useEffect(() => {
@@ -198,11 +207,48 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const aRetenue = f.echeances.some((e) => e.retenue);
   const nbCols = 5 + f.systemes.length * 2 + 3;
   const brouillon = d.etat === "brouillon";
-  const etapeVue = etape ?? (brouillon && d.actions.modifier && d.totalHT === 0 ? 1 : 2);
+  const etapeVue = etape ?? (!brouillon ? 3 : d.actions.modifier && d.totalHT === 0 ? 1 : 2);
   const nbAdapt = d.lignes.filter((l) => l.adapt).length;
-  const etapes: { n: 1 | 2; titre: string; detail: string }[] = [
+  const etapes: { n: 1 | 2 | 3; titre: string; detail: string }[] = [
     { n: 1, titre: "Fichiers ADAPT", detail: nbAdapt === 0 ? "PTTotal et RebarTotal de chaque dalle" : `${nbAdapt} dalle${nbAdapt > 1 ? "s" : ""} sur ${d.lignes.length} avec des fichiers lus` },
     { n: 2, titre: "Chiffrage", detail: calcul.ttc > 0 ? `${formatDH(calcul.ttc)} TTC` : "Prix, remise, échéances" },
+    { n: 3, titre: "Impression et envoi", detail: brouillon ? "Aperçu, contrôles, envoi" : d.signePar ? "Signé, prêt à imprimer" : d.etatLabel },
+  ];
+
+  // Valeur lue dans les fichiers ADAPT quand la saisie s'en écarte, sinon undefined.
+  const adaptDe = (l: LigneForm) => adapts[d.lignes.find((x) => x.id === l.id)?.dalleId ?? ""];
+  const ecart = (saisie: string, lue: number | undefined) => (lue !== undefined && Math.abs(lireNombre(saisie) - lue) > 0.0001 ? lue : undefined);
+  const ecarts = (l: LigneForm) => {
+    const a = adaptDe(l);
+    const pt = !!a?.fichierPt, rebar = !!a?.fichierRebar;
+    const types = pt ? [...new Set([...f.systemes, ...a!.systemes.map((x) => x.torons)])] : [];
+    return {
+      ra: ecart(l.ra, pt ? a!.ratioActif : undefined), rp: ecart(l.rp, rebar ? a!.ratioPassif : undefined),
+      sys: Object.fromEntries(types.map((t) => {
+        const lu = a!.systemes.find((x) => x.torons === t);
+        return [t, { a: ecart(l.sys[t]?.a ?? "", lu?.ancrages ?? 0), g: ecart(l.sys[t]?.g ?? "", lu?.gaine ?? 0) }];
+      })) as Record<number, { a?: number; g?: number }>,
+    };
+  };
+  const parLigne = f.lignes.map(ecarts);
+  const nbModifs = parLigne.reduce((n, e) => n + (e.ra !== undefined ? 1 : 0) + (e.rp !== undefined ? 1 : 0) + Object.values(e.sys).reduce((m, x) => m + (x.a !== undefined ? 1 : 0) + (x.g !== undefined ? 1 : 0), 0), 0);
+  const avecAdapt = f.lignes.filter((l) => adaptDe(l)).length;
+  const CELL_MODIF = "border-orange-texte bg-orange-fond/40";
+  const Lu = ({ v, d: dec = 2 }: { v: number | undefined; d?: number }) => (v === undefined ? null : <div className="mt-0.5 whitespace-nowrap text-right text-[10px] text-orange-texte">ADAPT : {ent(v, dec)}</div>);
+
+  // Contrôles avant envoi (étape 3). Les bloquants sont ceux que le serveur refuse aussi.
+  const sansSurface = f.lignes.filter((l) => lireNombre(l.surface) <= 0);
+  const sansActif = f.lignes.filter((l) => lireNombre(l.ra) <= 0);
+  const sansRebar = f.lignes.filter((l) => { const a = adaptDe(l); return a ? !a.fichierRebar : lireNombre(l.rp) <= 0; });
+  const refs = (ls: LigneForm[]) => ls.map((l) => l.reference).join(", ");
+  const controles: Controle[] = [
+    sansSurface.length === 0 ? { niveau: "bon", texte: "Toutes les dalles ont une surface." } : { niveau: "bloquant", texte: `Surface à renseigner : ${refs(sansSurface)}.` },
+    pctOk ? { niveau: "bon", texte: "Les échéances font 100 %." } : { niveau: "bloquant", texte: `Les échéances font ${ent(calcul.totalPct, calcul.totalPct % 1 ? 2 : 0)} % : il faut 100 % pour envoyer.` },
+    ...(modifie ? [{ niveau: "a_voir", texte: "Des modifications ne sont pas enregistrées : l'aperçu et l'envoi portent sur la version enregistrée." } as Controle] : []),
+    sansActif.length === 0 ? { niveau: "bon", texte: "Chaque dalle a un ratio actif." } : { niveau: "a_voir", texte: `Ratio actif à zéro (PTTotal manquant ou non saisi) : ${refs(sansActif)}. Le prix est calculé sans acier actif.` },
+    ...(sansRebar.length > 0 ? [{ niveau: "a_voir", texte: `RebarTotal manquant ou ratio passif à zéro : ${refs(sansRebar)}. Il n'empêche pas l'envoi.` } as Controle] : []),
+    ...(nbModifs > 0 ? [{ niveau: "a_voir", texte: `${nbModifs} valeur${nbModifs > 1 ? "s" : ""} du chiffrage modifiée${nbModifs > 1 ? "s" : ""} à la main par rapport aux fichiers ADAPT.` } as Controle] : []),
+    ...(!f.ingenieurId ? [{ niveau: "a_voir", texte: "L'ingénieur du devis n'est pas renseigné." } as Controle] : []),
   ];
 
   return (
@@ -226,24 +272,11 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           </span>
           {d.actions.trame && <a href={`/api/devis/${d.id}/import/modele`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold hover:bg-fond"><FileDown size={14} />Trame de calcul Excel</a>}
           {d.actions.modifier && <Button size="sm" variant="outline" onClick={() => setImportOuvert(true)}>Importer depuis Excel</Button>}
-          {/* Impression du brouillon pour relecture avant l'envoi : document de travail non signé, tel qu'enregistré. */}
-          {d.etat === "brouillon" && (modifie
-            ? <Button size="sm" variant="outline" disabled title="Enregistrez d'abord le brouillon : le PDF reprend la version enregistrée"><Printer size={14} />Imprimer le brouillon</Button>
-            : <a href={`/api/devis/${d.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold hover:bg-fond"><Printer size={14} />Imprimer le brouillon</a>)}
-          {d.actions.envoyer && <Button size="sm" disabled={envoi || modifie} title={modifie ? "Enregistrez d'abord le brouillon" : undefined} onClick={() => transition("envoyer")}>Marquer envoyé</Button>}
           {d.actions.valider && <Button size="sm" disabled={envoi} onClick={() => transition("valider")}>Valider le devis</Button>}
           {d.actions.nouvelleVersion && <Button size="sm" variant="outline" disabled={envoi} onClick={() => transition("nouvelle-version")}>Nouvelle version</Button>}
           {d.actions.rejeter && <Button size="sm" variant="outline" disabled={envoi} onClick={() => setAnnulation("")}>Rejeter le devis</Button>}
         </div>
-        {d.etat !== "brouillon" && (
-          <SignatureDoc<DevisDetail> signePar={d.signePar} signeLe={d.signeLe} quoi="le devis" url={`/devis/${d.id}`} peutSigner={d.signable}
-            raison="Devis non signé : il ne peut pas encore être imprimé ni envoyé. La signature revient au responsable administratif, au chef de projet ou au directeur."
-            onSigne={(r) => { setD(r); setF(versForm(r)); }} />
-        )}
         {importOuvert && <ImportDevis devisId={d.id} onClose={() => setImportOuvert(false)} onImporter={importer} />}
-        <Documents compact key={`plans-${d.etat}`} contexte="plan_principe" cibleId={d.id} lectureSeule={d.etat !== "brouillon"} titre="Plans de principe joints au devis"
-          aide="Ils accompagnent le devis remis au client. Dépôt possible tant que le devis est en brouillon." />
-        {d.etat === "brouillon" && <p className="mt-3 text-[12px] text-secondaire">Le brouillon s&apos;imprime pour relecture, marqué « BROUILLON » et sans signature. Pour le devis à remettre au client : marquez-le comme envoyé, puis signez-le.</p>}
         {lecture && message && !message.ok && <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{message.texte}</div>}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -281,11 +314,26 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         <FichiersAdapt devis={d} modifiable={brouillon && d.actions.modifier} occupe={envoi}
           bloque={modifie ? "Enregistrez d'abord le brouillon" : null}
           onSaisir={() => setEtape(2)}
-          onImporte={() => api<DevisDetail>(`/devis/${id}`).then(setD).catch(() => undefined)}
+          onImporte={() => { chargerAdapts(); api<DevisDetail>(`/devis/${id}`).then(setD).catch(() => undefined); }}
           onGenerer={async () => { if (await transition("adapt")) { setEtape(2); setMessage({ ok: true, texte: "Chiffrage généré depuis les fichiers ADAPT. Vérifiez-le." }); } }} />
       )}
 
+      {etapeVue === 3 && (
+        <ImpressionDevis d={d} controles={controles} modifie={modifie} occupe={envoi}
+          onEnvoyer={() => transition("envoyer")} onSigne={(r) => { setD(r); setF(versForm(r)); }} />
+      )}
+
       {etapeVue === 2 && <>
+      {brouillon && d.actions.modifier && avecAdapt > 0 && (
+        <div className={cn("mt-5 flex flex-wrap items-center gap-3 rounded-xl px-5 py-3.5", nbModifs > 0 ? "bg-orange-fond text-orange-texte" : "bg-vert-fond text-vert-texte")}>
+          <div className="min-w-[260px] flex-1 text-[13px]">
+            <span className="font-bold">{nbModifs > 0 ? `${nbModifs} valeur${nbModifs > 1 ? "s" : ""} diffère${nbModifs > 1 ? "nt" : ""} des fichiers ADAPT.` : "Chiffrage conforme aux fichiers ADAPT."}</span>{" "}
+            {avecAdapt} dalle{avecAdapt > 1 ? "s" : ""} sur {f.lignes.length} avec des fichiers lus.{nbModifs > 0 ? " Les cases concernées sont signalées, avec la valeur lue." : ""}
+          </div>
+          {nbModifs > 0 && <Button size="sm" variant="outline" className="text-texte" disabled={envoi || modifie} title={modifie ? "Enregistrez d'abord le brouillon, ou rechargez la page pour abandonner vos saisies" : "Remplace les ratios, ancrages et gaines par ceux des fichiers"}
+            onClick={async () => { if (await transition("adapt")) setMessage({ ok: true, texte: "Chiffrage régénéré depuis les fichiers ADAPT." }); }}>Régénérer depuis les fichiers</Button>}
+        </div>
+      )}
       <div className="mt-5 rounded-xl border border-bordure bg-white">
         <div className="flex flex-wrap items-end justify-between gap-3 px-6 py-4">
           <div>
@@ -345,12 +393,12 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                         <div className="text-[12px] text-secondaire">{l.emplacement}</div>
                       </td>
                       <td className="w-24 px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Surface, dalle ${l.reference}`} value={l.surface} onChange={(e) => majLigne(l.id, { surface: filtrerDecimal(e.target.value) })} /></td>
-                      <td className="w-20 px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio actif, dalle ${l.reference}`} value={l.ra} onChange={(e) => majLigne(l.id, { ra: e.target.value })} /></td>
-                      <td className="w-20 px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio passif, dalle ${l.reference}`} value={l.rp} onChange={(e) => majLigne(l.id, { rp: e.target.value })} /></td>
+                      <td className="w-20 px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].ra !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio actif, dalle ${l.reference}`} value={l.ra} onChange={(e) => majLigne(l.id, { ra: e.target.value })} /><Lu v={parLigne[i].ra} /></td>
+                      <td className="w-20 px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].rp !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio passif, dalle ${l.reference}`} value={l.rp} onChange={(e) => majLigne(l.id, { rp: e.target.value })} /><Lu v={parLigne[i].rp} /></td>
                       {f.systemes.map((t) => (
                         <Fragment key={t}>
-                          <td className="w-20 border-l border-bordure px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ancrages S${t}, dalle ${l.reference}`} value={l.sys[t]?.a ?? ""} onChange={(e) => majSys(l, t, "a", e.target.value)} /></td>
-                          <td className="w-24 px-1 py-2"><input className={CELL} disabled={lectureTechnique} inputMode="decimal" aria-label={`Gaine S${t}, dalle ${l.reference}`} value={l.sys[t]?.g ?? ""} onChange={(e) => majSys(l, t, "g", e.target.value)} /></td>
+                          <td className="w-20 border-l border-bordure px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].sys[t]?.a !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ancrages S${t}, dalle ${l.reference}`} value={l.sys[t]?.a ?? ""} onChange={(e) => majSys(l, t, "a", e.target.value)} /><Lu v={parLigne[i].sys[t]?.a} d={0} /></td>
+                          <td className="w-24 px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].sys[t]?.g !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Gaine S${t}, dalle ${l.reference}`} value={l.sys[t]?.g ?? ""} onChange={(e) => majSys(l, t, "g", e.target.value)} /><Lu v={parLigne[i].sys[t]?.g} /></td>
                         </Fragment>
                       ))}
                       <td className="whitespace-nowrap border-l border-bordure px-3 py-2 text-right font-display font-bold">{ent(r.prix)} DH</td>

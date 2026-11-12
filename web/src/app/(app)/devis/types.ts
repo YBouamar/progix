@@ -1,6 +1,8 @@
 export type DevisListItem = {
   id: string; numero: string; entite: string; version: number; projetId: string; projet: string; projetCode: string; client: string;
   commercial: string | null; ingenieur: string | null; etat: string; etatLabel: string; dateDevis: string; echeance: string; totalTTC: number; info: string; alerte: string | null;
+  /** Où en est le devis : étape de la fiche à ouvrir (1 fichiers, 2 chiffrage, 3 impression et envoi). */
+  avancement: { titre: string; detail: string | null; etape: 1 | 2 | 3 };
 };
 
 export type DevisListe = {

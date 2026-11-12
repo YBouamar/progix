@@ -69,6 +69,22 @@ public static class ATraiterEndpoints
                     }));
                 }
             }
+            // Affectations reçues : étude ou exécution d'une dalle, équipe d'un projet. On n'est pas prévenu de s'être affecté soi-même.
+            var mesEtudes = await (from a in db.AffectationsEtude.AsNoTracking() join d in db.Dalles.AsNoTracking() on a.DalleId equals d.Id join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
+                                   where a.UserId == moi && a.Fin == null && a.CreatedAt > apres && !p.Supprime select new { a.Id, a.CreatedAt, a.AffectePar, d, p }).ToListAsync();
+            var mesExecutions = await (from a in db.AffectationsExecution.AsNoTracking() join d in db.Dalles.AsNoTracking() on a.DalleId equals d.Id join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
+                                       where a.UserId == moi && a.Fin == null && a.CreatedAt > apres && !p.Supprime select new { a.Id, a.CreatedAt, a.AffectePar, d, p }).ToListAsync();
+            var mesProjets = await (from a in db.Affectations.AsNoTracking() join p in db.Projets.AsNoTracking() on a.ProjetId equals p.Id
+                                    where a.UserId == moi && a.Fin == null && a.CreatedAt > apres && !p.Supprime select new { a.Id, a.CreatedAt, a.Fonction, p }).ToListAsync();
+            object Affectation(Guid id, DateTime le, string titre, string texte, string? par, string lien) =>
+                new { id = $"{id:N}-affectation", genre = NotificationsEtapes.Affecte, le, titre, texte, par, lien };
+            items.AddRange(mesEtudes.Where(x => x.AffectePar != nom).Select(x => (x.CreatedAt,
+                Affectation(x.Id, x.CreatedAt, $"{x.p.Code}-{x.d.Suffixe} · {x.p.Libelle}", "Vous êtes affecté à l'étude de cette dalle.", x.AffectePar, "/etudes"))));
+            items.AddRange(mesExecutions.Where(x => x.AffectePar != nom).Select(x => (x.CreatedAt,
+                Affectation(x.Id, x.CreatedAt, $"{x.p.Code}-{x.d.Suffixe} · {x.p.Libelle}", "Vous êtes affecté à l'exécution de cette dalle.", x.AffectePar, "/execution"))));
+            items.AddRange(mesProjets.Select(x => (x.CreatedAt,
+                Affectation(x.Id, x.CreatedAt, $"{x.p.Code} · {x.p.Libelle}", x.Fonction == Fonctions.ChefChantier ? "Vous êtes affecté à ce projet comme chef de chantier." : "Vous êtes affecté à ce projet.", null, $"/projets/{x.p.Id}"))));
+
             return Results.Ok(new { maintenant, items = items.OrderByDescending(i => i.Le).Take(50).Select(i => i.Vue) });
         }).WithTags("Tableau de bord").RequireAuthorization();
     }

@@ -8,7 +8,7 @@ import { api } from "@/lib/api";
 import { cn, formatDateHeure } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
-type Avis = { id: string; genre: "a_tour" | "a_valider"; le: string; titre: string; texte: string; par: string | null; lien: string };
+type Avis = { id: string; genre: "a_tour" | "a_valider" | "affecte"; le: string; titre: string; texte: string; par: string | null; lien: string };
 type Reponse = { maintenant: string; items: Avis[] };
 
 /** Intervalle de relecture, en millisecondes. */
@@ -84,7 +84,7 @@ export function Notifications({ userId }: { userId: string }) {
         <Dialog.Content className="fixed right-3 top-[60px] z-50 w-[min(94vw,400px)] rounded-xl border border-bordure bg-white shadow-xl focus:outline-none lg:right-8">
           <div className="border-b border-bordure px-4 py-3">
             <Dialog.Title className="text-[15px] font-bold">Notifications</Dialog.Title>
-            <Dialog.Description className="text-[12px] text-secondaire">Les étapes qui attendent votre fonction, sur vos projets, depuis sept jours.</Dialog.Description>
+            <Dialog.Description className="text-[12px] text-secondaire">Les étapes qui attendent votre fonction et vos nouvelles affectations, depuis sept jours.</Dialog.Description>
           </div>
           {permission !== "granted" && (
             <div className="border-b border-bordure bg-fond px-4 py-3 text-[13px]">
@@ -111,7 +111,7 @@ export function Notifications({ userId }: { userId: string }) {
               </li>
             ))}
           </ul>
-          {avis.length === 0 && <p className="px-4 py-8 text-center text-[13px] text-secondaire">Aucune étape ne vous attend depuis sept jours.</p>}
+          {avis.length === 0 && <p className="px-4 py-8 text-center text-[13px] text-secondaire">Aucune étape ni affectation nouvelle depuis sept jours.</p>}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>

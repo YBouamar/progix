@@ -15,7 +15,65 @@ namespace Progix.Modules.Projets.Endpoints;
 /// </summary>
 public static class ATraiterEndpoints
 {
-    public static void Map(IEndpointRouteBuilder app) =>
+    public static void Map(IEndpointRouteBuilder app)
+    {
+        MapATraiter(app);
+
+        // Notifications du navigateur : avis de changement d'étape survenus depuis une date, pour la personne connectée.
+        // Rien n'est stocké : les avis se déduisent de l'étape en cours de chaque dalle. Fenêtre limitée à sept jours.
+        app.MapGet("/api/notifications/etapes", async (DateTime? depuis, ProjetsDbContext db, ClaimsPrincipal user) =>
+        {
+            var maintenant = DateTime.UtcNow;
+            var plancher = maintenant.AddDays(-7);
+            var apres = depuis is DateTime dt && dt.ToUniversalTime() > plancher ? dt.ToUniversalTime() : plancher;
+            var moi = user.UserId();
+            var nom = user.UserName();
+            Func<string, bool> aRole = user.IsInRole;
+
+            var dalles = from d in db.Dalles.AsNoTracking()
+                         join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
+                         where !p.Supprime && !p.Bloque && d.EtapesFaites < Etapes.Total
+                         select new { d, p };
+            // Ingénieur, dessinateur et chef de chantier : seulement les projets ou les dalles où ils sont affectés.
+            if (NotificationsEtapes.RolesAffectes.Any(user.IsInRole) && !Policies.RolesDirection.Any(user.IsInRole))
+            {
+                var etudes = db.AffectationsEtude.AsNoTracking().Where(a => a.Fin == null && a.UserId == moi);
+                var executions = db.AffectationsExecution.AsNoTracking().Where(a => a.Fin == null && a.UserId == moi);
+                var projets = db.Affectations.AsNoTracking().Where(a => a.Fin == null && a.UserId == moi);
+                dalles = dalles.Where(x => projets.Any(a => a.ProjetId == x.p.Id) || etudes.Any(a => a.DalleId == x.d.Id) || executions.Any(a => a.DalleId == x.d.Id));
+            }
+            var liste = await dalles.ToListAsync();
+            var ids = liste.Select(x => x.d.Id).ToList();
+            var etapes = await db.Etapes.AsNoTracking().Where(e => ids.Contains(e.DalleId)).ToListAsync();
+            var traces = await db.EtapeTraces.AsNoTracking().Where(t => ids.Contains(t.DalleId) && t.CreatedAt > plancher).ToListAsync();
+
+            var items = new List<(DateTime Le, object Vue)>();
+            foreach (var x in liste)
+            {
+                var n = x.d.EtapesFaites + 1;
+                var etape = etapes.FirstOrDefault(e => e.DalleId == x.d.Id && e.Numero == n);
+                // Début de l'étape en cours : fin de la précédente, création de la dalle, ou déverrouillage plus récent.
+                var debut = n == 1 ? (x.d.CreatedAt, (string?)null) : NotificationsEtapes.DerniereAction(etapes.FirstOrDefault(e => e.DalleId == x.d.Id && e.Numero == n - 1)) ?? (x.d.CreatedAt, null);
+                var trace = traces.Where(t => t.DalleId == x.d.Id && t.Numero == n).OrderByDescending(t => t.CreatedAt).FirstOrDefault();
+                var rouverte = trace is not null && trace.CreatedAt > debut.Item1;
+                if (rouverte) debut = (trace!.CreatedAt, trace.Par);
+                foreach (var a in NotificationsEtapes.Pour(n, etape, debut, rouverte, aRole))
+                {
+                    // Pas d'avis pour sa propre action, ni pour ce qui est plus ancien que la date demandée.
+                    if (a.Le <= apres || a.Par == nom) continue;
+                    var reference = $"{x.p.Code}-{x.d.Suffixe}";
+                    items.Add((a.Le, new
+                    {
+                        id = $"{x.d.Id:N}-{a.Numero}-{a.Genre}-{a.Le.Ticks}", genre = a.Genre, le = a.Le, titre = $"{reference} · {x.p.Libelle}", texte = a.Texte,
+                        par = a.Par, lien = $"/projets/{x.p.Id}", projetId = x.p.Id, dalleId = x.d.Id, etape = a.Numero,
+                    }));
+                }
+            }
+            return Results.Ok(new { maintenant, items = items.OrderByDescending(i => i.Le).Take(50).Select(i => i.Vue) });
+        }).WithTags("Tableau de bord").RequireAuthorization();
+    }
+
+    private static void MapATraiter(IEndpointRouteBuilder app) =>
         app.MapGet("/api/a-traiter", async (ProjetsDbContext db, ClaimsPrincipal user) =>
         {
             var moi = user.UserId();

@@ -12,6 +12,7 @@ import { accesPage, groupesPour, titrePour } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import { MonCompte } from "@/components/mon-compte";
 import { Recherche } from "@/components/recherche";
+import { Notifications } from "@/components/notifications";
 
 const CLE_MENU = "progix-menu-replie";
 
@@ -142,8 +143,9 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
             {replie ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
           </button>
           <h1 className="min-w-0 truncate text-xl font-bold">{titrePour(pathname)}</h1>
+          <span className="ml-auto"><Notifications userId={user.id} /></span>
           <button type="button" onClick={() => setRecherche(true)} aria-label="Rechercher"
-            className="ml-auto flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-bordure-forte bg-fond px-3 text-[13px] text-secondaire hover:border-marine hover:text-texte sm:w-60">
+            className="flex h-10 cursor-pointer items-center gap-2 rounded-lg border border-bordure-forte bg-fond px-3 text-[13px] text-secondaire hover:border-marine hover:text-texte sm:w-60">
             <Search size={16} aria-hidden />
             <span className="flex-1 truncate text-left max-sm:hidden">Rechercher</span>
             <kbd className="rounded border border-bordure-forte bg-white px-1.5 py-0.5 font-sans text-[11px] font-semibold max-sm:hidden">Ctrl K</kbd>

@@ -17,6 +17,16 @@ self.addEventListener("message", (e) => {
   if (e.data === "vider") e.waitUntil(caches.delete(DONNEES));
 });
 
+// Clic sur une notification d'étape : PROGIX revient au premier plan, sur le projet concerné.
+self.addEventListener("notificationclick", (e) => {
+  e.notification.close();
+  const lien = (e.notification.data && e.notification.data.lien) || "/";
+  e.waitUntil(self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((fenetres) => {
+    const ouverte = fenetres.find((f) => "focus" in f);
+    return ouverte ? ouverte.focus().then((f) => ("navigate" in f ? f.navigate(lien) : undefined)) : self.clients.openWindow(lien);
+  }));
+});
+
 async function reseauPuisCache(requete, nom) {
   const cache = await caches.open(nom);
   try {
@@ -46,6 +56,9 @@ self.addEventListener("fetch", (e) => {
 
   // Documents PDF, exports et fichiers : jamais gardés.
   if (/\/(pdf|export|telecharger|contenu|modele)(\/|\.|$)/.test(url.pathname) || url.pathname.startsWith("/api/fichiers") || url.pathname.startsWith("/api/verification")) return;
+
+  // Les avis de notification ne se gardent pas : hors ligne, il n'y en a simplement pas de nouveaux.
+  if (url.pathname.startsWith("/api/notifications")) return;
 
   if (url.pathname.startsWith("/api/")) { e.respondWith(reseauPuisCache(requete, DONNEES)); return; }
 

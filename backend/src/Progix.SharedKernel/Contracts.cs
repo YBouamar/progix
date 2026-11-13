@@ -200,7 +200,11 @@ public interface IDevisDocuments
 
 public record DevisDocument(Guid Id, string Numero, int Version, string Entite, Guid ProjetId, string Etat, string EtatLabel, DateOnly DateDevis, DateOnly Echeance,
     string? Commercial, IReadOnlyList<DevisDocumentLigne> Lignes, decimal SurfaceTotale, decimal TotalHT, decimal RemiseM2, decimal RemiseTotale, decimal NetHT,
-    bool ExonereTva, decimal Tva, decimal TotalTTC, IReadOnlyList<KeyValuePair<string, decimal>> Echeances, string? Modalites, string? SignePar, DateTime? SigneLe, string? Jeton);
+    bool ExonereTva, decimal Tva, decimal TotalTTC, IReadOnlyList<KeyValuePair<string, decimal>> Echeances, string? Modalites, string? SignePar, DateTime? SigneLe, string? Jeton)
+{
+    /// <summary>Ratio passif moyen du devis en kg/m², pondéré par la surface des dalles ; 0 sans surface.</summary>
+    public decimal RatioPassifMoyen => Lignes.Sum(l => l.Surface) is > 0 and var s ? Lignes.Sum(l => l.RatioPassif * l.Surface) / s : 0;
+}
 
 public record DevisDocumentLigne(string Reference, string Emplacement, decimal Surface, decimal RatioActif, decimal RatioPassif, int PrixM2, decimal MontantHT);
 

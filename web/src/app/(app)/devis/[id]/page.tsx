@@ -430,6 +430,18 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                 );
               })}
             </tbody>
+            <tfoot>
+              <tr className="border-t-2 border-bordure-forte bg-fond font-display font-bold">
+                <td className="sticky left-0 z-10 bg-fond px-4 py-2.5 font-sans">Total et ratios moyens</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right">{ent(calcul.surfaceTotale, 2)}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right" title="Ratio actif moyen, pondéré par la surface des dalles">{ent(calcul.ratioActif, 2)}</td>
+                <td className="whitespace-nowrap px-3 py-2.5 text-right" title="Ratio passif moyen, pondéré par la surface des dalles">{ent(calcul.ratioPassif, 2)}</td>
+                {f.systemes.length > 0 && <td colSpan={f.systemes.length * 2} className="border-l border-bordure px-3 py-2.5 font-sans text-[12px] font-normal text-secondaire">Ratios en kg/m², pondérés par la surface</td>}
+                <td className="border-l border-bordure" />
+                <td className="whitespace-nowrap px-4 py-2.5 text-right">{formatDH(calcul.totalHT)}</td>
+                <td />
+              </tr>
+            </tfoot>
           </table>
         </div>
         {voitFormules && (

@@ -8,7 +8,7 @@ namespace Progix.Modules.Devis.Infrastructure;
 /// <summary>Plans de principe joints à un devis : déposés tant que le devis est en brouillon, par les rôles qui voient les devis.</summary>
 public class FichiersDevis(DevisDbContext db) : IContexteFichiers
 {
-    public const string Nom = "plan_principe";
+    public const string Nom = IDevisDocuments.ContexteDocuments;
     public string Contexte => Nom;
     public IReadOnlyList<string> Categories => [];
     // L'administrateur consulte les plans de principe sans en déposer.

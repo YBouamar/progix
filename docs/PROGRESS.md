@@ -1,6 +1,6 @@
 # Avancement de PROGIX
 
-**Dernière mise à jour** : 2026-11-12
+**Dernière mise à jour** : 2026-11-13
 
 Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historique.
 
@@ -60,6 +60,7 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - **2026-11-12, devis à créer** (à votre demande) : les projets sans devis apparaissent dans la liste des devis (état « À créer », bouton « Créer le devis »), `GET /api/devis/a-creer`, contrat `IProjetsLookup.SansDevisAsync`. Vérifié sur l'API locale et dans le navigateur (directeur, ingénieur). Pas encore en production.
 - **2026-11-12, notifications de changement d'étape** (à votre demande, règle dans BUSINESS_RULES.md §5) : cloche dans l'en-tête avec les avis des sept derniers jours, notification du navigateur pour chaque nouvel avis tant que PROGIX est ouvert, par fonction et par projet affecté. 273 tests passés (6 nouveaux sur qui est prévenu de quoi). Vérifié sur l'API locale avec les dix comptes et dans le navigateur (étape rouverte par le directeur, notification reçue par le responsable administratif dans la minute). **Non fait** : notification à l'affectation d'une personne, push application fermée. Pas encore en production.
 - **2026-11-12, fiche du devis : étapes 2 et 3, avancement, notification d'affectation** : étape 2 avec bandeau et cases signalées quand la saisie s'écarte des fichiers ADAPT (`devis/[id]/page.tsx`) ; étape 3 « Impression et envoi » (`devis/[id]/impression.tsx`) avec aperçu du PDF (`GET /api/devis/{id}/pdf?apercu=true`, affiché dans la page au lieu d'être téléchargé), contrôles avant envoi, envoi, signature ; les boutons d'impression, d'envoi et de signature et les plans de principe ont quitté l'en-tête pour l'étape 3. Colonne « Avancement » dans la liste des devis. Avis d'affectation dans les notifications. 277 tests passés. Vérifié dans le navigateur de bout en bout (modification signalée, enregistrement, envoi, signature). **Non vérifié** : le rendu du PDF dans le cadre, le navigateur d'essai sans écran n'ayant pas de lecteur PDF ; un lien « ouvrir dans un nouvel onglet » est sous le cadre. **La maquette de la fiche du devis est entièrement développée.**
+- **2026-11-13, documents du devis et dossier ZIP** (à votre demande) : le bloc de dépôt des documents joints, déplacé par erreur dans l'étape 3 la veille et donc introuvable sur un brouillon, revient dans l'en-tête de la fiche, visible à toutes les étapes. Nouveau `GET /api/devis/{id}/dossier.zip` (devis, conditions d'offre, documents joints), bouton « Télécharger le dossier (ZIP) » à l'étape 3. `DocumentsPdf.Devis` sait rendre le devis seul ou les conditions seules. 282 tests passés. Vérifié dans le navigateur et en ouvrant les deux ZIP (brouillon et signé).
 
 
 ## Production

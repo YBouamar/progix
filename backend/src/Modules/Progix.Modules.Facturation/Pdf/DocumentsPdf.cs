@@ -95,7 +95,10 @@ public static class DocumentsPdf
         return Rendu(doc);
     }
 
-    public static byte[] Devis(DevisDocument d, ProjetResume p, PartenaireLegal client, ParametresEntite e, string lienVerification)
+    /// <summary>Parties du PDF d'un devis : le devis et ses conditions d'offre ensemble (impression), ou chacun seul (dossier à télécharger).</summary>
+    public enum PartieDevis { Tout, DevisSeul, ConditionsSeules }
+
+    public static byte[] Devis(DevisDocument d, ProjetResume p, PartenaireLegal client, ParametresEntite e, string lienVerification, PartieDevis partie = PartieDevis.Tout)
     {
         var (doc, s) = Cadre(e, d.Numero);
         var refs = new List<(string, string)> { ("Numéro", $"{d.Numero} · version {d.Version}"), ("Date du devis", Date(d.DateDevis)), ("Valable jusqu'au", Date(d.Echeance)), ("Projet", $"{p.Code} · {p.Libelle}") };
@@ -103,6 +106,8 @@ public static class DocumentsPdf
         // Brouillon : document de travail imprimé avant l'envoi, sans signature ni QR code de vérification.
         var brouillon = d.Etat == "brouillon";
         var titre = d.Etat switch { "brouillon" => "DEVIS (BROUILLON)", "annule" => "DEVIS (REJETÉ)", "remplace" => "DEVIS (REMPLACÉ)", "expire" => "DEVIS (EXPIRÉ)", _ => "DEVIS" };
+        if (partie != PartieDevis.ConditionsSeules)
+        {
         Entete(s, client.Nom, client.Adresse, client.Identifiants, titre, refs);
         if (brouillon)
         {
@@ -132,9 +137,11 @@ public static class DocumentsPdf
             foreach (var x in d.Echeances) Mention(bloc.AddParagraph(), x.Key, $"{x.Value:0.##} %, soit {DH(Math.Round(d.TotalTTC * x.Value / 100m, 2))} TTC");
         }
         if (!brouillon) Signature(s, d.SignePar ?? "", d.SigneLe ?? DateTime.UtcNow, lienVerification, "ce devis", "Bon pour accord : date, cachet et signature du client");
+        }
+        if (partie == PartieDevis.DevisSeul) return Rendu(doc);
 
         // Conditions d'offre : elles font partie du devis et sont signées avec lui.
-        s.AddPageBreak();
+        if (partie == PartieDevis.Tout) s.AddPageBreak();
         var titreC = s.AddParagraph("CONDITIONS D'OFFRE"); titreC.Format.Font.Size = 14; titreC.Format.Font.Bold = true; titreC.Format.Font.Color = Marine; titreC.Format.Alignment = ParagraphAlignment.Center;
         var refC = s.AddParagraph($"Devis {d.Numero}, version {d.Version}, du {Date(d.DateDevis)}"); refC.Format.Alignment = ParagraphAlignment.Center; refC.Format.Font.Color = Gris; refC.Format.SpaceAfter = "0.4cm";
         void Rubrique(string texte) { var x = s.AddParagraph(texte); x.Format.Font.Bold = true; x.Format.Font.Size = 9.5; x.Format.Font.Color = Marine; x.Format.SpaceBefore = "0.4cm"; x.Format.SpaceAfter = "0.1cm"; x.Format.KeepWithNext = true; }

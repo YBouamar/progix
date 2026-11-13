@@ -192,6 +192,9 @@ public record DocumentVerifie(string Type, string Numero, string Entite, IReadOn
 /// <summary>Contenu d'un devis pour son impression : le module Devis le fournit, le PDF est mis en page ailleurs.</summary>
 public interface IDevisDocuments
 {
+    /// <summary>Contexte de fichiers des documents joints à un devis (plans de principe).</summary>
+    public const string ContexteDocuments = "plan_principe";
+
     Task<DevisDocument?> DocumentAsync(Guid id, CancellationToken ct = default);
 }
 

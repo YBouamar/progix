@@ -1,12 +1,12 @@
 # Prochaines étapes
 
-**Dernière mise à jour** : 2026-11-12
+**Dernière mise à jour** : 2026-11-13
 
 Par ordre de priorité. Chaque étape doit pouvoir démarrer une session. Retirer une étape terminée lors du `/handoff`.
 
 ## 1. Mettre la production à jour avec le dernier commit du 2026-11-12
 
-La production (`/opt/apps/progix`) a reçu le 2026-11-12 vers 1 h 45 les commits jusqu'à `915d3f2`. Reste le commit suivant (étapes 2 et 3 du devis, avancement, avis d'affectation), sans migration : sauvegarde, `git pull --ff-only`, `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`, puis contrôle des services et de `/api/health`.
+La production (`/opt/apps/progix`) a reçu le 2026-11-12 vers 1 h 45 les commits jusqu'à `915d3f2`. Restent les commits suivants (étapes 2 et 3 du devis, avancement, avis d'affectation, documents du devis et dossier ZIP), sans migration : sauvegarde, `git pull --ff-only`, `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`, puis contrôle des services et de `/api/health`.
 
 ## 2. Essais par le métier des écrans livrés les 11 et 12 novembre
 

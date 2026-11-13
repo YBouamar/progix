@@ -4,7 +4,6 @@ import { FileDown, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SignatureDoc } from "@/components/signature-doc";
-import { Documents } from "@/components/documents";
 import type { DevisDetail } from "../types";
 
 /** Contrôle avant envoi : « bloquant » empêche de marquer le devis envoyé, « a_voir » se signale sans bloquer. */
@@ -95,9 +94,12 @@ export function ImpressionDevis({ d, controles, modifie, occupe, onEnvoyer, onSi
           )}
         </section>
 
-        <section className="rounded-xl border border-bordure bg-white px-5 pb-5 pt-2">
-          <Documents compact key={`plans-${d.etat}`} contexte="plan_principe" cibleId={d.id} lectureSeule={!brouillon} titre="Plans de principe joints au devis"
-            aide="Ils accompagnent le devis remis au client. Dépôt possible tant que le devis est en brouillon." />
+        <section className="flex flex-col gap-3 rounded-xl border border-bordure bg-white p-5">
+          <h3 className="text-[15px] font-bold">Dossier du devis</h3>
+          <p className="text-[13px] text-secondaire">Un fichier ZIP avec le devis, ses conditions d&apos;offre et les documents joints au devis.</p>
+          {apercu
+            ? <a href={`/api/devis/${d.id}/dossier.zip`} className={LIEN}><FileDown size={16} />Télécharger le dossier (ZIP)</a>
+            : <Button variant="outline" disabled title={brouillon ? "Enregistrez d'abord le brouillon" : "Le devis doit d'abord être signé"}><FileDown size={16} />Télécharger le dossier (ZIP)</Button>}
         </section>
       </aside>
     </div>

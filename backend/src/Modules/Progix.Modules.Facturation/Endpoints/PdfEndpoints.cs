@@ -107,6 +107,45 @@ public static class PdfEndpoints
                 apercu == true ? null : d.Jeton is null ? $"{d.Numero}-v{d.Version}-brouillon.pdf" : $"{d.Numero}-v{d.Version}.pdf");
         }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
 
+        // Dossier du devis à remettre au client : le devis, ses conditions d'offre et les documents joints, dans un fichier ZIP.
+        // Mêmes règles que le PDF : brouillon (document de travail) ou devis signé.
+        app.MapGet("/api/devis/{id:guid}/dossier.zip", async (Guid id, FacturationDbContext db, IDevisDocuments devis, IProjetsLookup projets, IPartenairesLookup partenaires,
+            IFichiersContenu fichiers, IConfiguration config, CancellationToken ct) =>
+        {
+            var d = await devis.DocumentAsync(id, ct);
+            if (d is null) return Results.NotFound();
+            if (d.Jeton is null && d.Etat != "brouillon") return NonSigne();
+            var e = await db.Entites.AsNoTracking().FirstOrDefaultAsync(x => x.Code == d.Entite, ct);
+            var p = await projets.ProjetAsync(d.ProjetId, ct: ct);
+            var client = p is null ? null : await partenaires.LegalAsync(p.ClientId);
+            if (e is null || p is null || client is null) return Results.Conflict(new { message = "Projet, client ou entité introuvable pour ce devis." });
+
+            var lien = d.Jeton is null ? "" : Lien(config, d.Jeton);
+            var nom = d.Jeton is null ? $"{d.Numero}-v{d.Version}-brouillon" : $"{d.Numero}-v{d.Version}";
+            var tampon = new MemoryStream();
+            using (var zip = new System.IO.Compression.ZipArchive(tampon, System.IO.Compression.ZipArchiveMode.Create, leaveOpen: true))
+            {
+                async Task Ajouter(string chemin, byte[] contenu)
+                {
+                    await using var entree = zip.CreateEntry(chemin, System.IO.Compression.CompressionLevel.Optimal).Open();
+                    await entree.WriteAsync(contenu, ct);
+                }
+                await Ajouter($"{nom}.pdf", DocumentsPdf.Devis(d, p, client, e, lien, DocumentsPdf.PartieDevis.DevisSeul));
+                await Ajouter($"{nom}-conditions-offre.pdf", DocumentsPdf.Devis(d, p, client, e, lien, DocumentsPdf.PartieDevis.ConditionsSeules));
+                // Documents joints au devis, du plus ancien au plus récent ; deux fichiers du même nom gardent chacun leur place.
+                var pris = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var f in (await fichiers.ListerAsync(IDevisDocuments.ContexteDocuments, id, null, ct)).Reverse())
+                {
+                    if (await fichiers.LireAsync(IDevisDocuments.ContexteDocuments, f.Id, ct) is not { } lu) continue;
+                    var propre = NomDeFichier(f.Nom);
+                    var chemin = propre;
+                    for (var n = 2; !pris.Add(chemin); n++) chemin = $"{Path.GetFileNameWithoutExtension(propre)} ({n}){Path.GetExtension(propre)}";
+                    await Ajouter($"documents/{chemin}", lu.Contenu.ToArray());
+                }
+            }
+            return Results.File(tampon.ToArray(), "application/zip", $"{nom}-dossier.zip");
+        }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
+
         // Vérification publique d'un document signé, atteinte par son QR code : aucun compte n'est nécessaire, seul le jeton du document donne accès.
         app.MapGet("/api/verification/{jeton}", async (string jeton, IEnumerable<IVerificationDocuments> sources) =>
         {
@@ -130,5 +169,14 @@ public static class PdfEndpoints
 
     public static string NouveauJeton() => Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
     public static string Lien(IConfiguration config, string jeton) => $"{(config["App:PublicUrl"] ?? "http://localhost:3000").TrimEnd('/')}/verification/{jeton}";
-    private static IResult NonSigne() => Results.Conflict(new { message = "Ce document n'est pas encore signé : signez-le avant de l'imprimer ou de l'envoyer." });
+    private static IResult NonSigne() => Results.Conflict(new { message = "Ce document n'est pas encore signé : signez-le avant de l'imprimer ou de l'envoyer." 
+});
+
+    /// <summary>Nom d'un fichier joint tel qu'il entre dans un ZIP : sans dossier ni caractère interdit.</summary>
+    internal static string NomDeFichier(string nom)
+    {
+        var interdits = Path.GetInvalidFileNameChars().Concat(['/', (char)92, ':', '*', '?', '"', '<', '>', '|']).ToHashSet();
+        var propre = string.Concat(nom.Split('/', (char)92).Last().Select(c => interdits.Contains(c) ? '_' : c)).Trim();
+        return propre.Length == 0 ? "document" : propre;
+    }
 }

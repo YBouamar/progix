@@ -15,6 +15,7 @@ import { Field, Input, Select } from "@/components/ui/input";
 import { ImportDevis, type LigneImport } from "./import";
 import { FichiersAdapt } from "./fichiers-adapt";
 import { ImpressionDevis, type Controle } from "./impression";
+import { Documents } from "@/components/documents";
 import type { Adapt } from "../../projets/[id]/adapt";
 import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 
@@ -277,6 +278,9 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           {d.actions.rejeter && <Button size="sm" variant="outline" disabled={envoi} onClick={() => setAnnulation("")}>Rejeter le devis</Button>}
         </div>
         {importOuvert && <ImportDevis devisId={d.id} onClose={() => setImportOuvert(false)} onImporter={importer} />}
+        {/* Documents du devis : visibles à toutes les étapes, ils partent avec le devis dans le dossier ZIP. */}
+        <Documents compact key={`plans-${d.etat}`} contexte="plan_principe" cibleId={d.id} lectureSeule={d.etat !== "brouillon"} titre="Documents joints au devis"
+          aide="Plans de principe et autres pièces remises au client avec le devis. Dépôt possible tant que le devis est en brouillon." />
         {lecture && message && !message.ok && <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{message.texte}</div>}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">

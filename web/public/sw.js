@@ -55,7 +55,7 @@ self.addEventListener("fetch", (e) => {
   }
 
   // Documents PDF, exports et fichiers : jamais gardés.
-  if (/\/(pdf|export|telecharger|contenu|modele)(\/|\.|$)/.test(url.pathname) || url.pathname.startsWith("/api/fichiers") || url.pathname.startsWith("/api/verification")) return;
+  if (/\/(pdf|export|telecharger|contenu|modele|dossier)(\/|\.|$)/.test(url.pathname) || url.pathname.startsWith("/api/fichiers") || url.pathname.startsWith("/api/verification")) return;
 
   // Les avis de notification ne se gardent pas : hors ligne, il n'y en a simplement pas de nouveaux.
   if (url.pathname.startsWith("/api/notifications")) return;

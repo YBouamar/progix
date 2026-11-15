@@ -3,13 +3,12 @@
 import { useEffect, useState } from "react";
 import { Plus, Settings2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { cn, filtrerDecimal, formatDH, lireNombre } from "@/lib/utils";
+import { cn, filtrerDecimal, lireNombre } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ForfaitsParam } from "../parametrage/forfaits";
 import { TypesConstructionParam } from "../parametrage/types-construction";
-import type { ProjetDetail } from "./types";
 
 /** Petit bouton « gérer la liste », placé à côté d'un champ à choix : visible seulement pour qui a l'écriture sur l'élément. */
 export function BoutonGerer({ libelle, onClick }: { libelle: string; onClick: () => void }) {
@@ -108,33 +107,29 @@ export function GererCommerciaux({ onClose, onChange }: { onClose: () => void; o
  * Forfait du projet : prix propre au projet, ou grille des forfaits par surface. Remplir le champ remplace la grille pour les devis du projet ;
  * le vider revient à la grille. Un devis émis garde le forfait de son calcul.
  */
-export function ForfaitProjet({ projet, peutModifier, peutGrille, onSaved }: { projet: ProjetDetail; peutModifier: boolean; peutGrille: boolean; onSaved: (p: ProjetDetail) => void }) {
+export function ForfaitProjet({ projetId, forfaitPropre, peutGrille, onSaved }: { projetId: string; forfaitPropre: number | null; peutGrille: boolean; onSaved: () => void }) {
   const [ouvert, setOuvert] = useState(false);
   const [grille, setGrille] = useState(false);
   const [valeur, setValeur] = useState("");
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
-  const propre = projet.forfaitPropre ?? null;
+  const propre = forfaitPropre ?? null;
 
   async function enregistrer(forfait: number | null) {
     setEnvoi(true); setErreur("");
     try {
-      onSaved(await api<ProjetDetail>(`/projets/${projet.id}/forfait`, { method: "PUT", body: JSON.stringify({ forfait }) }));
+      await api(`/projets/${projetId}/forfait`, { method: "PUT", body: JSON.stringify({ forfait }) });
       setOuvert(false);
+      onSaved();
     } catch (e) { setErreur(e instanceof ApiError ? e.message : "Enregistrement impossible."); }
     finally { setEnvoi(false); }
   }
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3">
-        <span>{propre ? `${formatDH(propre)} par m², propre au projet` : "Grille des forfaits, selon la surface du devis"}</span>
-        {peutModifier && !projet.supprime && (
-          <Button size="sm" variant="outline" onClick={() => { setValeur(propre ? String(propre).replace(".", ",") : ""); setErreur(""); setOuvert(true); }}>
-            {propre ? "Modifier" : "Fixer un forfait"}
-          </Button>
-        )}
-      </div>
+      <Button type="button" size="sm" variant="outline" onClick={() => { setValeur(propre ? String(propre).replace(".", ",") : ""); setErreur(""); setOuvert(true); }}>
+        {propre ? "Modifier le forfait" : "Fixer un forfait"}
+      </Button>
       <Modal open={ouvert} onOpenChange={setOuvert} title="Forfait du projet"
         description="Un forfait propre au projet remplace la grille pour tous ses devis. Les brouillons le reprennent à leur prochain enregistrement ; les devis émis gardent leur forfait."
         footer={

@@ -1,6 +1,6 @@
 "use client";
 
-import { useAuth } from "@/lib/auth";
+import { peutEcrire, useAuth } from "@/lib/auth";
 import { Fragment, use, useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Plus, Trash2, X } from "lucide-react";
@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 import { AttenteFiche } from "@/components/ui/attente";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
+import { ForfaitProjet } from "../../projets/gestion-listes";
 import { ImportDevis, type LigneImport } from "./import";
 import { FichiersAdapt } from "./fichiers-adapt";
 import { ImpressionDevis, type Controle } from "./impression";
@@ -298,7 +299,14 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
             <Input inputMode="numeric" disabled={lecture} value={f.duree} onChange={(e) => maj({ duree: e.target.value })} />
           </Field>
           <Field label="Échéance, calculée"><Input disabled value={echeance} /></Field>
-          <Field label="Type et forfait"><Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²`}  title={d.forfaitPropre ? "Forfait propre au projet, fixé sur la fiche du projet." : "Forfait de la grille, selon la surface totale du devis."} /></Field>
+          <Field label="Type et forfait">
+            <Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²${d.forfaitPropre ? " (propre au projet)" : ""}`} title={d.forfaitPropre ? "Forfait propre au projet : il remplace la grille." : "Forfait de la grille, selon la surface totale du devis."} />
+            {!lecture && peutEcrire(user, "forfaits") && (
+              <div className="mt-1.5">
+                <ForfaitProjet projetId={d.projetId} forfaitPropre={d.forfaitPropre} peutGrille onSaved={() => { api<DevisDetail>(`/devis/${id}`).then(setD).catch(() => undefined); }} />
+              </div>
+            )}
+          </Field>
         </div>
       </div>
 

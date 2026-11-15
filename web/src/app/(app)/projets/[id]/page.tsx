@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft, ArrowLeftRight, Lock, Pencil, RotateCcw, Trash2, Unlock } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { peutDiriger, peutEcrire, peutGererCommercial, peutLire, useAuth, voitMontants } from "@/lib/auth";
-import { ForfaitProjet } from "../gestion-listes";
 import { cn, formatDate, formatDateHeure, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AttenteFiche } from "@/components/ui/attente";
@@ -201,12 +200,6 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
                 <dd className="mt-0.5 whitespace-pre-line">{v}</dd>
               </div>
             ))}
-            <div>
-              <dt className="text-[12px] font-semibold text-attenue">Forfait des devis</dt>
-              <dd className="mt-0.5">
-                <ForfaitProjet projet={p} peutModifier={peutEcrire(user, "forfaits")} peutGrille={peutEcrire(user, "forfaits")} onSaved={setP} />
-              </dd>
-            </div>
           </dl>
         </div>
         </>

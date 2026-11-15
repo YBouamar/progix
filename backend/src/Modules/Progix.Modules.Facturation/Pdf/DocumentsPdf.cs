@@ -153,7 +153,12 @@ public static class DocumentsPdf
         Puce($"Validité de l'offre : {d.Echeance.DayNumber - d.DateDevis.DayNumber} jours, soit jusqu'au {Date(d.Echeance)}.");
         foreach (var ligne in (d.Modalites ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) Puce(ligne);
         // Seul le ratio passif moyen figure sur le document remis au client : il chiffre les aciers passifs qui restent à sa charge.
-        if (d.RatioPassifMoyen > 0) Puce($"Ratio moyen des aciers passifs : {d.RatioPassifMoyen.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("fr-FR"))} kg/m², moyenne pondérée par la surface des dalles.");
+        if (d.RatioPassifAffiche > 0)
+        {
+            var ratio = d.RatioPassifAffiche.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("fr-FR"));
+            // Ratio saisi : il est donné tel quel. Sinon, c'est la moyenne calculée, pondérée par la surface.
+            Puce(d.RatioPassifSaisi is > 0 ? $"Ratio moyen des aciers passifs : {ratio} kg/m²." : $"Ratio moyen des aciers passifs : {ratio} kg/m², moyenne pondérée par la surface des dalles.");
+        }
         Puce("Quantités : mesurées selon le plan ; seules les ouvertures entourées par des supports (voiles ou poutres) seront déduites.");
         Puce("Modification du prix : ces prix peuvent être modifiés en fonction des cours de la matière première.");
 

@@ -89,6 +89,26 @@ public class CalculTests
     }
 
     [Fact]
+    public void Un_forfait_propre_au_projet_remplace_la_grille()
+    {
+        // 120 m² : la grille donnerait 100 DH/m², le projet impose 85.
+        var d = new DevisEntete { Lignes = [Ligne(surface: 60, ratioActif: 0), Ligne(surface: 60, ratioActif: 0)] };
+        Calcul.Recalculer(d, Grille, exonereTva: false, forfaitPropre: 85);
+        Assert.Equal(85, d.Forfait);
+        Assert.All(d.Lignes, l => Assert.Equal(Calcul.PrixM2(l, 85), l.PrixM2));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData(0)]
+    public void Sans_forfait_propre_ou_a_zero_la_grille_s_applique(int? propre)
+    {
+        var d = new DevisEntete { Lignes = [Ligne(surface: 120, ratioActif: 0)] };
+        Calcul.Recalculer(d, Grille, exonereTva: false, forfaitPropre: propre);
+        Assert.Equal(100, d.Forfait);
+    }
+
+    [Fact]
     public void Echeance_du_devis_selon_la_duree_de_validite()
     {
         var d = new DevisEntete { DateDevis = new DateOnly(2026, 10, 1), DureeValidite = 30 };

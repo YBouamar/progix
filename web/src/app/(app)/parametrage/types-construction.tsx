@@ -11,7 +11,7 @@ type Type = { code: string | null; libelle: string; actif: boolean; projets: num
 type Vue = { modifiable: boolean; types: Type[] };
 
 /** Types de construction proposés à la création d'un projet, dans l'ordre de la liste déroulante. Un type porté par un projet se désactive, il ne se supprime pas. */
-export function TypesConstructionParam() {
+export function TypesConstructionParam({ integre, onChange }: { integre?: boolean; onChange?: () => void } = {}) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [liste, setListe] = useState<Type[]>([]);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
@@ -26,13 +26,14 @@ export function TypesConstructionParam() {
     try {
       charger(await api<Vue>("/parametres/types-construction", { method: "PUT", body: JSON.stringify({ types: liste.map(({ code, libelle, actif }) => ({ code, libelle, actif })) }) }));
       setMessage({ ok: true, texte: "Types enregistrés." });
+      onChange?.();
     } catch (e) {
       setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Enregistrement impossible." });
     }
   }
 
   return (
-    <div className="rounded-xl border border-bordure bg-white p-6">
+    <div className={cn(!integre && "rounded-xl border border-bordure bg-white p-6")}>
       <h2 className="text-[15px] font-bold">Projets : types de construction</h2>
       <p className="mt-1 text-[13px] text-secondaire">
         Proposés dans la liste déroulante du projet, dans cet ordre. Un type déjà porté par un projet ne se supprime pas : décochez « Proposé ».

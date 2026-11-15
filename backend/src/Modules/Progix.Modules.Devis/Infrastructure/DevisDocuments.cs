@@ -15,7 +15,7 @@ public class DevisDocuments(DevisDbContext db) : IDevisDocuments, IVerificationD
         return new DevisDocument(d.Id, d.Numero, d.Version, d.Entite, d.ProjetId, d.Etat, EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat), d.DateDevis, d.Echeance, d.CommercialNom,
             d.Lignes.OrderBy(l => l.Ordre).Select(l => new DevisDocumentLigne(l.Reference, l.Emplacement, l.Surface, l.RatioActif, l.RatioPassif, l.PrixM2, l.MontantHT)).ToList(),
             d.SurfaceTotale, d.TotalHT, d.RemiseM2, d.RemiseTotale, d.NetHT, d.ExonereTva, d.Tva, d.TotalTTC,
-            d.Echeances.Select(e => new KeyValuePair<string, decimal>(e.Label, e.Pourcentage)).ToList(), d.ModalitesContrat, d.SignePar, d.SigneLe, d.Jeton);
+            d.Echeances.Select(e => new KeyValuePair<string, decimal>(e.Label, e.Pourcentage)).ToList(), d.ModalitesContrat, d.SignePar, d.SigneLe, d.Jeton, d.RatioPassifSaisi);
     }
 
     public async Task<DocumentVerifie?> TrouverAsync(string jeton, CancellationToken ct = default)

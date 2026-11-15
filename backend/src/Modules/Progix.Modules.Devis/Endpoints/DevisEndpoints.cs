@@ -18,7 +18,7 @@ public record TrancheInput(decimal APartirDe, decimal Prix);
 public record ForfaitsInput(List<TrancheInput>? Tranches);
 /// <param name="IngenieurId">Ingénieur qui établit le devis. Le commercial, lui, vient du projet.</param>
 public record DevisInput(DateOnly DateDevis, int DureeValidite, Guid? IngenieurId, decimal RemiseM2, string? RemiseMotif,
-    List<EcheanceInput>? Echeances, string? ModalitesContrat, List<LigneInput>? Lignes);
+    List<EcheanceInput>? Echeances, string? ModalitesContrat, List<LigneInput>? Lignes, decimal? RatioPassifSaisi = null);
 
 public static class DevisEndpoints
 {
@@ -33,11 +33,11 @@ public static class DevisEndpoints
             Results.Ok((await users.ParRolesAsync(RolesIngenieurs)).Select(u => new { id = u.Id, nom = u.Nom })));
 
         // Grille unique des forfaits, par tranche de surface totale du devis.
-        app.MapGet("/api/parametres/forfaits", async (DevisDbContext db, ClaimsPrincipal user) => Results.Ok(ForfaitsDto(await db.ParametresAsync(), user)))
+        app.MapGet("/api/parametres/forfaits", async (DevisDbContext db, IHabilitations habilitations, ClaimsPrincipal user) => Results.Ok(ForfaitsDto(await db.ParametresAsync(), await PeutForfaitsAsync(habilitations, user))))
             .WithTags("Paramétrage").RequireAuthorization();
-        app.MapPut("/api/parametres/forfaits", async (ForfaitsInput input, DevisDbContext db, ClaimsPrincipal user) =>
+        app.MapPut("/api/parametres/forfaits", async (ForfaitsInput input, DevisDbContext db, IHabilitations habilitations, ClaimsPrincipal user) =>
         {
-            if (!PeutParametrer(user)) return Results.Forbid();
+            if (!await PeutForfaitsAsync(habilitations, user)) return Results.Forbid();
             var tranches = (input.Tranches ?? []).OrderBy(t => t.APartirDe).ToList();
             if (tranches.Count == 0) return Conflit("La grille compte au moins une tranche.");
             if (tranches[0].APartirDe != 0) return Conflit("La première tranche commence à 0 m² : toute surface doit trouver son forfait.");
@@ -49,7 +49,7 @@ public static class DevisEndpoints
             p.Forfaits = tranches.Select(t => new TrancheForfait { APartirDe = Math.Round(t.APartirDe, 2), Prix = Math.Round(t.Prix, 2) }).ToList();
             p.ModifiePar = user.UserName(); p.ModifieLe = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Ok(ForfaitsDto(p, user));
+            return Results.Ok(ForfaitsDto(p, true));
         }).WithTags("Paramétrage").RequireAuthorization();
 
         // Tableau de bord commercial : devis en attente, à relancer, proches de l'expiration.
@@ -223,7 +223,7 @@ public static class DevisEndpoints
                     return l;
                 }).ToList(),
             };
-            Calcul.Recalculer(d, prm.Forfaits, await Exonere(projet, partenaires));
+            Calcul.Recalculer(d, prm.Forfaits, await Exonere(projet, partenaires), projet.ForfaitPropre);
             db.Devis.Add(d);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -245,6 +245,7 @@ public static class DevisEndpoints
             var e = new Dictionary<string, string[]>();
             if (input.DureeValidite is < 1 or > 365) e["dureeValidite"] = ["La durée de validité est comprise entre 1 et 365 jours."];
             if (input.RemiseM2 < 0) e["remiseM2"] = ["La remise ne peut pas être négative."];
+            if (input.RatioPassifSaisi is < 0 or > 1000) e["ratioPassifSaisi"] = ["Le ratio passif saisi doit être compris entre 0 et 1 000 kg/m²."];
             if (input.RemiseM2 > 0 && string.IsNullOrWhiteSpace(input.RemiseMotif)) e["remiseMotif"] = ["Le motif est obligatoire dès qu'une remise est saisie."];
             var echeances = input.Echeances ?? [];
             if (echeances.Any(x => x.Pourcentage <= 0 || string.IsNullOrWhiteSpace(x.Label))) e["echeances"] = ["Chaque échéance a un libellé et un pourcentage supérieur à 0."];
@@ -286,6 +287,7 @@ public static class DevisEndpoints
             else { d.IngenieurId = null; d.IngenieurNom = null; }
             // Le commercial est celui du projet : un brouillon reprend le commercial à jour.
             d.CommercialId = projet.CommercialId; d.CommercialNom = projet.CommercialNom;
+            d.RatioPassifSaisi = input.RatioPassifSaisi is > 0 ? Math.Round(input.RatioPassifSaisi.Value, 2) : null;
             d.RemiseM2 = Math.Round(input.RemiseM2, 2);
             d.RemiseMotif = d.RemiseM2 > 0 ? input.RemiseMotif!.Trim() : null;
             d.Echeances = echeances.Select(x => new Echeance { Label = x.Label!.Trim(), Pourcentage = x.Pourcentage, Retenue = x.Retenue }).ToList();
@@ -302,7 +304,7 @@ public static class DevisEndpoints
             // La surface vient toujours de la dalle : un brouillon reprend la surface à jour du projet.
             foreach (var l in d.Lignes)
                 if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) { l.Surface = dalle.Surface; l.Reference = dalle.Reference; l.Emplacement = dalle.Emplacement; }
-            Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires));
+            Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitPropre);
             d.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(await Detail(d, projets, partenaires, user, db));
@@ -322,7 +324,7 @@ public static class DevisEndpoints
         if (reprises == 0) return Conflit("Aucune dalle de ce devis n'a de fichiers ADAPT importés : déposez d'abord les fichiers PTTotal et RebarTotal.");
         foreach (var l in d.Lignes)
             if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) l.Surface = dalle.Surface;
-        Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires));
+        Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitPropre);
         d.UpdatedAt = DateTime.UtcNow;
         db.Add(new EvenementDevis { DevisId = d.Id, Quoi = $"Données ADAPT reprises pour {reprises} dalle(s)", Qui = user.UserName() });
         await db.SaveChangesAsync();
@@ -378,9 +380,13 @@ public static class DevisEndpoints
         echeances = p.Echeances.Select(x => new { label = x.Label, pourcentage = x.Pourcentage, retenue = x.Retenue }),
     };
 
-    private static object ForfaitsDto(ParametresDevis p, ClaimsPrincipal user) => new
+    /// <summary>Grille des forfaits : niveau « écriture » du module Prix forfaitaires.</summary>
+    internal static async Task<bool> PeutForfaitsAsync(IHabilitations habilitations, ClaimsPrincipal u) =>
+        await habilitations.NiveauAsync(u, Habilitations.Forfaits) >= Habilitations.Ecriture;
+
+    private static object ForfaitsDto(ParametresDevis p, bool modifiable) => new
     {
-        modifiable = PeutParametrer(user), modifiePar = p.ModifiePar, modifieLe = p.ModifieLe,
+        modifiable, modifiePar = p.ModifiePar, modifieLe = p.ModifieLe,
         tranches = p.Forfaits.OrderBy(t => t.APartirDe).Select(t => new { aPartirDe = t.APartirDe, prix = t.Prix }),
     };
 
@@ -407,7 +413,7 @@ public static class DevisEndpoints
             // Un brouillon affiche le commercial à jour du projet ; un devis émis garde celui de son émission.
             commercial = brouillon && p is not null ? p.CommercialNom : d.CommercialNom,
             ingenieurId = d.IngenieurId, ingenieur = d.IngenieurNom,
-            remiseM2 = d.RemiseM2, remiseMotif = d.RemiseMotif,
+            forfaitPropre = brouillon ? p?.ForfaitPropre : null, remiseM2 = d.RemiseM2, remiseMotif = d.RemiseMotif, ratioPassifSaisi = d.RatioPassifSaisi,
             echeances = d.Echeances.Select(x => new { label = x.Label, pourcentage = x.Pourcentage, retenue = x.Retenue }),
             modalitesContrat = d.ModalitesContrat,
             forfait = d.Forfait, surfaceTotale = d.SurfaceTotale, totalHT = d.TotalHT, remiseTotale = d.RemiseTotale, tranchesForfait = grille,

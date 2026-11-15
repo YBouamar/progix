@@ -75,6 +75,12 @@ public class Projet : Entity
     public string? CommercialNom { get; set; }
     /// <summary>Vrai une fois le commercial choisi ou repris des anciens devis : la reprise ne repasse pas sur un choix fait depuis.</summary>
     public bool CommercialRepris { get; set; }
+
+    /// <summary>
+    /// Forfait en DH/m² propre au projet. S'il est renseigné, il remplace la grille des forfaits pour tous les devis du projet ;
+    /// vide, la grille par surface s'applique. Un devis émis garde le forfait de son calcul.
+    /// </summary>
+    public decimal? ForfaitPropre { get; set; }
     public string Statut { get; set; } = StatutsProjet.Cree;
 
     // « Bloqué » est un marqueur en plus du statut.

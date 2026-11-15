@@ -27,7 +27,7 @@ const MODULES: Record<string, string> = {
 };
 
 /** Modules de consultation : ils n'ont pas de niveau « écriture ». */
-const CONSULTATION = ["tresorerie", "repartition_ingenieurs", "performance_dessinateurs", "performance_ingenieurs"];
+const CONSULTATION = ["tresorerie", "performance_dessinateurs", "performance_ingenieurs"];
 
 type Droits = { droits?: Record<string, number> };
 

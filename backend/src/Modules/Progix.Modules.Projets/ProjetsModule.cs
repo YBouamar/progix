@@ -69,7 +69,12 @@ public class ProjetsModule : IModule
         {
             var utilises = await db.Dalles.Select(d => d.Niveau).Distinct().ToListAsync(ct);
             var valeurs = Enumerable.Range(Domain.NiveauDalle.DefautMin, Domain.NiveauDalle.DefautMax - Domain.NiveauDalle.DefautMin + 1).Union(utilises).Order().ToList();
-            db.Niveaux.AddRange(valeurs.Select((v, i) => new Domain.NiveauDalle { Valeur = v, Libelle = Domain.Dalle.NiveauParDefaut(v), Ordre = i }));
+            var niveaux = valeurs.Select(v => new Domain.NiveauDalle { Valeur = v, Libelle = Domain.Dalle.NiveauParDefaut(v) }).ToList();
+            // La mezzanine se place juste après le rez-de-chaussée ; sa valeur n'a jamais été utilisée.
+            var apresRdc = niveaux.FindIndex(n => n.Valeur == 0) + 1;
+            niveaux.Insert(apresRdc, new Domain.NiveauDalle { Valeur = valeurs.Max() + 1, Libelle = "Mezzanine" });
+            for (var i = 0; i < niveaux.Count; i++) niveaux[i].Ordre = i;
+            db.Niveaux.AddRange(niveaux);
             await db.SaveChangesAsync(ct);
         }
         Domain.NiveauxDalle.Charger(await db.Niveaux.AsNoTracking().ToListAsync(ct));

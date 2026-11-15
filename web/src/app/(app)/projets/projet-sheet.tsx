@@ -5,18 +5,27 @@ import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { peutEcrire, useAuth } from "@/lib/auth";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
 import { PartenaireCombo } from "@/components/partenaire-combo";
 import { PartenaireSheet } from "../clients/partenaire-sheet";
 import type { Compteur } from "../clients/types";
+import { BoutonGerer, GererCommerciaux, GererTypes } from "./gestion-listes";
 import type { ProjetDetail, Referentiel } from "./types";
 
 type Doublon = { doublon: boolean; id?: string; code?: string; client?: string; statut?: string };
 
-export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
+export function ProjetSheet({ projet, referentiel: referentielInitial, onReferentiel, onClose, onSaved }: {
   projet: ProjetDetail | null; referentiel: Referentiel; onClose: () => void; onSaved: (p: ProjetDetail) => void;
+  /** Appelé quand les listes (types, commerciaux) ont été modifiées depuis la fiche. */
+  onReferentiel?: (r: Referentiel) => void;
 }) {
+  const { user } = useAuth();
+  const [referentiel, setReferentiel] = useState(referentielInitial);
+  const [gestion, setGestion] = useState<"types" | "commerciaux" | null>(null);
+  // Les listes proposées se relisent après chaque modification : un type ou un commercial ajouté est tout de suite choisissable.
+  const rechargerListes = () => api<Referentiel>("/projets/referentiel").then((r) => { setReferentiel(r); onReferentiel?.(r); }).catch(() => undefined);
   const [libelle, setLibelle] = useState(projet?.libelle ?? "");
   const [client, setClient] = useState<{ id: string | null; texte: string }>({ id: projet?.clientId ?? null, texte: projet?.client ?? "" });
   const [proprio, setProprio] = useState<{ id: string | null; texte: string }>({ id: projet?.proprietaireId ?? null, texte: projet?.proprietaire ?? "" });
@@ -142,19 +151,25 @@ export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
 
           <div className="grid grid-cols-2 gap-4">
             <Field label="Type de construction" required error={err("typeConstruction")}>
-              <Select value={type} aria-invalid={!!err("typeConstruction")} onChange={(e) => setType(e.target.value)}>
-                {types.map((t) => <option key={t.code} value={t.code}>{t.label}{t.actif === false ? " (n'est plus proposé)" : ""}</option>)}
-              </Select>
+              <div className="flex gap-2">
+                <Select value={type} aria-invalid={!!err("typeConstruction")} onChange={(e) => setType(e.target.value)}>
+                  {types.map((t) => <option key={t.code} value={t.code}>{t.label}{t.actif === false ? " (n'est plus proposé)" : ""}</option>)}
+                </Select>
+                {peutEcrire(user, "types_construction") && <BoutonGerer libelle="Gérer les types de construction" onClick={() => setGestion("types")} />}
+              </div>
             </Field>
             <Field label="Commercial" error={err("commercialId")}>
-              <Select value={commercialId} aria-invalid={!!err("commercialId")} onChange={(e) => setCommercialId(e.target.value)}>
-                <option value="">Aucun</option>
-                {referentiel.commerciaux.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
-                {projet?.commercialId && !referentiel.commerciaux.some((c) => c.id === projet.commercialId) && <option value={projet.commercialId}>{projet.commercial} (inactif)</option>}
-              </Select>
+              <div className="flex gap-2">
+                <Select value={commercialId} aria-invalid={!!err("commercialId")} onChange={(e) => setCommercialId(e.target.value)}>
+                  <option value="">Aucun</option>
+                  {referentiel.commerciaux.map((c) => <option key={c.id} value={c.id}>{c.nom}</option>)}
+                  {projet?.commercialId && !referentiel.commerciaux.some((c) => c.id === projet.commercialId) && <option value={projet.commercialId}>{projet.commercial} (inactif)</option>}
+                </Select>
+                {peutEcrire(user, "commerciaux") && <BoutonGerer libelle="Gérer les commerciaux" onClick={() => setGestion("commerciaux")} />}
+              </div>
             </Field>
           </div>
-          <p className="-mt-3 text-[12px] text-attenue">Types de construction réglés dans le Paramétrage. Le commercial du projet est repris sur ses devis ; le forfait vient de la grille par surface du Paramétrage.</p>
+          <p className="-mt-3 text-[12px] text-attenue">Types de construction et commerciaux se gèrent avec le bouton à côté du champ. Le commercial du projet est repris sur ses devis ; le forfait se règle sur la fiche du projet.</p>
 
           <Field label="Description">
             <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)}
@@ -162,6 +177,8 @@ export function ProjetSheet({ projet, referentiel, onClose, onSaved }: {
           </Field>
         </div>
       </Sheet>
+      {gestion === "types" && <GererTypes onClose={() => setGestion(null)} onChange={rechargerListes} />}
+      {gestion === "commerciaux" && <GererCommerciaux onClose={() => setGestion(null)} onChange={rechargerListes} />}
       {nouveauClient && (
         <PartenaireSheet id={null} ecriture types={nouveauClient} onClose={() => setNouveauClient(null)}
           onSaved={(p) => { setNouveauClient(null); if (p) setClient({ id: p.id, texte: p.nom }); }} />

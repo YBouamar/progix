@@ -4,7 +4,8 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowLeftRight, Lock, Pencil, RotateCcw, Trash2, Unlock } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { peutDiriger, peutGererCommercial, useAuth, voitMontants } from "@/lib/auth";
+import { peutDiriger, peutEcrire, peutGererCommercial, peutLire, useAuth, voitMontants } from "@/lib/auth";
+import { ForfaitProjet } from "../gestion-listes";
 import { cn, formatDate, formatDateHeure, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AttenteFiche } from "@/components/ui/attente";
@@ -39,9 +40,9 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
   const onglets = ([
     ["informations", "Informations", true],
     ["dalles", "Dalles et suivi", true],
-    ["commercial", voitMontants(user) && peutGererCommercial(user) ? "Devis et contrats" : "Devis", voitMontants(user) || peutGererCommercial(user)],
-    ["courriers", "Courriers", ["directeur", "chef_projet", "responsable_administratif", "administrateur", "ingenieur_chef", "ingenieur"].includes(role)],
-    ["depenses", "Dépenses", ["directeur", "chef_projet", "responsable_administratif", "administrateur", "chef_chantier", "responsable_chantier"].includes(role)],
+    ["commercial", voitMontants(user) && peutLire(user, "contrats") ? "Devis et contrats" : "Devis", voitMontants(user) || peutLire(user, "contrats")],
+    ["courriers", "Courriers", peutLire(user, "courriers")],
+    ["depenses", "Dépenses", peutEcrire(user, "depenses") || ["chef_chantier", "responsable_chantier"].includes(role)],
     ["intervenants", "Équipe et partenaires", true],
     ["documents", "Documents et remarques", true],
   ] as [string, string, boolean][]).filter((o) => o[2]);
@@ -200,17 +201,23 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
                 <dd className="mt-0.5 whitespace-pre-line">{v}</dd>
               </div>
             ))}
+            <div>
+              <dt className="text-[12px] font-semibold text-attenue">Forfait des devis</dt>
+              <dd className="mt-0.5">
+                <ForfaitProjet projet={p} peutModifier={peutEcrire(user, "forfaits")} peutGrille={peutEcrire(user, "forfaits")} onSaved={setP} />
+              </dd>
+            </div>
           </dl>
         </div>
         </>
       )}
-      {onglet === "dalles" && <DallesProjet key={`dalles-${version}`} projetId={p.id} ecriture={ecriture && !p.supprime} lectureSeule={p.supprime} onSuivi={charger} />}
+      {onglet === "dalles" && <DallesProjet key={`dalles-${version}`} projetId={p.id} ecriture={peutEcrire(user, "dalles") && !p.supprime} lectureSeule={p.supprime} onSuivi={charger} />}
       {onglet === "commercial" && (
         <>
           {voitMontants(user) && <DevisProjet key={`devis-${version}`} projetId={p.id} lectureSeule={p.supprime} />}
           {peutGererCommercial(user) && voitMontants(user) && <SituationProjet key={`situation-${version}`} projetId={p.id} />}
           {voitMontants(user) && <PaiementsProjet key={`paiements-${version}`} projetId={p.id} onChange={() => setVersion((v) => v + 1)} />}
-          {peutGererCommercial(user) && <ContratsProjet key={`contrats-${version}`} projetId={p.id} />}
+          {peutLire(user, "contrats") && <ContratsProjet key={`contrats-${version}`} projetId={p.id} />}
         </>
       )}
       {onglet === "courriers" && <CourriersProjet key={`courriers-${version}`} projetId={p.id} />}
@@ -229,7 +236,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
       )}
 
       {edition && ref && (
-        <ProjetSheet projet={p} referentiel={ref} onClose={() => setEdition(false)} onSaved={(n) => { setP(n); setEdition(false); }} />
+        <ProjetSheet projet={p} referentiel={ref} onReferentiel={setRef} onClose={() => setEdition(false)} onSaved={(n) => { setP(n); setEdition(false); }} />
       )}
 
       <Modal open={reaffectation} onOpenChange={(o) => { if (!o) { setReaffectation(false); setErreur(""); } }}

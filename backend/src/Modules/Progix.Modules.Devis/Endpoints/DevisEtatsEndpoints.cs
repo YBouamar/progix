@@ -147,7 +147,7 @@ public static class DevisEtatsEndpoints
             var n = new DevisEntete
             {
                 Numero = d.Numero, Entite = d.Entite, Version = d.Version + 1, ProjetId = d.ProjetId, DateDevis = Aujourdhui, DureeValidite = d.DureeValidite,
-                CommercialId = projet.CommercialId, CommercialNom = projet.CommercialNom, IngenieurId = d.IngenieurId, IngenieurNom = d.IngenieurNom, RemiseM2 = d.RemiseM2, RemiseMotif = d.RemiseMotif,
+                CommercialId = projet.CommercialId, CommercialNom = projet.CommercialNom, IngenieurId = d.IngenieurId, IngenieurNom = d.IngenieurNom, RemiseM2 = d.RemiseM2, RemiseMotif = d.RemiseMotif, RatioPassifSaisi = d.RatioPassifSaisi,
                 Echeances = d.Echeances.Select(e => new Echeance { Label = e.Label, Pourcentage = e.Pourcentage, Retenue = e.Retenue }).ToList(),
                 ModalitesContrat = d.ModalitesContrat, CreePar = user.UserName(),
                 Evenements = [new EvenementDevis { Quoi = $"Version {d.Version + 1} créée à partir de la version {d.Version}", Qui = user.UserName() }],
@@ -162,7 +162,7 @@ public static class DevisEtatsEndpoints
                     };
                 }).ToList(),
             };
-            Calcul.Recalculer(n, (await db.ParametresAsync()).Forfaits, await DevisEndpoints.Exonere(projet, partenaires));
+            Calcul.Recalculer(n, (await db.ParametresAsync()).Forfaits, await DevisEndpoints.Exonere(projet, partenaires), projet.ForfaitPropre);
             d.Etat = EtatsDevis.Remplace;
             d.RemplaceLe = DateTime.UtcNow;
             Tracer(db, d, user, $"Remplacé par la version {n.Version}");

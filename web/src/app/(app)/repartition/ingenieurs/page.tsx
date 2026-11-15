@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { api, ApiError } from "@/lib/api";
+import { peutEcrire, useAuth } from "@/lib/auth";
 import { cn, initiales } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { TON_STATUT } from "../../projets/types";
@@ -12,6 +13,9 @@ type Projet = { id: string; code: string; libelle: string; statut: string; statu
 type Vue = { personnes: Personne[]; projets: Projet[] };
 
 export default function RepartitionIngenieurs() {
+  const { user } = useAuth();
+  // Répartir (affecter ou retirer un ingénieur) demande l'écriture sur le module ; en lecture, le tableau se consulte seulement.
+  const modifiable = peutEcrire(user, "repartition_ingenieurs");
   const [v, setV] = useState<Vue | null>(null);
   const [erreur, setErreur] = useState("");
   const [survol, setSurvol] = useState<string | null>(null);
@@ -34,6 +38,7 @@ export default function RepartitionIngenieurs() {
   // Déposer une carte : vers un ingénieur, il s'ajoute (et remplace celui de la colonne d'origine) ; vers « Non assignés », tous sont retirés.
   const deposer = (colonne: string) => {
     const g = glisse.current; glisse.current = null; setSurvol(null);
+    if (!modifiable) return;
     const p = v?.projets.find((x) => x.id === g?.projetId);
     if (!g || !p || g.depuis === colonne) return;
     agir(async () => {
@@ -50,7 +55,9 @@ export default function RepartitionIngenieurs() {
     <div>
       <p className="mb-4 max-w-4xl text-[13px] text-secondaire">
         Une carte par projet en cours. Un projet peut être suivi par plusieurs ingénieurs : sa carte apparaît alors dans chaque colonne.
-        Glissez une carte vers une colonne, ou utilisez les initiales sur la carte pour ajouter et retirer. Chaque changement est enregistré dans l&apos;historique de l&apos;équipe du projet.
+        {modifiable
+          ? "Glissez une carte vers une colonne, ou utilisez les initiales sur la carte pour ajouter et retirer. Chaque changement est enregistré dans l'historique de l'équipe du projet."
+          : "Consultation seule : votre fonction n'a pas l'écriture sur ce module, la répartition se règle dans les habilitations."}
       </p>
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
       <div className="flex gap-4 overflow-x-auto pb-4">
@@ -65,8 +72,8 @@ export default function RepartitionIngenieurs() {
               </div>
               <div className="space-y-2.5">
                 {cartes.map((p) => (
-                  <div key={p.id} draggable onDragStart={(e) => { glisse.current = { projetId: p.id, depuis: c.id }; e.dataTransfer.setData("text/plain", p.code); }}
-                    className="cursor-grab rounded-lg border border-bordure bg-white p-3 active:cursor-grabbing">
+                  <div key={p.id} draggable={modifiable} onDragStart={(e) => { glisse.current = { projetId: p.id, depuis: c.id }; e.dataTransfer.setData("text/plain", p.code); }}
+                    className={cn("rounded-lg border border-bordure bg-white p-3", modifiable && "cursor-grab active:cursor-grabbing")}>
                     <div className="flex items-start justify-between gap-2">
                       <Link href={`/projets/${p.id}`} className="font-display text-[13px] font-bold text-marine hover:underline">{p.code}</Link>
                       <Badge ton={TON_STATUT[p.statut] ?? "neutre"}>{p.statutLabel}</Badge>
@@ -78,8 +85,8 @@ export default function RepartitionIngenieurs() {
                       {v.personnes.map((i) => {
                         const on = p.ingenieurs.some((x) => x.userId === i.id);
                         return (
-                          <button key={i.id} title={i.nom} aria-pressed={on} aria-label={`${on ? "Retirer" : "Ajouter"} ${i.nom} du projet ${p.code}`} onClick={() => basculer(p, i.id)}
-                            className={cn("h-7 min-w-7 cursor-pointer rounded-full border px-1.5 font-display text-[11px] font-bold", on ? "border-marine bg-marine text-white" : "border-bordure-forte bg-white text-secondaire hover:bg-fond")}>{initiales(i.nom)}</button>
+                          <button key={i.id} title={i.nom} aria-pressed={on} disabled={!modifiable} aria-label={`${on ? "Retirer" : "Ajouter"} ${i.nom} du projet ${p.code}`} onClick={() => basculer(p, i.id)}
+                            className={cn("h-7 min-w-7 rounded-full border px-1.5 font-display text-[11px] font-bold", modifiable ? "cursor-pointer" : "cursor-default", on ? "border-marine bg-marine text-white" : "border-bordure-forte bg-white text-secondaire hover:bg-fond")}>{initiales(i.nom)}</button>
                         );
                       })}
                     </div>

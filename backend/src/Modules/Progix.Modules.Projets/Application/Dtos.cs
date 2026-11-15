@@ -11,13 +11,16 @@ public record ProjetDetail(Guid Id, string Code, string Libelle, string Entite, 
     string Statut, string StatutLabel,
     bool Bloque, string? BlocageMotif, string? BlocagePar, DateTime? BlocageLe,
     bool Supprime, string? SuppressionMotif, string? SuppressionPar, DateTime? SuppressionLe,
-    string CreePar, DateTime CreatedAt);
+    string CreePar, DateTime CreatedAt, decimal? ForfaitPropre = null);
 
 public record ProjetInput(string Libelle, Guid ClientId, Guid? ProprietaireId, string? ProprietaireLibre,
     string Entite, string TypeConstruction, string? Description,
     string? Adresse, string? Ville, DateOnly? DateCreation, Guid? CommercialId = null);
 
 public record MotifInput(string? Motif);
+
+/// <param name="Forfait">Forfait propre au projet en DH/m² ; vide ou 0 pour revenir à la grille.</param>
+public record ForfaitProjetInput(decimal? Forfait);
 
 public record ReaffectationInput(string Entite);
 

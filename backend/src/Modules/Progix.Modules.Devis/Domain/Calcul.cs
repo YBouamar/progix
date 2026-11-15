@@ -28,10 +28,11 @@ public static class Calcul
         return (int)Math.Floor(brut) + 1;
     }
 
-    public static void Recalculer(DevisEntete d, IReadOnlyList<TrancheForfait> grille, bool exonereTva)
+    /// <param name="forfaitPropre">Forfait propre au projet : s'il est renseigné (positif), il remplace la grille.</param>
+    public static void Recalculer(DevisEntete d, IReadOnlyList<TrancheForfait> grille, bool exonereTva, decimal? forfaitPropre = null)
     {
         d.SurfaceTotale = d.Lignes.Sum(l => l.Surface);
-        d.Forfait = Forfait(grille, d.SurfaceTotale);
+        d.Forfait = forfaitPropre is > 0 ? forfaitPropre.Value : Forfait(grille, d.SurfaceTotale);
         foreach (var l in d.Lignes)
         {
             l.PrixM2 = PrixM2(l, d.Forfait);

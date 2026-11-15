@@ -15,8 +15,8 @@ public class HabilitationsTests
         { Roles.ResponsableAdministratif, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
         { Roles.Administrateur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
         { Roles.AgentCommercial, [Habilitations.Projets] },
-        { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude, Habilitations.RepartitionIngenieurs, Habilitations.PerformanceIngenieurs] },
-        { Roles.Ingenieur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Etude] },
+        { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Etude, Habilitations.RepartitionIngenieurs, Habilitations.PerformanceIngenieurs] },
+        { Roles.Ingenieur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Etude] },
         { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.Execution, Habilitations.PerformanceDessinateurs] },
         { Roles.Dessinateur, [Habilitations.Projets, Habilitations.Execution] },
         { Roles.ResponsableLogistique, [Habilitations.Projets, Habilitations.Logistique, Habilitations.Parametrage] },
@@ -27,7 +27,7 @@ public class HabilitationsTests
     [Theory]
     [MemberData(nameof(MenusDorigine))]
     public void Les_niveaux_d_origine_ouvrent_les_memes_modules_qu_avant(string role, string[] modules) =>
-        Assert.Equal(modules.Order(), Habilitations.Modules.Where(m => Habilitations.ParDefaut(role, m.Code) > Habilitations.Aucun).Select(m => m.Code).Order());
+        Assert.Equal(modules.Order(), Habilitations.Modules.Where(m => m.Groupe is null && Habilitations.ParDefaut(role, m.Code) > Habilitations.Aucun).Select(m => m.Code).Order());
 
     [Theory]
     [InlineData(Roles.Directeur)]
@@ -78,6 +78,20 @@ public class HabilitationsTests
     [InlineData("POST", "/api/chantier/projets/3f2a/chefs", Habilitations.Chantier, Habilitations.Ecriture)]
     [InlineData("POST", "/api/execution/dossiers/3f2a/terminer", Habilitations.Execution, Habilitations.Ecriture)]
     [InlineData("GET", "/api/repartition/ingenieurs", Habilitations.RepartitionIngenieurs, Habilitations.Lecture)]
+    [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", Habilitations.Dalles, Habilitations.Ecriture)]
+    [InlineData("PUT", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", Habilitations.Dalles, Habilitations.Ecriture)]
+    [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", Habilitations.Projets, Habilitations.Lecture)]
+    [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/adapt", Habilitations.Projets, Habilitations.Ecriture)]
+    [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/contrats", Habilitations.Contrats, Habilitations.Lecture)]
+    [InlineData("POST", "/api/contrats/3f2a/signer", Habilitations.Contrats, Habilitations.Ecriture)]
+    [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/courriers", Habilitations.Courriers, Habilitations.Ecriture)]
+    [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/paiements", Habilitations.Paiements, Habilitations.Lecture)]
+    [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/remboursements", Habilitations.Paiements, Habilitations.Ecriture)]
+    [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/depenses", Habilitations.Depenses, Habilitations.Ecriture)]
+    [InlineData("PUT", "/api/parametres/types-construction", Habilitations.TypesConstruction, Habilitations.Ecriture)]
+    [InlineData("PUT", "/api/parametres/forfaits", Habilitations.Forfaits, Habilitations.Ecriture)]
+    [InlineData("PUT", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/forfait", Habilitations.Forfaits, Habilitations.Ecriture)]
+    [InlineData("POST", "/api/commerciaux", Habilitations.Commerciaux, Habilitations.Ecriture)]
     [InlineData("GET", "/api/statistiques/performance/dessinateurs", Habilitations.PerformanceDessinateurs, Habilitations.Lecture)]
     [InlineData("GET", "/api/statistiques/performance/ingenieurs", Habilitations.PerformanceIngenieurs, Habilitations.Lecture)]
     [InlineData("PUT", "/api/parametres/niveaux", Habilitations.Niveaux, Habilitations.Ecriture)]
@@ -94,7 +108,9 @@ public class HabilitationsTests
     [InlineData("POST", "/api/fichiers/envois")]
     [InlineData("GET", "/api/tableau-de-bord/projets")]
     [InlineData("GET", "/api/statistiques/paiements")]
-    [InlineData("POST", "/api/contrats/3f2a/signer")]
+    [InlineData("GET", "/api/parametres/types-construction")]
+    [InlineData("GET", "/api/parametres/forfaits")]
+    [InlineData("GET", "/api/commerciaux")]
     [InlineData("GET", "/api/devisement")]
     public void Les_listes_de_parametres_et_les_familles_hors_module_ne_dependent_d_aucun_niveau(string methode, string chemin) =>
         Assert.Null(Habilitations.Resoudre(methode, chemin));
@@ -148,5 +164,55 @@ public class HabilitationsTests
         Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(Roles.IngenieurChef, Habilitations.PerformanceDessinateurs));
         Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.ChefProjet, Habilitations.PerformanceDessinateurs));
         Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(Roles.ChefProjet, Habilitations.PerformanceIngenieurs));
+    }
+
+    [Fact]
+    public void L_ingenieur_gere_clients_dalles_devis_contrats_courriers_et_les_listes_du_projet_sans_toucher_aux_paiements_ni_a_l_execution()
+    {
+        foreach (var role in new[] { Roles.Ingenieur, Roles.IngenieurChef })
+        {
+            foreach (var module in new[] { Habilitations.Clients, Habilitations.Devis, Habilitations.Dalles, Habilitations.Contrats, Habilitations.Courriers, Habilitations.Etude,
+                Habilitations.TypesConstruction, Habilitations.Forfaits, Habilitations.Commerciaux })
+                Assert.Equal(Habilitations.Ecriture, Habilitations.ParDefaut(role, module));
+            // Les paiements se consultent seulement ; le reste ne s'ouvre pas.
+            Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(role, Habilitations.Paiements));
+            Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(role, Habilitations.Depenses));
+            foreach (var module in new[] { Habilitations.Execution, Habilitations.Logistique, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Chantier, Habilitations.Tresorerie })
+                Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(role, module));
+        }
+    }
+
+    [Fact]
+    public void Un_dessinateur_ne_gere_ni_dalles_ni_contrats_et_reste_en_lecture_sur_les_depenses()
+    {
+        Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(Roles.Dessinateur, Habilitations.Dalles));
+        Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(Roles.Dessinateur, Habilitations.Contrats));
+        Assert.Equal(Habilitations.Aucun, Habilitations.ParDefaut(Roles.Dessinateur, Habilitations.Paiements));
+        // Éléments accordables : une fonction créée peut les recevoir.
+        Assert.Equal(Habilitations.Ecriture, Habilitations.Niveau(Roles.Dessinateur, Habilitations.Dalles, Habilitations.Ecriture));
+    }
+
+    [Fact]
+    public void La_repartition_des_ingenieurs_se_regle_en_ecriture_pour_la_direction_et_l_ingenieur_en_chef_seulement()
+    {
+        var module = Habilitations.Trouver(Habilitations.RepartitionIngenieurs)!;
+        Assert.False(module.LectureSeule);
+        Assert.Equal(Habilitations.Ecriture, module.Maximum);
+        foreach (var role in new[] { Roles.Directeur, Roles.ChefProjet, Roles.IngenieurChef })
+            Assert.Equal(Habilitations.Ecriture, Habilitations.ParDefaut(role, Habilitations.RepartitionIngenieurs));
+        // Un ingénieur n'en a pas l'accès, et une fonction créée à partir de lui ne peut pas l'obtenir.
+        Assert.Equal(Habilitations.Aucun, Habilitations.Plafond(Roles.Ingenieur, Habilitations.RepartitionIngenieurs));
+        // L'ingénieur en chef peut être ramené à la simple consultation.
+        Assert.Equal(Habilitations.Lecture, Habilitations.Niveau(Roles.IngenieurChef, Habilitations.RepartitionIngenieurs, Habilitations.Lecture));
+    }
+
+    [Fact]
+    public void Les_elements_du_projet_forment_un_groupe_et_chaque_chemin_de_projet_garde_une_seule_regle()
+    {
+        var elements = Habilitations.Modules.Where(m => m.Groupe == Habilitations.GroupeProjet).Select(m => m.Code).ToArray();
+        Assert.Equal(new[] { Habilitations.Dalles, Habilitations.Contrats, Habilitations.Courriers, Habilitations.Paiements, Habilitations.Depenses,
+            Habilitations.TypesConstruction, Habilitations.Forfaits, Habilitations.Commerciaux }.Order(), elements.Order());
+        // Un module écriture-seule laisse la lecture à la règle suivante (ici, le module Projets).
+        Assert.Equal((Habilitations.Projets, Habilitations.Lecture), Habilitations.Resoudre("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles"));
     }
 }

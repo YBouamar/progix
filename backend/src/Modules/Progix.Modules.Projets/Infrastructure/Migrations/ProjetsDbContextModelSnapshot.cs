@@ -932,6 +932,9 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)");
 
+                    b.Property<decimal?>("ForfaitPropre")
+                        .HasColumnType("numeric");
+
                     b.Property<string>("Libelle")
                         .IsRequired()
                         .HasMaxLength(200)

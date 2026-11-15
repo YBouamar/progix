@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Lock, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 
-type Module = { code: string; label: string; aide: string; maximum: number; accordable: boolean };
+type Module = { code: string; label: string; aide: string; maximum: number; accordable: boolean; groupe: string | null };
 type Fonction = {
   code: string; label: string; origine: boolean; reference: string; referenceLabel: string; utilisateurs: number; verrouillee: boolean;
   droits: Record<string, number>; parDefaut: Record<string, number>; plafonds: Record<string, number>;
@@ -114,10 +114,14 @@ export function HabilitationsParam() {
             )}
 
             <ul className="mt-4 divide-y divide-bordure rounded-lg border border-bordure">
-              {vue.modules.map((m) => {
+              {vue.modules.map((m, idx) => {
                 const n = droits[m.code] ?? 0, plafond = f.plafonds[m.code] ?? 0;
+                // Les éléments du projet (dalles, contrats, paiements, listes de la fiche...) se regroupent sous un titre.
+                const titreGroupe = m.groupe && vue.modules[idx - 1]?.groupe !== m.groupe ? m.groupe : null;
                 return (
-                  <li key={m.code} className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
+                  <Fragment key={m.code}>
+                  {titreGroupe && <li className="bg-fond px-4 py-2.5 text-[13px] font-bold">{titreGroupe}<span className="ml-2 font-normal text-secondaire">Chaque élément se règle à part ; la lecture ouvre l&apos;écran, l&apos;écriture permet de créer, modifier et retirer.</span></li>}
+                  <li className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2 px-4 py-3">
                     <div className="min-w-[220px] flex-1">
                       <div className="font-semibold">
                         {m.label}
@@ -143,6 +147,7 @@ export function HabilitationsParam() {
                       ))}
                     </div>
                   </li>
+                  </Fragment>
                 );
               })}
             </ul>

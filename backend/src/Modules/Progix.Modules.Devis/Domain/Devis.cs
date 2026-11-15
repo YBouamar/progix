@@ -43,6 +43,12 @@ public class DevisEntete : Entity
     public Guid? IngenieurId { get; set; }
     public string? IngenieurNom { get; set; }
 
+    /// <summary>
+    /// Ratio passif moyen saisi à la main (kg/m²). Le ratio calculé reste visible sur la fiche ; quand ce ratio existe,
+    /// il est le seul affiché dans les conditions de l'offre. Null : pas de saisie, le ratio calculé s'applique.
+    /// </summary>
+    public decimal? RatioPassifSaisi { get; set; }
+
     /// <summary>Remise finale au m², appliquée sur la surface totale.</summary>
     public decimal RemiseM2 { get; set; }
     public string? RemiseMotif { get; set; }

@@ -21,6 +21,8 @@ export type ProjetDetail = {
   bloque: boolean; blocageMotif: string | null; blocagePar: string | null; blocageLe: string | null;
   supprime: boolean; suppressionMotif: string | null; suppressionPar: string | null; suppressionLe: string | null;
   creePar: string; createdAt: string;
+  /** Forfait en DH/m² propre au projet ; null : la grille des forfaits s'applique. */
+  forfaitPropre: number | null;
 };
 
 export const TON_STATUT: Record<string, "neutre" | "violet" | "orange" | "vert"> = {

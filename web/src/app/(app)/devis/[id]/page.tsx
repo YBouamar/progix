@@ -22,7 +22,7 @@ import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; sys: Record<number, { a: string; g: string }> };
 type EcheanceForm = { label: string; pct: string; retenue: boolean };
 type Form = {
-  dateDevis: string; duree: string; ingenieurId: string; remise: string; motif: string;
+  dateDevis: string; duree: string; ingenieurId: string; remise: string; motif: string; rpSaisi: string;
   echeances: EcheanceForm[]; contrat: string; lignes: LigneForm[]; systemes: number[];
 };
 
@@ -34,7 +34,7 @@ function versForm(d: DevisDetail): Form {
   const systemes = [...new Set(d.lignes.flatMap((l) => l.systemes.map((s) => s.torons)))].sort((a, b) => a - b);
   return {
     dateDevis: d.dateDevis, duree: String(d.dureeValidite), ingenieurId: d.ingenieurId ?? "",
-    remise: fr(d.remiseM2) || "0", motif: d.remiseMotif ?? "",
+    remise: fr(d.remiseM2) || "0", motif: d.remiseMotif ?? "", rpSaisi: fr(d.ratioPassifSaisi ?? 0),
     echeances: d.echeances.map((e) => ({ label: e.label, pct: fr(e.pourcentage), retenue: e.retenue })),
     contrat: d.modalitesContrat ?? "", systemes,
     lignes: d.lignes.map((l) => ({
@@ -85,7 +85,8 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     const lignes = f.lignes.map((l) => ({ l, s: lireNombre(l.surface), ra: lireNombre(l.ra), rp: lireNombre(l.rp) }));
     const surfaceTotale = lignes.reduce((a, x) => a + x.s, 0);
     // Brouillon : forfait de la grille en vigueur selon la surface totale ; devis émis : forfait figé à son calcul.
-    const forfait = d.etat === "brouillon" && d.tranchesForfait.length > 0 ? forfaitDe(d.tranchesForfait, surfaceTotale) : d.forfait;
+    // Un forfait propre au projet remplace la grille.
+    const forfait = d.etat === "brouillon" && d.forfaitPropre ? d.forfaitPropre : d.etat === "brouillon" && d.tranchesForfait.length > 0 ? forfaitDe(d.tranchesForfait, surfaceTotale) : d.forfait;
     let totalHT = 0, actif = 0, passif = 0;
     const rows = lignes.map(({ l, s, ra, rp }) => {
       let sa = 0, sg = 0;
@@ -182,7 +183,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     try {
       const corps = JSON.stringify({
         dateDevis: f.dateDevis, dureeValidite: parseInt(f.duree, 10) || 0, ingenieurId: f.ingenieurId || null,
-        remiseM2: lireNombre(f.remise), remiseMotif: f.motif,
+        remiseM2: lireNombre(f.remise), remiseMotif: f.motif, ratioPassifSaisi: lireNombre(f.rpSaisi) || null,
         echeances: f.echeances.map((e) => ({ label: e.label, pourcentage: lireNombre(e.pct), retenue: e.retenue })),
         modalitesContrat: f.contrat,
         lignes: f.lignes.map((l) => ({
@@ -297,7 +298,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
             <Input inputMode="numeric" disabled={lecture} value={f.duree} onChange={(e) => maj({ duree: e.target.value })} />
           </Field>
           <Field label="Échéance, calculée"><Input disabled value={echeance} /></Field>
-          <Field label="Type et forfait"><Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²`} title="Forfait de la grille du Paramétrage, selon la surface totale du devis." /></Field>
+          <Field label="Type et forfait"><Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²`}  title={d.forfaitPropre ? "Forfait propre au projet, fixé sur la fiche du projet." : "Forfait de la grille, selon la surface totale du devis."} /></Field>
         </div>
       </div>
 
@@ -435,7 +436,12 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                 <td className="sticky left-0 z-10 bg-fond px-4 py-2.5 font-sans">Total et ratios moyens</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right">{ent(calcul.surfaceTotale, 2)}</td>
                 <td className="whitespace-nowrap px-3 py-2.5 text-right" title="Ratio actif moyen, pondéré par la surface des dalles">{ent(calcul.ratioActif, 2)}</td>
-                <td className="whitespace-nowrap px-3 py-2.5 text-right" title="Ratio passif moyen, pondéré par la surface des dalles">{ent(calcul.ratioPassif, 2)}</td>
+                <td className="px-3 py-2 text-right align-top" title="Ratio passif moyen calculé, pondéré par la surface des dalles">
+                  <div className="whitespace-nowrap">{ent(calcul.ratioPassif, 2)}</div>
+                  <div className="mt-1 font-sans text-[11px] font-normal text-secondaire">Saisi</div>
+                  <input aria-label="Ratio passif moyen saisi, en kg/m²" inputMode="decimal" disabled={lecture} placeholder="—" value={f.rpSaisi}
+                    onChange={(e) => maj({ rpSaisi: filtrerDecimal(e.target.value) })} className={CELL} />
+                </td>
                 {f.systemes.length > 0 && <td colSpan={f.systemes.length * 2} className="border-l border-bordure px-3 py-2.5 font-sans text-[12px] font-normal text-secondaire">Ratios en kg/m², pondérés par la surface</td>}
                 <td className="border-l border-bordure" />
                 <td className="whitespace-nowrap px-4 py-2.5 text-right">{formatDH(calcul.totalHT)}</td>
@@ -506,7 +512,8 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
             {([
               ["Surface totale", `${formatNombre(calcul.surfaceTotale)} m²`],
               ["Ratio actif moyen, pondéré", `${ent(calcul.ratioActif, 2)} kg/m²`],
-              ["Ratio passif moyen, pondéré", `${ent(calcul.ratioPassif, 2)} kg/m²`],
+              ["Ratio passif moyen, calculé", `${ent(calcul.ratioPassif, 2)} kg/m²`],
+              ...(lireNombre(f.rpSaisi) > 0 ? [["Ratio passif saisi (conditions de l'offre)", `${ent(lireNombre(f.rpSaisi), 2)} kg/m²`]] : []),
               ["Total HT", formatDH(calcul.totalHT)],
               ...(calcul.remiseTotale > 0 ? [["Remise", `− ${formatDH(calcul.remiseTotale)}`], ["Net HT", formatDH(calcul.netHT)]] : []),
               [d.exonereTva ? "TVA 0 %, client exonéré" : "TVA 20 %", formatDH(calcul.tva)],

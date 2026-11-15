@@ -103,6 +103,7 @@ public class IdentityModule : IModule
     {
         AuthEndpoints.Map(app);
         HabilitationsEndpoints.Map(app);
+        CommerciauxEndpoints.Map(app);
     }
 
     public Task InitializeAsync(IServiceProvider services, CancellationToken ct) => IdentitySeeder.SeedAsync(services, ct);

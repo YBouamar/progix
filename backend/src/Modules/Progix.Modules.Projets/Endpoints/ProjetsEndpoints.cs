@@ -124,6 +124,20 @@ public static class ProjetsEndpoints
             return Results.Ok(await ToDetail(p, partenaires));
         }).RequireAuthorization(Policies.Commercial);
 
+        // Forfait propre au projet (DH/m²) : remplace la grille pour ses devis ; vide, la grille s'applique.
+        // Réservé par les habilitations (module « Prix forfaitaires »). Les brouillons le reprennent à leur prochain enregistrement.
+        g.MapPut("/{id:guid}/forfait", async (Guid id, ForfaitProjetInput input, ProjetsDbContext db, IPartenairesLookup partenaires) =>
+        {
+            var p = await db.Projets.FirstOrDefaultAsync(x => x.Id == id);
+            if (p is null) return Results.NotFound();
+            if (p.Supprime) return Conflit("Un projet supprimé est en lecture seule.");
+            if (input.Forfait is < 0 or > 100000) return Conflit("Le forfait est un prix en DH/m² compris entre 0 et 100 000.");
+            p.ForfaitPropre = input.Forfait is > 0 ? Math.Round(input.Forfait.Value, 2) : null;
+            p.UpdatedAt = DateTime.UtcNow;
+            await db.SaveChangesAsync();
+            return Results.Ok(await ToDetail(p, partenaires));
+        });
+
         // Réaffectation à une autre entité : nouveau code de projet, et nouveaux numéros pour tous ses documents.
         g.MapPost("/{id:guid}/reaffecter", async (Guid id, ReaffectationInput input, ProjetsDbContext db, IPartenairesLookup partenaires,
             IProjetsLookup lookup, IEnumerable<IReaffectationEntite> modules, ClaimsPrincipal user) =>
@@ -262,6 +276,6 @@ public static class ProjetsEndpoints
             p.TypeConstruction, TypesConstruction.Libelle(p.TypeConstruction), p.CommercialId, p.CommercialNom, p.Description,
             p.Statut, StatutsProjet.Labels.GetValueOrDefault(p.Statut, p.Statut),
             p.Bloque, p.BlocageMotif, p.BlocagePar, p.BlocageLe,
-            p.Supprime, p.SuppressionMotif, p.SuppressionPar, p.SuppressionLe, p.CreePar, p.CreatedAt);
+            p.Supprime, p.SuppressionMotif, p.SuppressionPar, p.SuppressionLe, p.CreePar, p.CreatedAt, p.ForfaitPropre);
     }
 }

@@ -36,6 +36,19 @@ public static class Habilitations
     public const string Niveaux = "niveaux";
     public const string Parametrage = "parametrage";
 
+    // Éléments du projet et listes de sa fiche : chacun se règle à part.
+    public const string Dalles = "dalles";
+    public const string Contrats = "contrats";
+    public const string Courriers = "courriers";
+    public const string Paiements = "paiements";
+    public const string Depenses = "depenses";
+    public const string TypesConstruction = "types_construction";
+    public const string Forfaits = "forfaits";
+    public const string Commerciaux = "commerciaux";
+
+    /// <summary>Groupe d'affichage des éléments du projet dans l'écran des habilitations.</summary>
+    public const string GroupeProjet = "Éléments du projet";
+
     /// <param name="LectureSeule">Module de consultation : il n'a pas de niveau « écriture ».</param>
     /// <param name="Accordable">
     /// Vrai : le niveau réglé suffit à donner l'accès, quelle que soit la fonction de référence.
@@ -44,7 +57,8 @@ public static class Habilitations
     /// <param name="Ecrivent">Fonctions d'origine en écriture par défaut.</param>
     /// <param name="Lisent">Fonctions d'origine en lecture par défaut.</param>
     /// <param name="Rouvrable">Fonctions d'origine fermées par défaut sur ce module, mais auxquelles il peut être rouvert jusqu'à son niveau le plus haut.</param>
-    public sealed record Module(string Code, string Label, string Aide, bool LectureSeule, bool Accordable, string[] Ecrivent, string[] Lisent, string[]? Rouvrable = null)
+    /// <param name="Groupe">Regroupement d'affichage dans l'écran des habilitations ; null pour un module de premier niveau.</param>
+    public sealed record Module(string Code, string Label, string Aide, bool LectureSeule, bool Accordable, string[] Ecrivent, string[] Lisent, string[]? Rouvrable = null, string? Groupe = null)
     {
         public int Maximum => LectureSeule ? Lecture : Ecriture;
     }
@@ -53,13 +67,14 @@ public static class Habilitations
     private static readonly string[] Direction = [Roles.Directeur, Roles.ChefProjet];
     // Les chantiers passent par leur menu : le menu Projets leur est fermé par défaut, et peut leur être rouvert.
     private static readonly string[] Chantiers = [Roles.ResponsableChantier, Roles.ChefChantier];
+    private static readonly string[] Ingenieurs = [Roles.IngenieurChef, Roles.Ingenieur];
 
     /// <summary>Modules réglables, dans l'ordre du menu. Les niveaux par défaut reproduisent les droits d'avant les habilitations.</summary>
     public static readonly IReadOnlyList<Module> Modules =
     [
         new(Projets, "Projets", "Fiches de projet, dalles et suivi du chantier. Qui crée un projet, valide une étape ou signe reste fixé par la fonction de référence.", false, false, Tous.Except(Chantiers).ToArray(), [], Chantiers),
         new(Devis, "Devis", "Devis, leurs versions et leurs imports.", false, true, Policies.RolesDevis, []),
-        new(Clients, "Clients et partenaires", "Fiches des clients et des partenaires.", false, true, Policies.RolesCommercial, []),
+        new(Clients, "Clients et partenaires", "Fiches des clients et des partenaires.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], []),
         new(Livraisons, "Livraisons", "Bons de livraison.", false, true, Policies.RolesCommercial, []),
         new(Facturation, "Facturation", "Factures, avoirs et encaissements.", false, true, Policies.RolesCommercial, []),
         new(Tresorerie, "Trésorerie", "Encaissements, dépenses et marge, avec leurs exports.", true, true, [], Policies.RolesCommercial),
@@ -67,11 +82,21 @@ public static class Habilitations
         new(Execution, "Exécution", "Exécution des dalles : dessinateurs, dossiers EXE et MODIF, suivi par jour. L'affectation des dessinateurs reste aux responsables.", false, false, [Roles.Directeur, Roles.ChefProjet, Roles.DessinateurChef, Roles.Dessinateur], []),
         new(Chantier, "Chantier", "Suivi des dalles sur le terrain : étapes, fiches, photos et dépenses de chantier. Un chef de chantier n'y voit que les projets où il est affecté ; l'affectation reste aux responsables.", false, false, [.. Direction, .. Chantiers], []),
         new(Logistique, "Logistique", "Commandes usine et stock.", false, true, Policies.RolesLogistique, []),
-        new(RepartitionIngenieurs, "Répartition des ingénieurs", "Charge des ingénieurs par projet.", true, false, [], [.. Direction, Roles.IngenieurChef]),
+        new(RepartitionIngenieurs, "Répartition des ingénieurs", "Charge des ingénieurs par projet, et affectation des ingénieurs aux projets (écriture).", false, false, [.. Direction, Roles.IngenieurChef], []),
         new(PerformanceDessinateurs, "Performance des dessinateurs", "Dalles finies et surface étudiée par dessinateur.", true, false, [], [.. Direction, Roles.DessinateurChef]),
         new(PerformanceIngenieurs, "Performance des ingénieurs", "Projets et surface suivis par ingénieur.", true, false, [], [.. Direction, Roles.IngenieurChef]),
         new(Niveaux, "Niveaux des dalles", "Liste des niveaux proposés à la création d'une dalle.", false, false, Direction, []),
         new(Parametrage, "Paramétrage", "Réglages de l'application. Les utilisateurs et les habilitations restent au directeur et au chef de projet.", false, false, [.. Direction, Roles.ResponsableLogistique], []),
+
+        // Éléments du projet. Le niveau « lecture » ouvre les écrans de l'élément ; « écriture » permet de le créer et de le modifier.
+        new(Dalles, "Gestion des dalles", "Créer, modifier et supprimer les dalles d'un projet. Les études, l'exécution et le chantier gardent leurs modules.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
+        new(Contrats, "Contrats", "Contrats d'un projet : création, signature, annulation.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
+        new(Courriers, "Courriers", "Courriers d'un projet. Les attestations restent à la direction et à l'administratif.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
+        new(Paiements, "Paiements du projet", "Paiements et remboursements d'un projet.", false, true, Policies.RolesCommercial, Ingenieurs, null, GroupeProjet),
+        new(Depenses, "Dépenses du projet", "Dépenses de dalle d'un projet. Le menu Chantier garde la saisie des dépenses de chantier.", false, true, Policies.RolesCommercial, Tous.Except(Policies.RolesCommercial).Except(Chantiers).ToArray(), null, GroupeProjet),
+        new(TypesConstruction, "Types de construction", "Ajouter, renommer, ordonner ou retirer les types proposés sur la fiche du projet.", false, true, [.. Direction, .. Ingenieurs], [], null, GroupeProjet),
+        new(Forfaits, "Prix forfaitaires", "Forfait propre à un projet, et grille des forfaits des devis.", false, true, [.. Direction, Roles.ResponsableAdministratif, .. Ingenieurs], [], null, GroupeProjet),
+        new(Commerciaux, "Commerciaux", "Ajouter, renommer ou désactiver les commerciaux proposés sur la fiche du projet.", false, true, [.. Direction, .. Ingenieurs], [], null, GroupeProjet),
     ];
 
     public static Module? Trouver(string code) => Modules.FirstOrDefault(m => m.Code == code);
@@ -99,8 +124,19 @@ public static class Habilitations
 
     // Du plus précis au plus général. Les familles absentes (authentification, fichiers, tableau de bord, documents signés par
     // identifiant) ne dépendent pas d'un module : leurs propres règles s'appliquent.
+    private const string Guid36 = "[0-9a-fA-F-]{36}";
+
     private static readonly (Regex Chemin, string Module, Mode Mode)[] Regles =
     [
+        // Éléments du projet : avant la règle générale des projets. En lecture, les modules « écritures seulement » laissent la règle suivante s'appliquer.
+        (new($@"^/api/projets/{Guid36}/dalles(/{Guid36})?/?$", RegexOptions.Compiled), Dalles, Mode.EcrituresSeulement),
+        (new($@"^/api/(projets/{Guid36}/contrats|contrats)(/|$)", RegexOptions.Compiled), Contrats, Mode.Normal),
+        (new($@"^/api/(projets/{Guid36}/courriers|courriers)(/|$)", RegexOptions.Compiled), Courriers, Mode.Normal),
+        (new($@"^/api/projets/{Guid36}/(paiements|remboursements|especes)(/|$)", RegexOptions.Compiled), Paiements, Mode.Normal),
+        (new($@"^/api/projets/{Guid36}/depenses(/|$)", RegexOptions.Compiled), Depenses, Mode.Normal),
+        (new(@"^/api/parametres/types-construction(/|$)", RegexOptions.Compiled), TypesConstruction, Mode.EcrituresSeulement),
+        (new($@"^/api/(parametres/forfaits|projets/{Guid36}/forfait)(/|$)", RegexOptions.Compiled), Forfaits, Mode.EcrituresSeulement),
+        (new(@"^/api/commerciaux(/|$)", RegexOptions.Compiled), Commerciaux, Mode.EcrituresSeulement),
         (new(@"^/api/devis(/|$)", RegexOptions.Compiled), Devis, Mode.Normal),
         (new(@"^/api/partenaires(/|$)", RegexOptions.Compiled), Clients, Mode.Normal),
         (new(@"^/api/livraisons(/|$)", RegexOptions.Compiled), Livraisons, Mode.Normal),
@@ -126,7 +162,7 @@ public static class Habilitations
         foreach (var (re, module, mode) in Regles)
         {
             if (!re.IsMatch(chemin)) continue;
-            if (lecture && mode == Mode.EcrituresSeulement) return null;
+            if (lecture && mode == Mode.EcrituresSeulement) continue;
             return (module, lecture ? Lecture : Trouver(module)!.Maximum);
         }
         return null;

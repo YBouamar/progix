@@ -100,7 +100,7 @@ public static class HabilitationsEndpoints
         var ordre = Roles.All.Select((r, i) => (r.Code, i)).ToDictionary(x => x.Code, x => x.i);
         return new
         {
-            modules = Habilitations.Modules.Select(m => new { code = m.Code, label = m.Label, aide = m.Aide, maximum = m.Maximum, accordable = m.Accordable }),
+            modules = Habilitations.Modules.Select(m => new { code = m.Code, label = m.Label, aide = m.Aide, maximum = m.Maximum, accordable = m.Accordable, groupe = m.Groupe }),
             references = Roles.All.Where(r => r.Code != Roles.Directeur).Select(r => new { code = r.Code, label = r.Label }),
             fonctions = roles.Where(r => r.Name is not null && fonctions.ContainsKey(r.Name)).Select(r => (Role: r, F: fonctions[r.Name!]))
                 .OrderBy(x => x.F.Origine ? 0 : 1).ThenBy(x => x.F.Origine ? ordre.GetValueOrDefault(x.F.Code, 99) : 0).ThenBy(x => x.F.Label)

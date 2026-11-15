@@ -22,7 +22,9 @@ public static class EquipeEndpoints
     private static bool PeutAffecter(ClaimsPrincipal u, string cible) =>
         u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ChefProjet) || u.IsInRole(cible);
 
-    private static bool PeutIngenieurs(ClaimsPrincipal u) => PeutAffecter(u, Roles.IngenieurChef);
+    /// <summary>Affecter un ingénieur : niveau « écriture » sur le module Répartition des ingénieurs (directeur, chef de projet et ingénieur en chef d'origine).</summary>
+    private static async Task<bool> PeutIngenieursAsync(IHabilitations habilitations, ClaimsPrincipal u) =>
+        await habilitations.NiveauAsync(u, Habilitations.RepartitionIngenieurs) >= Habilitations.Ecriture;
     private static bool PeutDessinateurs(ClaimsPrincipal u) => PeutAffecter(u, Roles.DessinateurChef);
     private static bool PeutChefsChantier(ClaimsPrincipal u) => PeutAffecter(u, Roles.ResponsableChantier);
 
@@ -30,14 +32,15 @@ public static class EquipeEndpoints
     {
         var g = app.MapGroup("/api/projets/{id:guid}").WithTags("Équipe").RequireAuthorization();
 
-        g.MapGet("/equipe", async (Guid id, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
-            Results.Ok(await Equipe(id, db, users, user)));
+        g.MapGet("/equipe", async (Guid id, ProjetsDbContext db, IUtilisateursLookup users, IHabilitations habilitations, ClaimsPrincipal user) =>
+            Results.Ok(await Equipe(id, db, users, user, await PeutIngenieursAsync(habilitations, user))));
 
-        g.MapPost("/equipe", async (Guid id, AffectationInput input, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
+        g.MapPost("/equipe", async (Guid id, AffectationInput input, ProjetsDbContext db, IUtilisateursLookup users, IHabilitations habilitations, ClaimsPrincipal user) =>
         {
+            var peutIngenieurs = await PeutIngenieursAsync(habilitations, user);
             var (roles, droit) = input.Fonction switch
             {
-                Fonctions.Ingenieur => (RolesIngenieurs, PeutIngenieurs(user)),
+                Fonctions.Ingenieur => (RolesIngenieurs, peutIngenieurs),
                 Fonctions.ChefChantier => (RolesChefsChantier, PeutChefsChantier(user)),
                 _ => ([], false),
             };
@@ -62,18 +65,19 @@ public static class EquipeEndpoints
                 ProjetId = id, Fonction = input.Fonction, UserId = personne.Id, UserNom = personne.Nom, Debut = DateOnly.FromDateTime(DateTime.UtcNow),
             });
             await db.SaveChangesAsync();
-            return Results.Ok(await Equipe(id, db, users, user));
+            return Results.Ok(await Equipe(id, db, users, user, peutIngenieurs));
         });
 
-        g.MapPost("/equipe/{aid:guid}/retirer", async (Guid id, Guid aid, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
+        g.MapPost("/equipe/{aid:guid}/retirer", async (Guid id, Guid aid, ProjetsDbContext db, IUtilisateursLookup users, IHabilitations habilitations, ClaimsPrincipal user) =>
         {
+            var peutIngenieurs = await PeutIngenieursAsync(habilitations, user);
             var a = await db.Affectations.FirstOrDefaultAsync(x => x.Id == aid && x.ProjetId == id && x.Fin == null);
             if (a is null) return Results.NotFound();
-            if (!(a.Fonction == Fonctions.Ingenieur ? PeutIngenieurs(user) : PeutChefsChantier(user))) return Results.Forbid();
+            if (!(a.Fonction == Fonctions.Ingenieur ? peutIngenieurs : PeutChefsChantier(user))) return Results.Forbid();
             a.Fin = DateOnly.FromDateTime(DateTime.UtcNow);
             a.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
-            return Results.Ok(await Equipe(id, db, users, user));
+            return Results.Ok(await Equipe(id, db, users, user, peutIngenieurs));
         });
 
         g.MapPut("/dalles/{did:guid}/dessinateur", async (Guid id, Guid did, DessinateurInput input, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user) =>
@@ -95,7 +99,7 @@ public static class EquipeEndpoints
         });
     }
 
-    private static async Task<object> Equipe(Guid id, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user)
+    private static async Task<object> Equipe(Guid id, ProjetsDbContext db, IUtilisateursLookup users, ClaimsPrincipal user, bool peutIngenieurs)
     {
         var rows = await db.Affectations.AsNoTracking().Where(a => a.ProjetId == id).ToListAsync();
         object Liste(string fonction) => rows.Where(a => a.Fonction == fonction)
@@ -113,7 +117,7 @@ public static class EquipeEndpoints
                 chefsChantier = await Candidats(RolesChefsChantier),
                 dessinateurs = await Candidats(RolesDessinateurs),
             },
-            droits = new { ingenieurs = PeutIngenieurs(user), chefsChantier = PeutChefsChantier(user), dessinateurs = PeutDessinateurs(user) },
+            droits = new { ingenieurs = peutIngenieurs, chefsChantier = PeutChefsChantier(user), dessinateurs = PeutDessinateurs(user) },
         };
     }
 }

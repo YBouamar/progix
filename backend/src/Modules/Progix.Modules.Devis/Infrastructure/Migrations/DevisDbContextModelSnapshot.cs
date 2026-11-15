@@ -118,6 +118,9 @@ namespace Progix.Modules.Devis.Infrastructure.Migrations
                     b.Property<Guid>("ProjetId")
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("RatioPassifSaisi")
+                        .HasColumnType("numeric");
+
                     b.Property<decimal>("RemiseM2")
                         .HasPrecision(14, 2)
                         .HasColumnType("numeric(14,2)");

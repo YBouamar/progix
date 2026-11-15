@@ -14,14 +14,15 @@ namespace Progix.Modules.Projets.Endpoints;
 public record TypeConstructionInput(string? Code, string? Libelle, bool Actif);
 public record TypesConstructionInput(List<TypeConstructionInput>? Types);
 
-/// <summary>Types de construction proposés à la création d'un projet : liste ordonnée, réglée dans le Paramétrage par le directeur ou le chef de projet.</summary>
+/// <summary>Types de construction proposés à la création d'un projet : liste ordonnée, réglée par les fonctions qui ont l'écriture sur le module « Types de construction » (Paramétrage, ou boutons de la fiche du projet).</summary>
 public static class TypesConstructionEndpoints
 {
     public static void Map(IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/api/parametres/types-construction").WithTags("Paramétrage").RequireAuthorization();
-        g.MapGet("/", async (ProjetsDbContext db, ClaimsPrincipal user) => Results.Ok(await Vue(db, user)));
-        g.MapPut("/", async (TypesConstructionInput input, ProjetsDbContext db, ClaimsPrincipal user) =>
+        g.MapGet("/", async (ProjetsDbContext db, IHabilitations habilitations, ClaimsPrincipal user) => Results.Ok(await Vue(db, await Modifiable(habilitations, user))));
+        // L'écriture est réservée par les habilitations (module « Types de construction »), pour toute la route.
+        g.MapPut("/", async (TypesConstructionInput input, ProjetsDbContext db, IHabilitations habilitations, ClaimsPrincipal user) =>
         {
             var liste = (input.Types ?? []).Select(t => t with { Libelle = t.Libelle?.Trim() }).ToList();
             if (liste.Any(t => string.IsNullOrEmpty(t.Libelle))) return ProjetsEndpoints.Conflit("Chaque type a un libellé.");
@@ -50,8 +51,8 @@ public static class TypesConstructionEndpoints
             }
             await db.SaveChangesAsync();
             TypesConstruction.Charger(await db.TypesConstruction.AsNoTracking().ToListAsync());
-            return Results.Ok(await Vue(db, user));
-        }).RequireAuthorization(Policies.Direction);
+            return Results.Ok(await Vue(db, true));
+        });
     }
 
     /// <summary>Code stable d'un nouveau type, tiré de son libellé : « Bâtiment industriel » donne « batiment_industriel ».</summary>
@@ -71,13 +72,16 @@ public static class TypesConstructionEndpoints
         return code;
     }
 
-    private static async Task<object> Vue(ProjetsDbContext db, ClaimsPrincipal user)
+    private static async Task<bool> Modifiable(IHabilitations habilitations, ClaimsPrincipal user) =>
+        await habilitations.NiveauAsync(user, Habilitations.TypesConstruction) >= Habilitations.Ecriture;
+
+    private static async Task<object> Vue(ProjetsDbContext db, bool modifiable)
     {
         var types = await db.TypesConstruction.AsNoTracking().OrderBy(t => t.Ordre).ToListAsync();
         var parType = await db.Projets.GroupBy(p => p.TypeConstruction).Select(x => new { x.Key, Nb = x.Count() }).ToDictionaryAsync(x => x.Key, x => x.Nb);
         return new
         {
-            modifiable = Policies.RolesDirection.Any(user.IsInRole),
+            modifiable,
             types = types.Select(t => new { code = t.Code, libelle = t.Libelle, actif = t.Actif, projets = parType.GetValueOrDefault(t.Code) }),
         };
     }

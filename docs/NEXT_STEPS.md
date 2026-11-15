@@ -1,12 +1,12 @@
 # Prochaines étapes
 
-**Dernière mise à jour** : 2026-11-13
+**Dernière mise à jour** : 2026-11-14
 
 Par ordre de priorité. Chaque étape doit pouvoir démarrer une session. Retirer une étape terminée lors du `/handoff`.
 
 ## 1. Mettre la production à jour avec le dernier commit du 2026-11-12
 
-La production (`/opt/apps/progix`) a reçu le 2026-11-12 vers 1 h 45 les commits jusqu'à `915d3f2`. Restent les commits suivants (étapes 2 et 3 du devis, avancement, avis d'affectation, documents du devis et dossier ZIP), sans migration : sauvegarde, `git pull --ff-only`, `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`, puis contrôle des services et de `/api/health`.
+La production (`/opt/apps/progix`) a reçu le 2026-11-12 vers 1 h 45 les commits jusqu'à `915d3f2`. Restent les commits suivants (étapes 2 et 3 du devis, avancement, avis d'affectation, documents du devis et dossier ZIP, ratios moyens), puis les retours de la séance du 13 novembre (forfait propre, ratio passif saisi, mezzanine, éléments du projet dans les habilitations), **qui contiennent deux migrations** (`ForfaitPropreEtMezzanine`, `RatioPassifSaisi`) : sauvegarde, `git pull --ff-only`, `docker compose -f docker-compose.prod.yml --env-file .env up -d --build`, puis contrôle des services et de `/api/health`.
 
 ## 2. Essais par le métier des écrans livrés les 11 et 12 novembre
 
@@ -19,6 +19,10 @@ Aucun retour reçu à ce jour. À essayer avec des données réelles, et noter l
 - import du fond de plan DXF dans AutoCAD 2021 et ADAPT Builder.
 
 ## 3. Décisions à prendre (aucun code avant réponse)
+
+- Ingénieur : peut-il aussi **créer et modifier un projet** (aujourd'hui fonctions commerciales seulement) ? Sans cela, les boutons de gestion des types et des commerciaux du formulaire du projet ne lui servent pas.
+- Boutons de gestion à ajouter aux autres listes liées au projet (niveaux d'une dalle, catégories de dépense, accessoires) ?
+- Commercial créé par le bouton : il n'a pas de mot de passe connu ; faut-il un envoi d'invitation par courriel ?
 
 - Exécution, deux règles codées « à confirmer » : qui ouvre un dossier ; ce qu'il faut pour le terminer (plan, modèle, dessinateur, surface).
 - Étude : dépôt des pièces et réouverture, règle « à confirmer ».

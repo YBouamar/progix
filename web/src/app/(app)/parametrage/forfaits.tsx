@@ -14,7 +14,7 @@ type Ligne = { de: string; prix: string };
 const fr = (n: number) => String(n).replace(".", ",");
 
 /** Grille unique des forfaits du devis, par tranche de surface totale, pour tous les types de construction. */
-export function ForfaitsParam() {
+export function ForfaitsParam({ integre, onChange }: { integre?: boolean; onChange?: () => void } = {}) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
@@ -34,13 +34,14 @@ export function ForfaitsParam() {
     try {
       charger(await api<Vue>("/parametres/forfaits", { method: "PUT", body: JSON.stringify({ tranches: lignes.map((l) => ({ aPartirDe: lireNombre(l.de), prix: lireNombre(l.prix) })) }) }));
       setMessage({ ok: true, texte: "Grille enregistrée. Elle s'applique aux brouillons à leur prochain enregistrement ; les devis émis gardent leur forfait." });
+      onChange?.();
     } catch (e) {
       setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Enregistrement impossible." });
     }
   }
 
   return (
-    <div className="rounded-xl border border-bordure bg-white p-6">
+    <div className={cn(!integre && "rounded-xl border border-bordure bg-white p-6")}>
       <h2 className="text-[15px] font-bold">Devis : grille des forfaits</h2>
       <p className="mt-1 text-[13px] text-secondaire">
         Forfait en DH/m² ajouté au prix de chaque dalle, choisi selon la surface totale du devis (somme des dalles), quel que soit le type de construction.
@@ -68,7 +69,7 @@ export function ForfaitsParam() {
           <Button onClick={enregistrer}>Enregistrer</Button>
           {message && <span role={message.ok ? "status" : "alert"} className={cn("text-[13px]", message.ok ? "text-vert-texte" : "text-rouge-texte")}>{message.texte}</span>}
         </div>
-      ) : <p className="mt-4 text-[13px] text-secondaire">Consultation seule : la grille est modifiée par le directeur, le chef de projet ou le responsable administratif.</p>}
+      ) : <p className="mt-4 text-[13px] text-secondaire">Consultation seule : votre fonction n&apos;a pas l&apos;écriture sur le module « Prix forfaitaires ».</p>}
     </div>
   );
 }

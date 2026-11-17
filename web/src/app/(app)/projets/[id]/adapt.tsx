@@ -6,7 +6,7 @@ import { formatDateHeure, formatNombre, formatSurface } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 
-export type SystemeAdapt = { torons: number; ancrages: number; gaine: number; longueurGaines: number };
+export type SystemeAdapt = { torons: number; ancrages: number; gaine: number; longueurTorons: number };
 export type Adapt = {
   ratioActif: number; ratioPassif: number; surfacePlancher: number; plancher: string | null;
   fichierPt: string; fichierRebar: string; fichierPtId?: string | null; fichierRebarId?: string | null; importeLe: string; importePar: string; systemes: SystemeAdapt[];
@@ -108,8 +108,8 @@ export function AdaptDalle<T extends DalleAdapt>({ projetId, dalle, peutImporter
               <tr>
                 <th className="py-2 font-semibold">Type d&apos;ancrage</th>
                 <th className="py-2 text-right font-semibold">Ancrages</th>
-                <th className="py-2 text-right font-semibold">Gaine (Strand Length)</th>
-                <th className="py-2 text-right font-semibold">Tendon/Duct Length</th>
+                <th className="py-2 text-right font-semibold">Gaine (Tendon/Duct Length)</th>
+                <th className="py-2 text-right font-semibold">Strand Length</th>
               </tr>
             </thead>
             <tbody>
@@ -118,7 +118,7 @@ export function AdaptDalle<T extends DalleAdapt>({ projetId, dalle, peutImporter
                   <td className="py-2 font-semibold">S{s.torons}</td>
                   <td className="py-2 text-right font-display">{s.ancrages}</td>
                   <td className="py-2 text-right font-display">{formatNombre(s.gaine)} m</td>
-                  <td className="py-2 text-right font-display text-secondaire">{formatNombre(s.longueurGaines)} m</td>
+                  <td className="py-2 text-right font-display text-secondaire">{formatNombre(s.longueurTorons)} m</td>
                 </tr>
               ))}
             </tbody>

@@ -333,7 +333,7 @@ public static class DevisEndpoints
 
     /// <summary>
     /// Reprise des exports ADAPT de la dalle : ratios actif et passif, puis par type d'ancrage le nombre de câbles (ancrages)
-    /// et le cumul de Strand Length (gaine). Sans import ADAPT, la ligne reste telle quelle.
+    /// et le cumul de Tendon/Duct Length (gaine). Sans import ADAPT, la ligne reste telle quelle.
     /// Un seul export lu : seule sa part est reprise (PTTotal : ratio actif et câbles ; RebarTotal : ratio passif).
     /// </summary>
     internal static bool RepriseAdapt(LigneDevis l, DalleResume dalle)

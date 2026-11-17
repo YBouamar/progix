@@ -174,7 +174,7 @@ public record DalleResume(Guid Id, string Reference, string Emplacement, decimal
 public record AdaptResume(decimal RatioActif, decimal RatioPassif, IReadOnlyList<SystemeAdaptResume> Systemes, bool AvecPt = true, bool AvecRebar = true);
 
 /// <param name="Ancrages">Nombre de câbles du type d'ancrage.</param>
-/// <param name="Gaine">Cumul de Strand Length, en mètres.</param>
+/// <param name="Gaine">Cumul de Tendon/Duct Length, en mètres.</param>
 public record SystemeAdaptResume(int Torons, int Ancrages, decimal Gaine);
 
 /// <summary>

@@ -45,10 +45,10 @@ public class SystemeAdapt
     /// <summary>Nombre de lignes de câbles du type : c'est le nombre d'ancrages repris dans le devis.</summary>
     public int Cables { get; set; }
 
-    /// <summary>Cumul de Strand Length, en mètres : c'est la longueur de gaine reprise dans le devis.</summary>
+    /// <summary>Cumul de Strand Length, en mètres (longueur de toron, soit la gaine × le nombre de torons) : gardé pour information.</summary>
     public decimal LongueurTorons { get; set; }
 
-    /// <summary>Cumul de Tendon/Duct Length, en mètres, gardé pour information.</summary>
+    /// <summary>Cumul de Tendon/Duct Length, en mètres : c'est la longueur de gaine reprise dans le devis.</summary>
     public decimal LongueurGaines { get; set; }
 }
 

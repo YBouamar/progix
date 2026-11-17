@@ -51,7 +51,7 @@ public class LectureAdaptTests
         Assert.Equal(12.85m, a.RatioPassif);
         Assert.Equal(1409.58m, a.SurfacePlancher);
         Assert.Equal("SOHAUS · PH-2EME · essai.adm", a.Plancher);
-        // Le câble d'un autre plan est ignoré ; ancrages = nombre de lignes, gaine = cumul de Strand Length.
+        // Le câble d'un autre plan est ignoré ; ancrages = nombre de lignes, gaine = cumul de Tendon/Duct Length (le cumul de Strand Length, gardé pour information, vaut gaine × torons).
         Assert.Collection(a.Systemes,
             s => { Assert.Equal(1, s.Torons); Assert.Equal(2, s.Cables); Assert.Equal(31.38m, s.LongueurTorons); Assert.Equal(31.38m, s.LongueurGaines); },
             s => { Assert.Equal(2, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(27.88m, s.LongueurTorons); Assert.Equal(13.94m, s.LongueurGaines); },

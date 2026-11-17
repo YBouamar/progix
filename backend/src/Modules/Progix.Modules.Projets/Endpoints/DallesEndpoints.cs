@@ -331,7 +331,7 @@ public static class DallesEndpoints
         {
             ratioActif = a.RatioActif, ratioPassif = a.RatioPassif, surfacePlancher = a.SurfacePlancher, plancher = a.Plancher,
             fichierPt = a.FichierPt, fichierRebar = a.FichierRebar, fichierPtId = a.FichierPtId, fichierRebarId = a.FichierRebarId, importeLe = a.ImporteLe, importePar = a.ImportePar,
-            systemes = a.Systemes.Select(s => new { torons = s.Torons, ancrages = s.Cables, gaine = s.LongueurTorons, longueurGaines = s.LongueurGaines }),
+            systemes = a.Systemes.Select(s => new { torons = s.Torons, ancrages = s.Cables, gaine = s.LongueurGaines, longueurTorons = s.LongueurTorons }),
         },
         etape = d.EtapesFaites >= Etapes.Total ? "Réalisée" : d.EtapesFaites == 0 ? "Non commencée" : $"{d.EtapesFaites + 1} · {Etapes.Get(d.EtapesFaites + 1).Label}",
     };

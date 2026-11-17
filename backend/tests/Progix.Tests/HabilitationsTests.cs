@@ -80,6 +80,7 @@ public class HabilitationsTests
     [InlineData("GET", "/api/repartition/ingenieurs", Habilitations.RepartitionIngenieurs, Habilitations.Lecture)]
     [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", Habilitations.Dalles, Habilitations.Ecriture)]
     [InlineData("PUT", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", Habilitations.Dalles, Habilitations.Ecriture)]
+    [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/niveaux", Habilitations.Dalles, Habilitations.Ecriture)]
     [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", Habilitations.Projets, Habilitations.Lecture)]
     [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/adapt", Habilitations.Projets, Habilitations.Ecriture)]
     [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/contrats", Habilitations.Contrats, Habilitations.Lecture)]

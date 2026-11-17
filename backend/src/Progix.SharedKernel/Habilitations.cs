@@ -129,7 +129,7 @@ public static class Habilitations
     private static readonly (Regex Chemin, string Module, Mode Mode)[] Regles =
     [
         // Éléments du projet : avant la règle générale des projets. En lecture, les modules « écritures seulement » laissent la règle suivante s'appliquer.
-        (new($@"^/api/projets/{Guid36}/dalles(/{Guid36})?/?$", RegexOptions.Compiled), Dalles, Mode.EcrituresSeulement),
+        (new($@"^/api/projets/{Guid36}/dalles(/{Guid36}|/niveaux)?/?$", RegexOptions.Compiled), Dalles, Mode.EcrituresSeulement),
         (new($@"^/api/(projets/{Guid36}/contrats|contrats)(/|$)", RegexOptions.Compiled), Contrats, Mode.Normal),
         (new($@"^/api/(projets/{Guid36}/courriers|courriers)(/|$)", RegexOptions.Compiled), Courriers, Mode.Normal),
         (new($@"^/api/projets/{Guid36}/(paiements|remboursements|especes)(/|$)", RegexOptions.Compiled), Paiements, Mode.Normal),

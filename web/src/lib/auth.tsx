@@ -56,6 +56,8 @@ export const peutLire = (u: User | null, module: string) => niveauSur(u, module)
 export const peutEcrire = (u: User | null, module: string) => niveauSur(u, module) >= 2;
 /** Création et modification des projets et des dalles : fonctions commerciales, si le module Projets leur est ouvert en écriture. */
 export const peutGererCommercial = (u: User | null) => !!u && COMMERCIAL.includes(u.role) && peutEcrire(u, "projets");
+/** Création d'un projet et modification de sa fiche : module « Création des projets » en écriture (fonctions commerciales et ingénieurs par défaut). */
+export const peutGererProjets = (u: User | null) => peutEcrire(u, "gestion_projets");
 export const peutDiriger = (u: User | null) => !!u && ["directeur", "chef_projet"].includes(u.role);
 const MONTANTS = ["directeur", "chef_projet", "responsable_administratif", "administrateur", "ingenieur_chef", "ingenieur"];
 export const voitMontants = (u: User | null) => !!u && MONTANTS.includes(u.role);

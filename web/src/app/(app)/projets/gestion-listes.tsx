@@ -1,21 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Settings2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { cn, filtrerDecimal, lireNombre } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { ForfaitsParam } from "../parametrage/forfaits";
+import { NiveauxParam } from "../parametrage/niveaux";
 import { TypesConstructionParam } from "../parametrage/types-construction";
 
 /** Petit bouton « gérer la liste », placé à côté d'un champ à choix : visible seulement pour qui a l'écriture sur l'élément. */
 export function BoutonGerer({ libelle, onClick }: { libelle: string; onClick: () => void }) {
   return (
     <button type="button" onClick={onClick} title={libelle} aria-label={libelle}
-      className="inline-flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border border-bordure-forte bg-white text-secondaire hover:bg-fond hover:text-marine">
-      <Settings2 size={16} aria-hidden />
+      className="inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold text-secondaire hover:bg-fond hover:text-marine">
+      <Plus size={15} aria-hidden />Ajouter
     </button>
   );
 }
@@ -27,6 +28,17 @@ export function GererTypes({ onClose, onChange }: { onClose: () => void; onChang
       description="Les changements s'appliquent tout de suite à la liste du projet."
       footer={<Button variant="outline" onClick={onClose}>Fermer</Button>}>
       <TypesConstructionParam integre onChange={onChange} />
+    </Modal>
+  );
+}
+
+/** Niveaux des dalles : ajouter, renommer, ordonner ou désactiver, depuis la création d'une dalle. */
+export function GererNiveaux({ onClose, onChange }: { onClose: () => void; onChange: () => void }) {
+  return (
+    <Modal large open onOpenChange={(o) => !o && onClose()} title="Niveaux des dalles"
+      description="Les changements s'appliquent tout de suite à la liste des niveaux."
+      footer={<Button variant="outline" onClick={onClose}>Fermer</Button>}>
+      <NiveauxParam integre onChange={onChange} />
     </Modal>
   );
 }

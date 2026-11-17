@@ -38,6 +38,7 @@ public static class Habilitations
 
     // Éléments du projet et listes de sa fiche : chacun se règle à part.
     public const string Dalles = "dalles";
+    public const string GestionProjets = "gestion_projets";
     public const string Contrats = "contrats";
     public const string Courriers = "courriers";
     public const string Paiements = "paiements";
@@ -72,7 +73,7 @@ public static class Habilitations
     /// <summary>Modules réglables, dans l'ordre du menu. Les niveaux par défaut reproduisent les droits d'avant les habilitations.</summary>
     public static readonly IReadOnlyList<Module> Modules =
     [
-        new(Projets, "Projets", "Fiches de projet, dalles et suivi du chantier. Qui crée un projet, valide une étape ou signe reste fixé par la fonction de référence.", false, false, Tous.Except(Chantiers).ToArray(), [], Chantiers),
+        new(Projets, "Projets", "Fiches de projet, dalles et suivi du chantier. La création des projets a son module ; qui valide une étape ou signe reste fixé par la fonction de référence.", false, false, Tous.Except(Chantiers).ToArray(), [], Chantiers),
         new(Devis, "Devis", "Devis, leurs versions et leurs imports.", false, true, Policies.RolesDevis, []),
         new(Clients, "Clients et partenaires", "Fiches des clients et des partenaires.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], []),
         new(Livraisons, "Livraisons", "Bons de livraison.", false, true, Policies.RolesCommercial, []),
@@ -85,10 +86,11 @@ public static class Habilitations
         new(RepartitionIngenieurs, "Répartition des ingénieurs", "Charge des ingénieurs par projet, et affectation des ingénieurs aux projets (écriture).", false, false, [.. Direction, Roles.IngenieurChef], []),
         new(PerformanceDessinateurs, "Performance des dessinateurs", "Dalles finies et surface étudiée par dessinateur.", true, false, [], [.. Direction, Roles.DessinateurChef]),
         new(PerformanceIngenieurs, "Performance des ingénieurs", "Projets et surface suivis par ingénieur.", true, false, [], [.. Direction, Roles.IngenieurChef]),
-        new(Niveaux, "Niveaux des dalles", "Liste des niveaux proposés à la création d'une dalle.", false, false, Direction, []),
+        new(Niveaux, "Niveaux des dalles", "Liste des niveaux proposés à la création d'une dalle : ajouter, renommer, ordonner, désactiver.", false, true, [.. Direction, .. Ingenieurs], []),
         new(Parametrage, "Paramétrage", "Réglages de l'application. Les utilisateurs et les habilitations restent au directeur et au chef de projet.", false, false, [.. Direction, Roles.ResponsableLogistique], []),
 
         // Éléments du projet. Le niveau « lecture » ouvre les écrans de l'élément ; « écriture » permet de le créer et de le modifier.
+        new(GestionProjets, "Création des projets", "Créer un projet et modifier sa fiche (client, type de construction, commercial). La suppression, le blocage et la restauration restent à la direction.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
         new(Dalles, "Gestion des dalles", "Créer, modifier et supprimer les dalles d'un projet. Les études, l'exécution et le chantier gardent leurs modules.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
         new(Contrats, "Contrats", "Contrats d'un projet : création, signature, annulation.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
         new(Courriers, "Courriers", "Courriers d'un projet. Les attestations restent à la direction et à l'administratif.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], [], null, GroupeProjet),
@@ -129,6 +131,7 @@ public static class Habilitations
     private static readonly (Regex Chemin, string Module, Mode Mode)[] Regles =
     [
         // Éléments du projet : avant la règle générale des projets. En lecture, les modules « écritures seulement » laissent la règle suivante s'appliquer.
+        (new($@"^/api/projets(/{Guid36})?/?$", RegexOptions.Compiled), GestionProjets, Mode.EcrituresSeulement),
         (new($@"^/api/projets/{Guid36}/dalles(/{Guid36}|/niveaux)?/?$", RegexOptions.Compiled), Dalles, Mode.EcrituresSeulement),
         (new($@"^/api/(projets/{Guid36}/contrats|contrats)(/|$)", RegexOptions.Compiled), Contrats, Mode.Normal),
         (new($@"^/api/(projets/{Guid36}/courriers|courriers)(/|$)", RegexOptions.Compiled), Courriers, Mode.Normal),

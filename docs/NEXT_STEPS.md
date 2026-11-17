@@ -20,8 +20,7 @@ Aucun retour reçu à ce jour. À essayer avec des données réelles, et noter l
 
 ## 3. Décisions à prendre (aucun code avant réponse)
 
-- Ingénieur : peut-il aussi **créer et modifier un projet** (aujourd'hui fonctions commerciales seulement) ? Sans cela, les boutons de gestion des types et des commerciaux du formulaire du projet ne lui servent pas.
-- Boutons de gestion à ajouter aux autres listes liées au projet (niveaux d'une dalle, catégories de dépense, accessoires) ?
+- Boutons de gestion à ajouter aux autres listes liées au projet (catégories de dépense, accessoires) ? Les niveaux et les types ont le leur.
 - Commercial créé par le bouton : il n'a pas de mot de passe connu ; faut-il un envoi d'invitation par courriel ?
 
 - Exécution, deux règles codées « à confirmer » : qui ouvre un dossier ; ce qu'il faut pour le terminer (plan, modèle, dessinateur, surface).

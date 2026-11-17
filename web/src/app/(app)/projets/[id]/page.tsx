@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowLeftRight, Lock, Pencil, RotateCcw, Trash2, Unlock } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { peutDiriger, peutEcrire, peutGererCommercial, peutLire, useAuth, voitMontants } from "@/lib/auth";
+import { peutDiriger, peutEcrire, peutGererCommercial, peutGererProjets, peutLire, useAuth, voitMontants } from "@/lib/auth";
 import { cn, formatDate, formatDateHeure, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AttenteFiche } from "@/components/ui/attente";
@@ -125,7 +125,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
           </div>
           {!p.supprime && (
             <div className="flex flex-wrap gap-2">
-              {ecriture && <Button variant="outline" onClick={() => setEdition(true)}><Pencil size={15} />Modifier</Button>}
+              {peutGererProjets(user) && <Button variant="outline" onClick={() => setEdition(true)}><Pencil size={15} />Modifier</Button>}
               {user?.role === "directeur" && !p.bloque && <Button variant="outline" onClick={() => setAction("bloquer")}><Lock size={15} />Bloquer</Button>}
               {user && ["directeur", "chef_projet", "responsable_administratif"].includes(user.role) && <Button variant="outline" onClick={() => setReaffectation(true)}><ArrowLeftRight size={15} />Changer d&apos;entité</Button>}
               {direction && <Button variant="outline" onClick={() => setAction("supprimer")}><Trash2 size={15} />Supprimer</Button>}

@@ -3,12 +3,13 @@
 import { Fragment, useEffect, useState } from "react";
 import { Layers, Plus } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { useAuth, voitMontants } from "@/lib/auth";
+import { peutEcrire, useAuth, voitMontants } from "@/lib/auth";
 import { formatNombre, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
+import { GererNiveaux, BoutonGerer } from "../gestion-listes";
 import { SuiviDalle } from "./suivi";
 import { type Adapt, AdaptDalle } from "./adapt";
 import { TauxPaiement, type VuePaiements } from "./paiements";
@@ -39,6 +40,7 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
   const [peutAdapt, setPeutAdapt] = useState(false);
   const [adapt, setAdapt] = useState<string | null>(null);
   const [parNiveaux, setParNiveaux] = useState<FormNiveaux | null>(null);
+  const [gestionNiveaux, setGestionNiveaux] = useState(false);
   const base = `/projets/${projetId}/dalles`;
   // Taux de paiement par dalle : seulement pour les rôles qui voient les chiffres financiers.
   const { user } = useAuth();
@@ -274,7 +276,10 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
           </div>
           <div className="mt-5 flex items-center justify-between">
             <h4 className="text-[14px] font-bold">Niveaux présents dans le projet</h4>
-            <span className="text-[13px] text-secondaire">{parNiveaux.niveaux.length} coché(s)</span>
+            <div className="flex items-center gap-3">
+              <span className="text-[13px] text-secondaire">{parNiveaux.niveaux.length} coché(s)</span>
+              {peutEcrire(user, "niveaux") && <BoutonGerer libelle="Ajouter ou gérer les niveaux" onClick={() => setGestionNiveaux(true)} />}
+            </div>
           </div>
           <ul className="mt-2 max-h-[50vh] divide-y divide-bordure overflow-y-auto rounded-lg border border-bordure">
             {niveaux.filter((n) => n.actif).map((n) => {
@@ -309,9 +314,12 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
             <Field label="Bloc"><Input value={form.bloc} placeholder="Bloc A" onChange={(e) => set("bloc", e.target.value)} /></Field>
             <Field label="Immeuble"><Input value={form.immeuble} placeholder="Immeuble 1" onChange={(e) => set("immeuble", e.target.value)} /></Field>
             <Field label="Niveau" required error={erreurs.niveau?.[0]}>
-              <Select value={form.niveau} onChange={(e) => set("niveau", e.target.value)}>
-                {niveaux.map((n) => <option key={n.valeur} value={n.valeur}>{n.label}</option>)}
-              </Select>
+              <div className="flex gap-2">
+                <Select value={form.niveau} onChange={(e) => set("niveau", e.target.value)}>
+                  {niveaux.map((n) => <option key={n.valeur} value={n.valeur}>{n.label}</option>)}
+                </Select>
+                {peutEcrire(user, "niveaux") && <BoutonGerer libelle="Ajouter ou gérer les niveaux" onClick={() => setGestionNiveaux(true)} />}
+              </div>
             </Field>
             <Field label="Surface (m²)" error={erreurs.surface?.[0]}>
               <Input inputMode="decimal" value={form.surface} aria-invalid={!!erreurs.surface} onChange={(e) => set("surface", e.target.value)} />
@@ -322,6 +330,11 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
           </div>
           <p className="mt-4 text-[12px] text-attenue">Bloc et immeuble sont facultatifs. S&apos;ils sont renseignés, les dalles sont regroupées avec des sous-totaux. Une surface laissée vide est reprise des fichiers ADAPT à leur import.</p>
         </Sheet>
+      )}
+
+      {gestionNiveaux && (
+        <GererNiveaux onClose={() => setGestionNiveaux(false)}
+          onChange={() => { api<{ niveaux: Niveau[] }>(base).then((r) => setNiveaux(r.niveaux)).catch(() => undefined); }} />
       )}
     </div>
   );

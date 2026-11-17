@@ -4,7 +4,7 @@ import { Suspense, useCallback, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Plus, Search } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { peutGererCommercial, useAuth } from "@/lib/auth";
+import { peutGererProjets, useAuth } from "@/lib/auth";
 import { cn, formatDate, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,7 +25,7 @@ function Projets() {
   const { user } = useAuth();
   const router = useRouter();
   const adresse = useSearchParams();
-  const ecriture = peutGererCommercial(user);
+  const ecriture = peutGererProjets(user);
   const [ref, setRef] = useState<Referentiel | null>(null);
   const [statut, setStatut] = useState(adresse.get("statut") ?? "");
   const [entite, setEntite] = useState("");

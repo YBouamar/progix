@@ -15,8 +15,8 @@ public class HabilitationsTests
         { Roles.ResponsableAdministratif, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
         { Roles.Administrateur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Livraisons, Habilitations.Facturation, Habilitations.Tresorerie] },
         { Roles.AgentCommercial, [Habilitations.Projets] },
-        { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Etude, Habilitations.RepartitionIngenieurs, Habilitations.PerformanceIngenieurs] },
-        { Roles.Ingenieur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Etude] },
+        { Roles.IngenieurChef, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Etude, Habilitations.Niveaux, Habilitations.RepartitionIngenieurs, Habilitations.PerformanceIngenieurs] },
+        { Roles.Ingenieur, [Habilitations.Projets, Habilitations.Devis, Habilitations.Clients, Habilitations.Etude, Habilitations.Niveaux] },
         { Roles.DessinateurChef, [Habilitations.Projets, Habilitations.Execution, Habilitations.PerformanceDessinateurs] },
         { Roles.Dessinateur, [Habilitations.Projets, Habilitations.Execution] },
         { Roles.ResponsableLogistique, [Habilitations.Projets, Habilitations.Logistique, Habilitations.Parametrage] },
@@ -80,6 +80,10 @@ public class HabilitationsTests
     [InlineData("GET", "/api/repartition/ingenieurs", Habilitations.RepartitionIngenieurs, Habilitations.Lecture)]
     [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", Habilitations.Dalles, Habilitations.Ecriture)]
     [InlineData("PUT", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/7a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d", Habilitations.Dalles, Habilitations.Ecriture)]
+    [InlineData("POST", "/api/projets", Habilitations.GestionProjets, Habilitations.Ecriture)]
+    [InlineData("PUT", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d", Habilitations.GestionProjets, Habilitations.Ecriture)]
+    [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d", Habilitations.Projets, Habilitations.Lecture)]
+    [InlineData("PUT", "/api/parametres/niveaux", Habilitations.Niveaux, Habilitations.Ecriture)]
     [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/niveaux", Habilitations.Dalles, Habilitations.Ecriture)]
     [InlineData("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles", Habilitations.Projets, Habilitations.Lecture)]
     [InlineData("POST", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles/adapt", Habilitations.Projets, Habilitations.Ecriture)]
@@ -173,7 +177,7 @@ public class HabilitationsTests
         foreach (var role in new[] { Roles.Ingenieur, Roles.IngenieurChef })
         {
             foreach (var module in new[] { Habilitations.Clients, Habilitations.Devis, Habilitations.Dalles, Habilitations.Contrats, Habilitations.Courriers, Habilitations.Etude,
-                Habilitations.TypesConstruction, Habilitations.Forfaits, Habilitations.Commerciaux })
+                Habilitations.TypesConstruction, Habilitations.Forfaits, Habilitations.Commerciaux, Habilitations.GestionProjets, Habilitations.Niveaux })
                 Assert.Equal(Habilitations.Ecriture, Habilitations.ParDefaut(role, module));
             // Les paiements se consultent seulement ; le reste ne s'ouvre pas.
             Assert.Equal(Habilitations.Lecture, Habilitations.ParDefaut(role, Habilitations.Paiements));
@@ -212,7 +216,7 @@ public class HabilitationsTests
     {
         var elements = Habilitations.Modules.Where(m => m.Groupe == Habilitations.GroupeProjet).Select(m => m.Code).ToArray();
         Assert.Equal(new[] { Habilitations.Dalles, Habilitations.Contrats, Habilitations.Courriers, Habilitations.Paiements, Habilitations.Depenses,
-            Habilitations.TypesConstruction, Habilitations.Forfaits, Habilitations.Commerciaux }.Order(), elements.Order());
+            Habilitations.TypesConstruction, Habilitations.Forfaits, Habilitations.Commerciaux, Habilitations.GestionProjets }.Order(), elements.Order());
         // Un module écriture-seule laisse la lecture à la règle suivante (ici, le module Projets).
         Assert.Equal((Habilitations.Projets, Habilitations.Lecture), Habilitations.Resoudre("GET", "/api/projets/3f2a6c1e-0b7d-4a55-9c2e-1d2f3a4b5c6d/dalles"));
     }

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Clock, CornerDownLeft, Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
-import { peutGererCommercial, useAuth } from "@/lib/auth";
+import { peutGererProjets, useAuth } from "@/lib/auth";
 import { menuPour } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 
@@ -90,7 +90,7 @@ export function Recherche({ open, onOpenChange }: { open: boolean; onOpenChange:
     const q = sansAccent(saisie.trim());
     const pages: Resultat[] = menu.filter((m) => !q || sansAccent(m.label).includes(q))
       .map((m) => ({ cle: `m${m.id}`, groupe: "Aller à", titre: m.label, href: m.href, icone: "page", chemin: m.icon }));
-    const actions: Resultat[] = peutGererCommercial(user) && (!q || "nouveau projet".includes(q))
+    const actions: Resultat[] = peutGererProjets(user) && (!q || "nouveau projet".includes(q))
       ? [{ cle: "a-projet", groupe: "Actions", titre: "Nouveau projet", href: "/projets?nouveau=1", icone: "action" }] : [];
     return q ? [...trouves, ...actions, ...pages] : [...recents, ...actions, ...pages];
   }, [saisie, menu, user, trouves, recents]);

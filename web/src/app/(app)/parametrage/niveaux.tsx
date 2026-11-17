@@ -11,7 +11,7 @@ type Niveau = { valeur: number | null; libelle: string; actif: boolean; dalles: 
 type Vue = { modifiable: boolean; niveaux: Niveau[] };
 
 /** Niveaux proposés pour les dalles : libellés libres, dans l'ordre d'affichage. Un niveau porté par une dalle se désactive, il ne se supprime pas. */
-export function NiveauxParam() {
+export function NiveauxParam({ integre, onChange }: { integre?: boolean; onChange?: () => void } = {}) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [liste, setListe] = useState<Niveau[]>([]);
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
@@ -30,13 +30,14 @@ export function NiveauxParam() {
     try {
       charger(await api<Vue>("/parametres/niveaux", { method: "PUT", body: JSON.stringify({ niveaux: liste.map(({ valeur, libelle, actif }) => ({ valeur, libelle, actif })) }) }));
       setMessage({ ok: true, texte: "Niveaux enregistrés." });
+      onChange?.();
     } catch (e) {
       setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Enregistrement impossible." });
     }
   }
 
   return (
-    <div className="rounded-xl border border-bordure bg-white p-6">
+    <div className={cn(!integre && "rounded-xl border border-bordure bg-white p-6")}>
       <h2 className="text-[15px] font-bold">Dalles : niveaux</h2>
       <p className="mt-1 text-[13px] text-secondaire">
         Niveaux proposés à la saisie d&apos;une dalle, dans cet ordre. Un niveau déjà porté par une dalle ne se supprime pas : décochez « Proposé ».
@@ -70,7 +71,7 @@ export function NiveauxParam() {
           <Button onClick={enregistrer}>Enregistrer</Button>
           {message && <span role={message.ok ? "status" : "alert"} className={cn("text-[13px]", message.ok ? "text-vert-texte" : "text-rouge-texte")}>{message.texte}</span>}
         </div>
-      ) : <p className="mt-4 text-[13px] text-secondaire">Consultation seule : les niveaux sont modifiés par le directeur ou le chef de projet.</p>}
+      ) : <p className="mt-4 text-[13px] text-secondaire">Consultation seule : les niveaux se modifient avec le droit d&apos;écriture sur « Niveaux des dalles ».</p>}
     </div>
   );
 }

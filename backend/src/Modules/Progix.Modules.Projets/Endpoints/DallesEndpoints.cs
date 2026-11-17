@@ -18,11 +18,12 @@ public static class DallesEndpoints
 {
     public static void Map(IEndpointRouteBuilder app)
     {
-        // Niveaux des dalles : liste ordonnée et libellés, réglés dans le Paramétrage par le directeur ou le chef de projet.
+        // Niveaux des dalles : liste ordonnée et libellés, réglés dans le Paramétrage, et à la création d'une dalle, par qui a l'écriture sur le module « Niveaux des dalles ».
         var param = app.MapGroup("/api/parametres/niveaux").WithTags("Paramétrage").RequireAuthorization();
-        param.MapGet("/", async (ProjetsDbContext db, ClaimsPrincipal user) => Results.Ok(await NiveauxParam(db, user)));
-        param.MapPut("/", async (NiveauxParamInput input, ProjetsDbContext db, ClaimsPrincipal user) =>
+        param.MapGet("/", async (ProjetsDbContext db, IHabilitations habilitations, ClaimsPrincipal user) => Results.Ok(await NiveauxParam(db, habilitations, user)));
+        param.MapPut("/", async (NiveauxParamInput input, ProjetsDbContext db, IHabilitations habilitations, ClaimsPrincipal user) =>
         {
+            if (await habilitations.NiveauAsync(user, Habilitations.Niveaux) < Habilitations.Ecriture) return Results.Forbid();
             var liste = (input.Niveaux ?? []).Select(n => n with { Libelle = n.Libelle?.Trim() }).ToList();
             if (liste.Any(n => string.IsNullOrEmpty(n.Libelle))) return ProjetsEndpoints.Conflit("Chaque niveau a un libellé.");
             if (liste.Any(n => n.Libelle!.Length > 60)) return ProjetsEndpoints.Conflit("Un libellé de niveau compte au plus 60 caractères.");
@@ -51,8 +52,8 @@ public static class DallesEndpoints
             }
             await db.SaveChangesAsync();
             NiveauxDalle.Charger(await db.Niveaux.AsNoTracking().ToListAsync());
-            return Results.Ok(await NiveauxParam(db, user));
-        }).RequireAuthorization(Policies.Direction);
+            return Results.Ok(await NiveauxParam(db, habilitations, user));
+        });
 
         var g = app.MapGroup("/api/projets/{id:guid}/dalles").WithTags("Dalles").RequireAuthorization();
 
@@ -298,13 +299,13 @@ public static class DallesEndpoints
         return e;
     }
 
-    private static async Task<object> NiveauxParam(ProjetsDbContext db, ClaimsPrincipal user)
+    private static async Task<object> NiveauxParam(ProjetsDbContext db, IHabilitations habilitations, ClaimsPrincipal user)
     {
         var niveaux = await db.Niveaux.AsNoTracking().OrderBy(n => n.Ordre).ToListAsync();
         var parNiveau = await db.Dalles.GroupBy(d => d.Niveau).Select(x => new { x.Key, Nb = x.Count() }).ToDictionaryAsync(x => x.Key, x => x.Nb);
         return new
         {
-            modifiable = Policies.RolesDirection.Any(user.IsInRole),
+            modifiable = await habilitations.NiveauAsync(user, Habilitations.Niveaux) >= Habilitations.Ecriture,
             niveaux = niveaux.Select(n => new { valeur = n.Valeur, libelle = n.Libelle, actif = n.Actif, dalles = parNiveau.GetValueOrDefault(n.Valeur) }),
         };
     }

@@ -61,6 +61,15 @@ public interface IDevisLookup
     Task<string?> DevisSurAutreSurfaceAsync(Guid dalleId, decimal surface, CancellationToken ct = default);
 }
 
+/// <summary>
+/// Usage d'une dalle dans un module (devis, facturation...) : sert à refuser la suppression d'une dalle déjà engagée.
+/// Chaque module qui référence les dalles l'implémente ; la réponse est une phrase prête à afficher, ou null si la dalle n'y figure pas.
+/// </summary>
+public interface IUsagesDalle
+{
+    Task<string?> UsageAsync(Guid dalleId, CancellationToken ct = default);
+}
+
 /// <param name="PrixNet">Prix net au m² par dalle : prix du devis moins la remise au m².</param>
 /// <param name="TotalTTC">Montant TTC du devis : c'est le « commandé » du reste dû.</param>
 public record DevisValide(Guid Id, string Numero, int Version, DateTime ValideLe, decimal NetHT, IReadOnlyDictionary<Guid, decimal> PrixNet, decimal TotalTTC = 0);

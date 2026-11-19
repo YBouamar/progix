@@ -1,13 +1,14 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import { Layers, Plus } from "lucide-react";
+import { Layers, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { peutEcrire, useAuth, voitMontants } from "@/lib/auth";
 import { formatNombre, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
+import { Modal } from "@/components/ui/modal";
 import { Sheet } from "@/components/ui/sheet";
 import { GererNiveaux, BoutonGerer } from "../gestion-listes";
 import { SuiviDalle } from "./suivi";
@@ -41,6 +42,8 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
   const [adapt, setAdapt] = useState<string | null>(null);
   const [parNiveaux, setParNiveaux] = useState<FormNiveaux | null>(null);
   const [gestionNiveaux, setGestionNiveaux] = useState(false);
+  const [suppression, setSuppression] = useState<{ id: string; reference: string } | null>(null);
+  const [erreurSuppression, setErreurSuppression] = useState("");
   const base = `/projets/${projetId}/dalles`;
   // Taux de paiement par dalle : seulement pour les rôles qui voient les chiffres financiers.
   const { user } = useAuth();
@@ -85,6 +88,21 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
       // Une nouvelle dalle reprend le bloc et l'immeuble de la précédente, au niveau suivant dans la liste paramétrée.
       : { id: null, reference: "", bloc: dernier?.bloc ?? "", immeuble: dernier?.immeuble ?? "", niveau: String(niveauSuivant(dernier?.niveau)), detail: "", surface: "" });
   };
+
+  async function supprimer() {
+    if (!suppression) return;
+    setEnvoi(true); setErreurSuppression("");
+    try {
+      await api(`${base}/${suppression.id}`, { method: "DELETE" });
+      setDalles((l) => l.filter((x) => x.id !== suppression.id));
+      setSuppression(null); setForm(null);
+      onSuivi();
+    } catch (e) {
+      setErreurSuppression(e instanceof ApiError ? e.message : "Suppression impossible.");
+    } finally {
+      setEnvoi(false);
+    }
+  }
 
   async function enregistrer() {
     if (!form) return;
@@ -304,6 +322,11 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
           description={form.id ? form.reference : "La référence est attribuée à la création : numéro suivant du projet, version A."}
           footer={
             <>
+              {form.id && (
+                <Button variant="outline" className="mr-auto text-rouge-texte" onClick={() => { setErreurSuppression(""); setSuppression({ id: form.id!, reference: form.reference }); }}>
+                  <Trash2 size={15} aria-hidden />Supprimer la dalle
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setForm(null)}>Annuler</Button>
               <Button onClick={enregistrer} disabled={envoi}>{envoi ? "Enregistrement..." : form.id ? "Enregistrer" : "Ajouter"}</Button>
             </>
@@ -330,6 +353,19 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
           </div>
           <p className="mt-4 text-[12px] text-attenue">Bloc et immeuble sont facultatifs. S&apos;ils sont renseignés, les dalles sont regroupées avec des sous-totaux. Une surface laissée vide est reprise des fichiers ADAPT à leur import.</p>
         </Sheet>
+      )}
+
+      {suppression && (
+        <Modal open onOpenChange={(o) => !o && setSuppression(null)} title="Supprimer la dalle ?"
+          description={`La dalle ${suppression.reference} sera supprimée définitivement. Utilisez cette action pour une dalle créée par erreur : elle est refusée dès que la dalle est engagée (étapes faites, import ADAPT, étude, devis, facturation).`}
+          footer={
+            <>
+              <Button variant="outline" onClick={() => setSuppression(null)}>Garder la dalle</Button>
+              <Button onClick={supprimer} disabled={envoi}>{envoi ? "Suppression..." : "Supprimer la dalle"}</Button>
+            </>
+          }>
+          {erreurSuppression && <div role="alert" className="rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreurSuppression}</div>}
+        </Modal>
       )}
 
       {gestionNiveaux && (

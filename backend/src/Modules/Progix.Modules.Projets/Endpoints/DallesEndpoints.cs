@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Logging;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -106,6 +107,27 @@ public static class DallesEndpoints
             d.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(Dto(d, projet.Code));
+        }).RequireAuthorization(Policies.Commercial);
+
+        // Suppression d'une dalle créée par erreur : seulement si rien n'en dépend (chantier, étude, devis, facturation).
+        // La numérotation du projet ne revient pas en arrière : le numéro supprimé n'est pas réattribué.
+        g.MapDelete("/{did:guid}", async (Guid id, Guid did, ProjetsDbContext db, IEnumerable<IUsagesDalle> usages, ILoggerFactory logs, ClaimsPrincipal user, CancellationToken ct) =>
+        {
+            var projet = await db.Projets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id, ct);
+            var d = await db.Dalles.FirstOrDefaultAsync(x => x.Id == did && x.ProjetId == id, ct);
+            if (projet is null || d is null) return Results.NotFound();
+            if (projet.Supprime) return ProjetsEndpoints.Conflit("Un projet supprimé est en lecture seule.");
+            if (projet.Bloque) return ProjetsEndpoints.Conflit("Ce projet est bloqué : ses dalles ne se modifient plus.");
+            var ref_ = $"{projet.Code}-{d.Suffixe}";
+            var motif = SuppressionDalle.Refus(d) ?? await MotifDependance(db, did, ct);
+            if (motif is null)
+                foreach (var u in usages)
+                    if (await u.UsageAsync(did, ct) is { } m) { motif = m; break; }
+            if (motif is not null) return ProjetsEndpoints.Conflit(SuppressionDalle.Message(ref_, motif));
+            db.Dalles.Remove(d);
+            await db.SaveChangesAsync(ct);
+            logs.CreateLogger("Dalles").LogInformation("Dalle {Reference} supprimée par {Utilisateur}", ref_, user.Identity?.Name);
+            return Results.NoContent();
         }).RequireAuthorization(Policies.Commercial);
 
         // Création des dalles d'un coup : une dalle par niveau coché, dans l'ordre de la liste des niveaux, surface à renseigner.
@@ -297,6 +319,20 @@ public static class DallesEndpoints
         if (i.Surface < 0) e["surface"] = ["La surface ne peut pas être négative."];
         if (i.Niveau != niveauActuel && !await db.Niveaux.AnyAsync(n => n.Valeur == i.Niveau && n.Actif)) e["niveau"] = ["Niveau inconnu ou plus proposé."];
         return e;
+    }
+
+    /// <summary>Travail déjà rattaché à la dalle dans ce module (plans, rapports, commande, fiches, mesures) : null si aucun.</summary>
+    private static async Task<string?> MotifDependance(ProjetsDbContext db, Guid did, CancellationToken ct)
+    {
+        if (await db.VersionsPlans.AnyAsync(x => x.DalleId == did, ct)) return "des plans y sont déposés";
+        if (await db.RapportsEcrasement.AnyAsync(x => x.DalleId == did, ct)) return "un rapport d'écrasement y est rattaché";
+        if (await db.CommandesUsine.AnyAsync(x => x.DalleId == did, ct)) return "une commande usine existe";
+        if (await db.FichesInjection.AnyAsync(x => x.DalleId == did, ct)) return "une fiche d'injection existe";
+        if (await db.FichesAutoControle.AnyAsync(x => x.DalleId == did, ct)) return "une fiche d'auto-contrôle existe";
+        if (await db.FichesTension.AnyAsync(x => x.DalleId == did, ct) || await db.MesuresTension.AnyAsync(x => x.DalleId == did, ct)) return "des mesures de tension existent";
+        if (await db.EtapeTraces.AnyAsync(x => x.DalleId == did, ct)) return "l'historique du chantier n'est pas vide";
+        if (await db.AffectationsEtude.AnyAsync(x => x.DalleId == did, ct) || await db.AffectationsExecution.AnyAsync(x => x.DalleId == did, ct)) return "des intervenants lui sont affectés";
+        return null;
     }
 
     private static async Task<object> NiveauxParam(ProjetsDbContext db, IHabilitations habilitations, ClaimsPrincipal user)

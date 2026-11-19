@@ -13,7 +13,7 @@ public class DevisModule : IModule
     public string Name => "Devis";
 
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddScoped<IDevisLookup, Infrastructure.DevisLookup>().AddScoped<IContexteFichiers, Infrastructure.FichiersDevis>().AddScoped<Infrastructure.DevisDocuments>()
+        services.AddScoped<IDevisLookup, Infrastructure.DevisLookup>().AddScoped<IUsagesDalle, Infrastructure.UsagesDalleDevis>().AddScoped<IContexteFichiers, Infrastructure.FichiersDevis>().AddScoped<Infrastructure.DevisDocuments>()
             .AddScoped<IDevisDocuments>(sp => sp.GetRequiredService<Infrastructure.DevisDocuments>()).AddScoped<IVerificationDocuments>(sp => sp.GetRequiredService<Infrastructure.DevisDocuments>()).AddScoped<IReaffectationEntite, Infrastructure.NumerotationDevis>().AddDbContext<DevisDbContext>(o => o.UseNpgsql(
             configuration.GetConnectionString("Postgres"),
             npgsql => npgsql.MigrationsHistoryTable("__ef_migrations", DevisDbContext.Schema)));

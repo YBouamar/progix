@@ -15,7 +15,7 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 
 - Plusieurs commandes par dalle, cycle de vie, rôle gestionnaire de stock, modification tracée, import des plans de câblage DXF (lecture validée sur les plans réels Mk4-847 : 22 câbles X, 9 Y, 313,72 m, surface 230,45 m² égale au Floor Area du PTTotal), icônes d'écart de surface, facturation sur la surface de la dalle. Détail : BUSINESS_RULES.md section 7 et DECISIONS.md (2026-11-22).
 - Vérifié : `dotnet test` 354 tests passés, `npm run lint` et `npm run build` sans erreur. **Non essayé dans le navigateur ni avec une base** : la migration `CommandesMultiples` et les nouveaux écrans (commandes, import DXF, logistique par commande) restent à essayer avec les données de démonstration.
-- Écarts connus : le recoupement DXF / PTTotal se fait par système (nombre de câbles), pas câble par câble ; les extrémités actives sont une moyenne par système. Le test sur plans réels est conditionné par la variable `PROGIX_DXF` (les plans clients ne sont pas versionnés).
+- Recoupement DXF / PTTotal tendon par tendon (non commité) : sur les plans réels, 9 tendons voisins ont une longueur inversée côté DXF (association étiquette / câble ambiguë entre câbles parallèles proches) ; le PTTotal fait foi. À améliorer : l'association des étiquettes du DXF. Sans PTTotal conservé avec la dalle, repli sur le recoupement par système. Le test sur plans réels est conditionné par la variable `PROGIX_DXF` (les plans clients ne sont pas versionnés).
 - Les devis en brouillon voient leurs ancrages changer (2 par tendon) à la prochaine reprise des données ADAPT.
 
 ## Terminé

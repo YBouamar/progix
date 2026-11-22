@@ -260,12 +260,16 @@ public static class CommandesEndpoints
                 if (await fichiers.LireAsync(VersionPlan.Contexte, dernier.Id, ct) is not { } lu) continue;
                 using (lu.Contenu) plans.Add(LectureCablageAdapt.Lire(lu.Contenu, dernier.Nom, sens));
             }
-            var a = ApercuCablage.Composer(plans, dalle.Adapt?.Systemes, surlongueur ?? 0, dalle.Surface);
+            // Le PTTotal conservé avec la dalle donne les tendons un par un, pour le recoupement exact des longueurs et des extrémités actives.
+            List<TendonAdapt>? tendonsPt = null;
+            if (dalle.Adapt?.FichierPtId is { } ptId && await fichiers.LireAsync(AdaptDalle.Contexte, ptId, ct) is { } pt)
+                using (pt.Contenu) tendonsPt = LectureAdapt.Tendons(System.Text.Encoding.Latin1.GetString(pt.Contenu.ToArray()));
+            var a = ApercuCablage.Composer(plans, dalle.Adapt?.Systemes, surlongueur ?? 0, dalle.Surface, tendonsPt);
             return Results.Ok(new
             {
                 version = version.Lettre, importable = a.Importable, erreurs = a.Erreurs, avertissements = a.Avertissements,
                 plans = plans.Select(p => new { nom = p.Nom, sens = p.Orientation, cables = p.Cables.Count, reference = p.Reference, niveau = p.Niveau, surface = p.SurfaceNette }),
-                lignes = a.Lignes.Select(l => new { numero = l.Numero, torons = l.Torons, sens = l.Sens, tracee = l.Tracee, actives = l.Actives, surlongueur = l.Surlongueur, longueur = l.Longueur, ancrages = l.Ancrages }),
+                lignes = a.Lignes.Select(l => new { etiquettePt = l.EtiquettePt, numero = l.Numero, torons = l.Torons, sens = l.Sens, tracee = l.Tracee, actives = l.Actives, surlongueur = l.Surlongueur, longueur = l.Longueur, ancrages = l.Ancrages }),
                 recap = a.Recap.Select(r => new { sens = r.Sens, torons = r.Torons, cables = r.Cables, longueur = r.Longueur }),
                 surfaceDxf = a.SurfaceDxf, surfaceDalle = dalle.Surface, surfaceDifferente = a.SurfaceDifferente,
             });

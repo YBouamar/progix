@@ -4,6 +4,9 @@ using Progix.SharedKernel;
 
 namespace Progix.Modules.Projets.Domain;
 
+/// <summary>Un tendon du PTTotal : étiquette ADAPT (sans rapport avec le numéro du plan de câblage), type d'ancrage, longueur de gaine, extrémités actives.</summary>
+public record TendonAdapt(string Etiquette, int Torons, decimal Longueur, int Actives);
+
 /// <summary>Données de chiffrage d'une dalle lues dans les exports ADAPT-Floor Pro (PTTotal et RebarTotal).</summary>
 public class AdaptDalle
 {
@@ -189,6 +192,29 @@ internal static class LectureAdapt
         }
         foreach (var s in groupes.Values) { s.LongueurTorons = Math.Round(s.LongueurTorons, 2); s.LongueurGaines = Math.Round(s.LongueurGaines, 2); }
         return groupes.Values.OrderBy(s => s.Torons).ToList();
+    }
+
+    /// <summary>Tendons du plan courant d'un PTTotal, un par ligne du tableau. Null si le fichier n'est pas un PTTotal lisible.</summary>
+    public static List<TendonAdapt>? Tendons(string rtf)
+    {
+        if (!rtf.StartsWith(@"{\rtf")) return null;
+        var doc = Lire(rtf);
+        if (doc.Genre != Genre.Precontrainte) return null;
+        var k = doc.Lignes.FindIndex(l => l.Contains("Number Of Strands") && l.Contains("Strand Length") && l.Contains("Reference Plane"));
+        if (k < 0) return null;
+        var t = doc.Lignes[k];
+        int colLabel = t.IndexOf("Label"), colPlan = t.IndexOf("Reference Plane"), colTorons = t.IndexOf("Number Of Strands"), colGaine = t.IndexOf("Tendon/Duct Length"), colActives = t.IndexOf("Stressing ends");
+        var liste = new List<TendonAdapt>();
+        foreach (var l in doc.Lignes.Skip(k + 1))
+        {
+            if (l.Count == 0) continue;
+            if (!int.TryParse(l[0], out _)) { if (l.Count <= 1 || l[0].Length > 0) break; continue; }
+            if (colGaine < 0 || l.Count <= Math.Max(colGaine, Math.Max(colTorons, colPlan)) || l[colPlan] != PlanCourant) continue;
+            if (Nombre(l[colTorons]) is not decimal torons || Nombre(l[colGaine]) is not decimal gaine) continue;
+            var actives = colActives >= 0 && l.Count > colActives && Nombre(l[colActives]) is decimal a ? (int)a : 1;
+            liste.Add(new TendonAdapt(colLabel >= 0 && l.Count > colLabel ? l[colLabel].Replace("Tendon", "").Trim() : l[0], (int)torons, gaine, actives));
+        }
+        return liste;
     }
 
     /// <summary>Champ de l'en-tête de page (« Project Name: », « Specific Data: », « File Name: »).</summary>

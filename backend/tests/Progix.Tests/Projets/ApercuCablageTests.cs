@@ -65,4 +65,62 @@ public class ApercuCablageTests
     [Fact]
     public void Surlongueur_hors_limites_est_refusee() =>
         Assert.False(ApercuCablage.Composer([Plan("X", null, (1, 2, 10m))], null, 500, 0).Importable);
+
+    private static TendonAdapt T(string e, int torons, decimal l, int actives = 1) => new(e, torons, l, actives);
+
+    [Fact]
+    public void Appariement_par_numero_donne_les_extremites_actives_exactes()
+    {
+        var plans = new[] { Plan("X", null, (5, 2, 10.00m), (6, 2, 12.00m)), Plan("Y", null, (7, 4, 8.00m)) };
+        var a = ApercuCablage.Composer(plans, null, 20, 0, [T("6", 2, 12.02m, 2), T("5", 2, 10.00m, 1), T("7", 4, 8.00m, 2)]);
+        Assert.True(a.Importable);
+        Assert.Empty(a.Avertissements);
+        Assert.Equal((1, 0.20m), (a.Lignes.Single(l => l.Numero == "05").Actives, a.Lignes.Single(l => l.Numero == "05").Surlongueur));
+        Assert.Equal((2, 0.40m), (a.Lignes.Single(l => l.Numero == "06").Actives, a.Lignes.Single(l => l.Numero == "06").Surlongueur));
+    }
+
+    [Fact]
+    public void Systeme_different_pour_un_meme_numero_est_bloquant()
+    {
+        var a = ApercuCablage.Composer([Plan("X", null, (5, 2, 10m)), Plan("Y", null, (7, 4, 8m))], null, 0, 0, [T("5", 4, 10m), T("7", 4, 8m)]);
+        Assert.False(a.Importable);
+        Assert.Contains(a.Erreurs, e => e.Contains("Tendon 05") && e.Contains("S2") && e.Contains("S4"));
+    }
+
+    [Fact]
+    public void Longueur_du_PTTotal_reprise_en_priorite_avertissement_au_dela_de_5_cm()
+    {
+        var a = ApercuCablage.Composer([Plan("X", null, (5, 2, 10m)), Plan("Y", null, (7, 2, 20m))], null, 0, 0, [T("5", 2, 10.03m), T("7", 2, 9m)]);
+        Assert.Contains(a.Avertissements, w => w.Contains("Tendon 07") && w.Contains("20,00") || w.Contains("Tendon 07") && w.Contains("20.00"));
+        Assert.Equal(9m, a.Lignes.Single(l => l.Numero == "07").Longueur);
+        Assert.Equal(10.03m, a.Lignes.Single(l => l.Numero == "05").Longueur);
+        Assert.True(a.Importable);
+    }
+
+    [Fact]
+    public void Tendon_present_d_un_seul_cote_est_signale()
+    {
+        var a = ApercuCablage.Composer([Plan("X", null, (5, 2, 10m)), Plan("Y", null, (7, 2, 20m))], null, 0, 0, [T("5", 2, 10m), T("9", 2, 31m)]);
+        Assert.Contains(a.Avertissements, w => w.Contains("Tendon 07") && w.Contains("absent du PTTotal"));
+        Assert.Contains(a.Avertissements, w => w.Contains("Tendon 9 du PTTotal"));
+        Assert.True(a.Importable);
+    }
+
+    [Fact]
+    public void Plans_et_PTTotal_reels_mk4_847_concordent_cable_par_cable()
+    {
+        var dossier = Environment.GetEnvironmentVariable("PROGIX_DXF");
+        if (string.IsNullOrEmpty(dossier) || !File.Exists(Path.Combine(dossier, "PTTotal.rtf"))) return;
+        PlanCablage Lire(string motif, string sens) { var f = Directory.GetFiles(dossier, motif).Single(); using var s = File.OpenRead(f); return LectureCablageAdapt.Lire(s, Path.GetFileName(f), sens); }
+        var pt = LectureAdapt.Tendons(System.Text.Encoding.Latin1.GetString(File.ReadAllBytes(Path.Combine(dossier, "PTTotal.rtf"))));
+        Assert.NotNull(pt);
+        var a = ApercuCablage.Composer([Lire("*SUIVANT_X.dxf", "X"), Lire("*SUIVANT_Y.dxf", "Y")], null, 0, 0, pt);
+        Assert.True(a.Erreurs.Count == 0, string.Join(" | ", a.Erreurs));
+        Assert.Equal(31, a.Lignes.Count);
+        Assert.All(a.Lignes, l => Assert.NotNull(l.EtiquettePt));
+        // Tous les tendons des deux côtés sont appariés ; les longueurs retenues sont celles du PTTotal.
+        Assert.DoesNotContain(a.Avertissements, w => w.Contains("absent"));
+        Assert.All(a.Lignes, l => Assert.Equal(Math.Round(pt!.Single(t => int.Parse(t.Etiquette) == int.Parse(l.Numero)).Longueur, 2), l.Tracee));
+        Assert.Equal(313.7m, a.Lignes.Sum(l => l.Tracee), 1);
+    }
 }

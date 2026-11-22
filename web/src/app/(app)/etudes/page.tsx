@@ -107,6 +107,7 @@ export default function EtudesPage() {
               <th className="px-4 py-3 font-semibold">Ingénieurs</th>
               <th className="px-4 py-3 font-semibold">Pièces</th>
               <th className="px-4 py-3 font-semibold">État</th>
+              <th className="px-4 py-3"><span className="sr-only">Documents de la dalle</span></th>
             </tr>
           </thead>
           <tbody>
@@ -128,6 +129,9 @@ export default function EtudesPage() {
                   <Pieces pieces={data.pieces} deposees={e.pieces} />
                 </td>
                 <td className="whitespace-nowrap px-4 py-3"><Badge ton={TON[e.etat]}>{e.etatLabel}</Badge></td>
+                <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(ev) => ev.stopPropagation()} onKeyDown={(ev) => ev.stopPropagation()}>
+                  <Button asChild variant="outline" size="sm"><Link href={`/projets/${e.projetId}?fichiers=${e.dalleId}#dalles`}>Documents de la dalle</Link></Button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -218,7 +222,8 @@ function FicheEtude({ dalleId, pieces, ingenieurs, onClose }: { dalleId: string;
           <div className="flex flex-wrap items-center gap-2">
             <Badge ton={TON[e.etat]}>{e.etatLabel}</Badge>
             {e.termineeLe && <span className="text-[13px] text-secondaire">Terminée par {e.termineePar} le {formatDateHeure(e.termineeLe)}. Les pièces sont figées.</span>}
-            <Link href={`/projets/${e.projetId}#dalles`} className="ml-auto text-[13px] font-semibold text-marine hover:underline">Ouvrir le projet {e.projetCode}</Link>
+            <Button asChild size="sm" className="ml-auto"><Link href={`/projets/${e.projetId}?fichiers=${e.dalleId}#dalles`}>Documents de la dalle</Link></Button>
+            <Link href={`/projets/${e.projetId}#dalles`} className="text-[13px] font-semibold text-marine hover:underline">Ouvrir le projet {e.projetCode}</Link>
           </div>
 
           <section>

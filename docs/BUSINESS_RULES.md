@@ -106,6 +106,7 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] Règles de détection (`Projets/Application/FondPlan.cs`) : un niveau est un contour de dalle portant au moins trois poteaux ou voiles, nommé par le titre de plan le plus proche ; sur un calque de poteaux, une forme ramassée est un poteau, une forme allongée un voile, une grande forme une cage dont l'intérieur est une réservation ; deux contours de voiles emboîtés donnent un voile par côté et étendent la dalle ; une réservation est un contour plein entièrement dans la dalle. Le résultat est une proposition : voiles et réservations sont à contrôler avant l'import dans ADAPT. La génération du plan de principe n'est pas faite.
 - [code, à confirmer] Dépôt des pièces par les ingénieurs affectés à l'étude et par ceux qui affectent (ingénieur en chef, chef de projet, directeur). Réouverture d'une étude terminée par ces trois mêmes rôles. Aucune pièce n'est exigée pour clôturer.
 - [code] L'étude est indépendante des 11 étapes du suivi et du statut du projet : elle peut commencer avant tout devis.
+- [décidé 2026-11-22, code] Depuis la liste Étude, chaque dalle propose « Documents de la dalle » : lien vers la fiche du projet (onglet Dalles) avec les fichiers de la dalle ouverts (`?fichiers=<dalle>`). La fiche d'étude, avec l'affectation et la clôture, reste ouverte par un clic sur la ligne.
 
 ### Exécution des dalles (menu Exécution)
 
@@ -127,6 +128,8 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
   - **Objectif normal** : 400 m² et 1 dossier par jour ; un rendement à l'objectif s'affiche en vert.
   - Personnes évaluées : les dessinateurs, plus le dessinateur en chef s'il a terminé un dossier dans l'année.
   - **Réglages** (jours par mois, jours de référence, seuils, mois minimum, poids, objectifs) : modifiables par le directeur et le chef de projet depuis la page ; le dessinateur en chef consulte.
+
+- [décidé 2026-11-22, code] Depuis la liste Exécution, chaque dalle propose « Suivi et documents » : lien vers la fiche du projet (onglet Dalles) avec le suivi de la dalle ouvert (`?suivi=<dalle>`), où le dessinateur dépose les documents. La fiche d'exécution (affectation, dossiers EXE et MODIF) reste ouverte par un clic sur la ligne.
 
 ### Suivi de chantier (menu Chantier)
 

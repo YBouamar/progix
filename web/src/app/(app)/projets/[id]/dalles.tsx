@@ -46,6 +46,13 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
   const [gestionNiveaux, setGestionNiveaux] = useState(false);
   const [suppression, setSuppression] = useState<{ id: string; reference: string } | null>(null);
   const [erreurSuppression, setErreurSuppression] = useState("");
+
+  // Liens venus des menus Étude et Exécution : ?suivi=<dalle> ouvre le suivi, ?fichiers=<dalle> les fichiers de la dalle.
+  useEffect(() => {
+    const q = new URLSearchParams(window.location.search);
+    const s = q.get("suivi"), f = q.get("fichiers");
+    if (s) setSuivi(s); else if (f) setFichiers(f);
+  }, []);
   const base = `/projets/${projetId}/dalles`;
   // Taux de paiement par dalle : seulement pour les rôles qui voient les chiffres financiers.
   const { user } = useAuth();

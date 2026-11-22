@@ -150,6 +150,7 @@ function ListeDalles({ maj, onOuvrir, onDessinateurs }: { maj: number; onOuvrir:
               <th className="px-4 py-3 font-semibold">Prévue le</th>
               <th className="px-4 py-3 font-semibold">Dossier</th>
               <th className="px-4 py-3 font-semibold">État</th>
+              <th className="px-4 py-3"><span className="sr-only">Suivi de la dalle</span></th>
             </tr>
           </thead>
           <tbody>
@@ -174,6 +175,9 @@ function ListeDalles({ maj, onOuvrir, onDessinateurs }: { maj: number; onOuvrir:
                   {e.dossier ? <span className="font-semibold">{e.dossier.typeLabel} {e.dossier.lettre}</span> : <span className="text-secondaire">Aucun</span>}
                 </td>
                 <td className="whitespace-nowrap px-4 py-3"><Badge ton={TON[e.etat]}>{e.etatLabel}</Badge></td>
+                <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(ev) => ev.stopPropagation()} onKeyDown={(ev) => ev.stopPropagation()}>
+                  <Button asChild variant="outline" size="sm"><Link href={`/projets/${e.projetId}?suivi=${e.dalleId}#dalles`}>Suivi et documents</Link></Button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -352,7 +356,8 @@ function FicheExecution({ dalleId, dessinateurs, onClose }: { dalleId: string; d
           <div className="flex flex-wrap items-center gap-2">
             <Badge ton={TON[e.etat]}>{e.etatLabel}</Badge>
             {e.fige && <span className="text-[13px] text-secondaire">Plans figés depuis la validation du BCT.</span>}
-            <Link href={`/projets/${e.projetId}#dalles`} className="ml-auto text-[13px] font-semibold text-marine hover:underline">Ouvrir le projet {e.projetCode}</Link>
+            <Button asChild size="sm" className="ml-auto"><Link href={`/projets/${e.projetId}?suivi=${e.dalleId}#dalles`}>Suivi et documents de la dalle</Link></Button>
+            <Link href={`/projets/${e.projetId}#dalles`} className="text-[13px] font-semibold text-marine hover:underline">Ouvrir le projet {e.projetCode}</Link>
           </div>
 
           <section>

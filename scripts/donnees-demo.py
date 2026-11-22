@@ -23,7 +23,7 @@ class Session:
     def __init__(self, login):
         self.login = login
         self.o = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
-        self.post("/auth/login", {"login": login, "password": MDP})
+        self.id = (self.post("/auth/login", {"login": login, "password": MDP}) or {}).get("id")
 
     def appel(self, methode, chemin, corps=None, brut=None, type_contenu="application/json"):
         data = brut if brut is not None else (json.dumps(corps).encode() if corps is not None else None)
@@ -293,6 +293,9 @@ class Demo:
                 des.fichier("plan_execution", vid, f"plan-execution-{ref}-A.pdf", pdf(f"Plan d'execution {ref} indice A"), "application/pdf", "plan")
                 des.fichier("plan_execution", vid, f"modele-calcul-{ref}.pdf", pdf(f"Modele de calcul {ref}"), "application/pdf", "modele")
                 if j % 3 == 0:
+                    # Une modification ne s'ouvre qu'une fois le dossier précédent terminé : affectation du dessinateur, puis clôture.
+                    cp.post(f"/execution/{did}/dessinateurs", {"userId": des.id})
+                    cp.post(f"/execution/dossiers/{vid}/terminer")
                     v = des.post(f"{base}/versions", {"commentaire": "Reprise après remarques du BET : réservations déplacées"})
                     vid = v["versions"][0]["id"]
                     des.fichier("plan_execution", vid, f"plan-execution-{ref}-B.pdf", pdf(f"Plan d'execution {ref} indice B"), "application/pdf", "plan")

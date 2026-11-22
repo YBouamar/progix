@@ -7,6 +7,7 @@ import { TableauDirection } from "./tableau-de-bord/direction";
 import { TableauCommercial } from "./tableau-de-bord/commercial";
 import { TableauPersonnel } from "./tableau-de-bord/personnel";
 import { TableauLogistique } from "./tableau-de-bord/logistique";
+import { KpiNegoce } from "./tableau-de-bord/negoce";
 import { BandeauAccueil } from "./tableau-de-bord/bandeau";
 
 /** Tableau de bord : le bandeau d'accueil, puis le tableau propre au rôle. */
@@ -28,6 +29,8 @@ function TableauDuRole() {
   if (user.role === "responsable_chantier" || user.role === "chef_chantier") return <TableauPersonnel variante="chantier" />;
   if (user.role === "agent_commercial") return <TableauPersonnel variante="agent" />;
   if (user.role === "responsable_logistique" || user.role === "gestionnaire_stock") return <TableauLogistique />;
+  if (user.role === "responsable_ventes_directes") return <KpiNegoce titre="Ventes directes" />;
+  if (user.role === "responsable_achats") return <KpiNegoce titre="Achats et stock" />;
   const modules = menuPour(user).filter((m) => m.id !== "tdb");
   return (
     <div>

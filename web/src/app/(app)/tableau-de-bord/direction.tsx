@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { cn, formatDate, formatDH } from "@/lib/utils";
 import { Field, Input, Select } from "@/components/ui/input";
+import { KpiNegoce, Carte } from "./negoce";
 import { libellePeriode, periodes, type DevisTdb, type Finances, type ProjetsTdb } from "./donnees";
 
 const POINT: Record<string, string> = { cree: "bg-attenue", etude: "bg-violet-texte", realisation: "bg-orange-texte", termine: "bg-vert-texte" };
@@ -43,6 +44,7 @@ export function TableauDirection() {
     ["Marge", cur.marge, prev.marge, cur.chiffreAffaires > 0 ? `Chiffre d'affaires moins dépenses, soit ${(cur.marge / cur.chiffreAffaires * 100).toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %` : "Chiffre d'affaires moins dépenses", true],
   ] as [string, number, number, string, boolean][]) : [];
   const max = Math.max(1, ...(p?.statuts ?? []).map((s) => s.nb));
+  const maxEtape = Math.max(1, ...(p?.dalles.parEtape ?? []).map((e) => e.nb));
   const bas = stock.flatMap((s) => s.articles.filter((a) => a.bas).map((a) => `${a.article.split(",")[0]} (${s.entite})`));
   const alertes: { rouge: boolean; texte: string; href: string; cta: string }[] = [];
   if (p && p.validationsEnAttente > 0) alertes.push({ rouge: false, texte: `${p.validationsEnAttente} étape(s) attendent une validation technique ou administrative`, href: "/projets", cta: "Voir" });
@@ -88,6 +90,13 @@ export function TableauDirection() {
         })}
       </div>
 
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Carte label="Créances clients, post-tension" valeur={f ? formatDH(f.creances.total) : "-"} aide={f ? `${f.creances.nb} facture(s) non soldée(s), dont ${f.retards.nb} en retard` : undefined} ton={f && f.retards.nb > 0 ? "orange" : undefined} href="/facturation" />
+        <Carte label="Devis en attente de réponse" valeur={d ? formatDH(d.montantEnAttente) : "-"} aide={d ? `${d.enAttente} devis envoyé(s), TTC` : undefined} href="/devis" />
+        <Carte label="Taux de validation des devis" valeur={d && d.envoyesMois > 0 ? `${(d.validesMois / d.envoyesMois * 100).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} %` : "-"} aide={d ? `${d.validesMois} validé(s) pour ${d.envoyesMois} envoyé(s) ce mois` : undefined} href="/devis" />
+        <Carte label="Dalles réalisées" valeur={p ? `${p.dalles.realisees} sur ${p.dalles.total}` : "-"} aide={p ? `${p.dalles.enCours} dalle(s) en cours de chantier` : undefined} href="/chantier" />
+      </div>
+
       <div className="mb-5 grid gap-4 xl:grid-cols-2">
         <div className="rounded-xl border border-bordure bg-white p-5">
           <div className="font-display font-bold">Projets par statut</div>
@@ -118,6 +127,23 @@ export function TableauDirection() {
           )}
         </div>
       </div>
+
+      <div className="mb-5 rounded-xl border border-bordure bg-white p-5">
+        <div className="font-display font-bold">Dalles par étape à faire</div>
+        <div className="text-[13px] text-secondaire">Pour chaque étape du chantier, les dalles qui en sont là</div>
+        <div className="mt-4 space-y-2.5">
+          {p?.dalles.parEtape.map((e) => (
+            <div key={e.numero} className="flex items-center gap-3 text-[13px]">
+              <span className="w-6 shrink-0 text-right font-display text-attenue">{e.numero}</span>
+              <span className="w-56 shrink-0 truncate">{e.label}</span>
+              <span className="h-2.5 flex-1 overflow-hidden rounded-full bg-fond"><span className="block h-full rounded-full bg-marine" style={{ width: `${e.nb / maxEtape * 100}%` }} /></span>
+              <span className="w-8 text-right font-display font-bold">{e.nb}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <KpiNegoce debut={debut} fin={fin} entite={entite} />
 
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <div className="flex items-center justify-between gap-3 border-b border-bordure px-5 py-3">

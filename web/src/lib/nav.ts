@@ -42,21 +42,27 @@ const CONSULTATION = ["tresorerie", "performance_dessinateurs", "performance_ing
 type Droits = { droits?: Record<string, number> };
 
 /** Regroupement du menu par domaine. L'ordre des groupes est celui de l'affichage. */
-const GROUPES: { label: string; ids: string[] }[] = [
-  { label: "Suivi", ids: ["tdb", "projets"] },
-  { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"] },
-  { label: "Ventes directes", ids: ["vDevis", "vLivraisons", "vFactures", "vGroupes"] },
-  { label: "Achats et stock", ids: ["aArticles", "aFournisseurs", "aCommandes", "aStock"] },
-  { label: "Études et chantier", ids: ["etude", "execution", "chantier", "logistique", "repIng", "perfDes", "perfIng", "niveaux"] },
-  { label: "Réglages", ids: ["param"] },
+const GROUPES: { label: string; ids: string[]; icon?: string; plat?: boolean }[] = [
+  { label: "Suivi", ids: ["tdb", "projets"], plat: true },
+  { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"], icon: "tresorerie" },
+  { label: "Ventes directes", ids: ["vDevis", "vLivraisons", "vFactures", "vGroupes"], icon: "vLivraisons" },
+  { label: "Achats et stock", ids: ["aArticles", "aFournisseurs", "aCommandes", "aStock"], icon: "aStock" },
+  { label: "Études et chantier", ids: ["etude", "execution", "chantier", "logistique", "repIng", "perfDes", "perfIng", "niveaux"], icon: "chantier" },
+  { label: "Réglages", ids: ["param"], plat: true },
 ];
 
 /** Une entrée apparaît dès que la fonction de la personne a au moins la lecture sur son module. */
 const visible = (u: Droits, id: string) => !MODULES[id] || (u.droits?.[MODULES[id]] ?? 0) >= 1;
 
-/** Menu de la personne, par groupes non vides. */
-export function groupesPour(u: Droits): { label: string; items: NavItem[] }[] {
-  return GROUPES.map((g) => ({ label: g.label, items: g.ids.filter((i) => visible(u, i)).map((i) => ITEMS[i]) })).filter((g) => g.items.length > 0);
+/**
+ * Menu de la personne, par groupes non vides. Un groupe `plat` (Suivi, Réglages) ou réduit à une seule entrée s'affiche à plat ;
+ * les autres sont des rubriques repliables, avec l'icône du domaine.
+ */
+export function groupesPour(u: Droits): { label: string; icon: string; plat: boolean; items: NavItem[] }[] {
+  return GROUPES.map((g) => {
+    const items = g.ids.filter((i) => visible(u, i)).map((i) => ITEMS[i]);
+    return { label: g.label, icon: ITEMS[g.icon ?? g.ids[0]].icon, plat: !!g.plat || items.length <= 1, items };
+  }).filter((g) => g.items.length > 0);
 }
 
 export function menuPour(u: Droits): NavItem[] {

@@ -1,6 +1,6 @@
 # Avancement de PROGIX
 
-**Dernière mise à jour** : 2026-11-22 (lot Négoce)
+**Dernière mise à jour** : 2026-11-22 (tableau de bord élargi)
 
 Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historique.
 
@@ -10,6 +10,16 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - Backend : `dotnet test backend/Progix.sln` dans le conteneur SDK .NET 8 : 0 erreur, 0 avertissement, **111 tests passés** (2026-10-28, dont l'évaluation des formules de la trame de calcul). Aucune vulnérabilité NuGet connue (`dotnet list package --vulnerable --include-transitive`).
 - `docker compose up --build` : les 6 modules démarrent, migrations appliquées, `/api/health` OK.
 - Données de démonstration chargées sans erreur : le script parcourt par l'API les 11 étapes, les validations, BL, factures, règlements, avoirs et dépenses.
+
+## Tableau de bord élargi (2026-11-22, non commité)
+
+- Backend : `Negoce/Endpoints/TableauDeBordEndpoints.cs` (`GET /api/negoce/tableau-de-bord`, blocs ventes, pipeline, achats, stock selon les droits de lecture) et `Negoce/Application/Indicateurs.cs` (calculs purs). Ajouts : `creances` dans `/api/tableau-de-bord/finances`, `dalles` dans `/api/tableau-de-bord/projets`, `montantEnAttente` dans `/api/devis/tableau-de-bord`.
+- Web : `tableau-de-bord/negoce.tsx` (`KpiNegoce`, `Carte`), intégré aux tableaux direction, commercial, logistique ; tableaux propres aux rôles `responsable_ventes_directes` et `responsable_achats`.
+- Vérifié : 482 tests, lint, build ; API contrôlée avec les données de démonstration pour cinq rôles (droits respectés : marge et valeur de stock masquées sans le droit sur les prix d'achat). **Non regardé à l'écran dans le navigateur.** Définitions des indicateurs : hypothèses à confirmer (BUSINESS_RULES.md section 14).
+
+## Menu latéral en accordéon (2026-11-22, non commité)
+
+- `web/src/lib/nav.ts` : `groupesPour` renvoie aussi l'icône du domaine et un indicateur `plat` (Suivi, Réglages et tout groupe d'une seule entrée restent à plat). `web/src/app/(app)/layout.tsx` : rubriques repliables, une seule ouverte à la fois, la rubrique de la page ouverte s'ouvre d'elle-même ; compteur d'entrées, ou total « à traiter » en orange quand il y en a ; barre repliée en icônes inchangée. Maquette validée : proposition B. Vérifié par captures avec le compte directeur de démo ; lint, types et build OK. Aucune règle métier touchée.
 
 ## Session du 2026-11-22 (non déployée)
 

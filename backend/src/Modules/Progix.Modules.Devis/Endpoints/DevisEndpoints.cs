@@ -93,7 +93,7 @@ public static class DevisEndpoints
             };
             return Results.Ok(new
             {
-                enAttente = attente.Count, aRelancer = relancer.Select(Ligne), expirent = expirent.Select(Ligne),
+                enAttente = attente.Count, montantEnAttente = attente.Sum(d => d.TotalTTC), aRelancer = relancer.Select(Ligne), expirent = expirent.Select(Ligne),
                 validesMois = tous.Count(d => d.ValideLe >= debutMois), envoyesMois = tous.Count(d => d.EnvoyeLe >= debutMois),
             });
         });

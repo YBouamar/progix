@@ -35,8 +35,17 @@ public static class TableauDeBordEndpoints
                 return numero != Etapes.CommandeUsine || e?.FaitLe != null;
             });
 
+            // Avancement des dalles : combien en sont à chaque étape (celle qui reste à faire) et combien sont réalisées.
+            var avancement = await db.Dalles.AsNoTracking().Where(d => ids.Contains(d.ProjetId)).GroupBy(d => d.EtapesFaites).Select(g => new { faites = g.Key, nb = g.Count() }).ToListAsync();
+            var realisees = avancement.Where(a => a.faites >= Etapes.Total).Sum(a => a.nb);
+
             return Results.Ok(new
             {
+                dalles = new
+                {
+                    total = avancement.Sum(a => a.nb), realisees, enCours = avancement.Sum(a => a.nb) - realisees,
+                    parEtape = Enumerable.Range(1, Etapes.Total).Select(n => new { numero = n, label = Etapes.Get(n).Label, nb = avancement.Where(a => a.faites == n - 1).Sum(a => a.nb) }),
+                },
                 total = projets.Count,
                 statuts = StatutsProjet.Labels.Select(s => new { code = s.Key, label = s.Value, nb = projets.Count(p => p.Statut == s.Key) }),
                 bloques = projets.Where(p => p.Bloque).OrderByDescending(p => p.BlocageLe).Select(p => new { id = p.Id, code = p.Code, libelle = p.Libelle, motif = p.BlocageMotif, par = p.BlocagePar, le = p.BlocageLe }),

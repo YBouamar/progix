@@ -34,6 +34,7 @@ public class NegoceModule : IModule
         DevisEndpoints.Map(app);
         LivraisonsEndpoints.Map(app);
         FacturesEndpoints.Map(app);
+        TableauDeBordEndpoints.Map(app);
     }
 
     public async Task InitializeAsync(IServiceProvider services, CancellationToken ct)

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { formatDate, formatNombre } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
+import { KpiNegoce } from "./negoce";
 
 type Commande = { dalleId: string; projetId: string; reference: string; projet: string; entite: string; demandee: string; etat: string; etatLabel: string };
 type Commandes = { compteurs: { etat: string; label: string; nb: number }[]; commandes: Commande[] };
@@ -23,6 +24,7 @@ export function TableauLogistique() {
 
   return (
     <div>
+      <KpiNegoce titre="Stock des articles de vente" />
       <div className="mb-5 rounded-xl border border-bordure bg-white p-5">
         <div className="flex items-center justify-between gap-3"><div className="font-display font-bold">Commandes usine</div><div className="text-[13px] text-secondaire">{c?.commandes.length ?? 0} commande(s)</div></div>
         <div className="mt-4 grid gap-3 sm:grid-cols-3 xl:grid-cols-5">

@@ -32,9 +32,11 @@ public static class TableauDeBordEndpoints
                 return new { debut = a, fin = b, chiffreAffaires = ca, encaisse = t.Encaisse, depenses = t.Depenses, marge = ca - t.Depenses };
             }
             var retards = factures.Where(f => FacturesEndpoints.Statut(f) == "retard").OrderBy(f => f.Echeance).ToList();
+            var impayees = factures.Where(f => f.Reste > 0.005m && FacturesEndpoints.Statut(f) != "annulee").ToList();
             return Results.Ok(new
             {
                 periode = Periode(du, au), precedente = Periode(pDu, pAu),
+                creances = new { nb = impayees.Count, total = impayees.Sum(f => f.Reste) },
                 retards = new
                 {
                     nb = retards.Count, total = retards.Sum(f => f.Reste),

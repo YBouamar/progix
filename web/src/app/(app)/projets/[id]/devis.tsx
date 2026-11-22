@@ -48,6 +48,7 @@ export function DevisProjet({ projetId, lectureSeule }: { projetId: string; lect
             <li key={d.id}>
               <Link href={`/devis/${d.id}`} className="flex flex-wrap items-center gap-3 py-2.5 hover:text-marine">
                 <span className="font-display font-bold text-marine">{d.numero} · version {d.version}</span>
+                {d.variante && <span className="text-[13px] font-semibold text-secondaire">{d.variante}</span>}
                 <Badge ton={TON_ETAT[d.etat] ?? "neutre"}>{d.etatLabel}</Badge>
                 <span className="text-[13px] text-secondaire">{formatDate(d.dateDevis)}</span>
                 <span className="ml-auto font-display font-bold">{formatDH(d.totalTTC)} TTC</span>

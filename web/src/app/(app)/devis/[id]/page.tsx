@@ -23,7 +23,7 @@ import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; sys: Record<number, { a: string; g: string }> };
 type EcheanceForm = { label: string; pct: string; retenue: boolean };
 type Form = {
-  dateDevis: string; duree: string; ingenieurId: string; remise: string; motif: string; rpSaisi: string;
+  variante: string; dateDevis: string; duree: string; ingenieurId: string; remise: string; motif: string; rpSaisi: string;
   echeances: EcheanceForm[]; contrat: string; lignes: LigneForm[]; systemes: number[];
 };
 
@@ -34,7 +34,7 @@ const CELL = "h-8 w-full min-w-0 rounded-md border border-bordure-forte bg-white
 function versForm(d: DevisDetail): Form {
   const systemes = [...new Set(d.lignes.flatMap((l) => l.systemes.map((s) => s.torons)))].sort((a, b) => a - b);
   return {
-    dateDevis: d.dateDevis, duree: String(d.dureeValidite), ingenieurId: d.ingenieurId ?? "",
+    variante: d.variante ?? "", dateDevis: d.dateDevis, duree: String(d.dureeValidite), ingenieurId: d.ingenieurId ?? "",
     remise: fr(d.remiseM2) || "0", motif: d.remiseMotif ?? "", rpSaisi: fr(d.ratioPassifSaisi ?? 0),
     echeances: d.echeances.map((e) => ({ label: e.label, pct: fr(e.pourcentage), retenue: e.retenue })),
     contrat: d.modalitesContrat ?? "", systemes,
@@ -58,6 +58,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const [envoi, setEnvoi] = useState(false);
   const [modifie, setModifie] = useState(false);
   const [annulation, setAnnulation] = useState<string | null>(null);
+  const [validation, setValidation] = useState(false);
   // Étapes de la fiche : 1, fichiers ADAPT ; 2, chiffrage. Un brouillon pas encore chiffré s'ouvre sur les fichiers.
   const [etape, setEtape] = useState<1 | 2 | 3 | null>(null);
   // Données lues dans les fichiers ADAPT, par dalle : elles signalent dans le chiffrage ce qui a été modifié à la main.
@@ -183,7 +184,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     setEnvoi(true); setErreurs({}); setMessage(null);
     try {
       const corps = JSON.stringify({
-        dateDevis: f.dateDevis, dureeValidite: parseInt(f.duree, 10) || 0, ingenieurId: f.ingenieurId || null,
+        variante: f.variante.trim() || null, dateDevis: f.dateDevis, dureeValidite: parseInt(f.duree, 10) || 0, ingenieurId: f.ingenieurId || null,
         remiseM2: lireNombre(f.remise), remiseMotif: f.motif, ratioPassifSaisi: lireNombre(f.rpSaisi) || null,
         echeances: f.echeances.map((e) => ({ label: e.label, pourcentage: lireNombre(e.pct), retenue: e.retenue })),
         modalitesContrat: f.contrat,
@@ -260,10 +261,16 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
       <div className="rounded-xl border border-bordure bg-white p-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-display text-xl font-bold text-marine">{d.numero}</span>
+          {d.variante && !(brouillon && d.actions.modifier) && <Badge ton="violet">{d.variante}</Badge>}
           <Badge>Version {d.version}</Badge>
           <Badge ton={TON_ETAT[d.etat] ?? "neutre"}>{d.etatLabel}</Badge>
           {d.exonereTva && <Badge ton="orange">Client exonéré de TVA</Badge>}
         </div>
+        {brouillon && d.actions.modifier && f && (
+          <div className="mt-2 max-w-md">
+            <Input aria-label="Nom de la variante" placeholder="Nom de la variante (facultatif), par exemple « Sans mezzanine »" maxLength={80} value={f.variante} onChange={(e) => maj({ variante: e.target.value })} />
+          </div>
+        )}
         <div className="mt-1 text-secondaire">
           <Link href={`/projets/${d.projetId}`} className="font-semibold text-texte hover:text-marine">{d.projetCode} · {d.projet}</Link> · {d.client}
         </div>
@@ -275,7 +282,8 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           </span>
           {d.actions.trame && <a href={`/api/devis/${d.id}/import/modele`} className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-bordure-forte bg-white px-3 text-[13px] font-semibold hover:bg-fond"><FileDown size={14} />Trame de calcul Excel</a>}
           {d.actions.modifier && <Button size="sm" variant="outline" onClick={() => setImportOuvert(true)}>Importer depuis Excel</Button>}
-          {d.actions.valider && <Button size="sm" disabled={envoi} onClick={() => transition("valider")}>Valider le devis</Button>}
+          {d.actions.valider && <Button size="sm" disabled={envoi} onClick={() => setValidation(true)}>Valider le devis</Button>}
+          {d.actions.dupliquer && <Button size="sm" variant="outline" disabled={envoi} onClick={() => transition("dupliquer")}>Dupliquer le devis</Button>}
           {d.actions.nouvelleVersion && <Button size="sm" variant="outline" disabled={envoi} onClick={() => transition("nouvelle-version")}>Nouvelle version</Button>}
           {d.actions.rejeter && <Button size="sm" variant="outline" disabled={envoi} onClick={() => setAnnulation("")}>Rejeter le devis</Button>}
         </div>
@@ -547,6 +555,15 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           ))}
         </ul>
       </div>
+
+      <Modal open={validation} onOpenChange={setValidation} title="Valider le devis"
+        description="Un seul devis se valide par projet. Les autres devis du projet encore en brouillon ou envoyés seront annulés automatiquement."
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setValidation(false)}>Retour</Button>
+            <Button disabled={envoi} onClick={async () => { setValidation(false); await transition("valider"); }}>Valider le devis</Button>
+          </>
+        } />
 
       <Modal open={annulation !== null} onOpenChange={(o) => !o && setAnnulation(null)} title="Rejeter le devis"
         description="Le devis passe à l'état Rejeté et ne pourra plus être modifié."

@@ -20,6 +20,8 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 
 - Forfait fixe par type de construction (non commité) : champ dans Paramétrage, priorité projet, type, grille ; 365 tests passés, lint et types web sans erreur ; migration `ForfaitFixeTypeConstruction` à appliquer ; écrans non essayés dans le navigateur.
 
+- Variantes de devis, duplication et validation unique (non commité) : migration `VarianteDevis`, 370 tests passés, lint et build web sans erreur ; écrans non essayés dans le navigateur.
+
 ## Terminé
 
 - Six modules backend : Identity (1 migration), Partenaires (2), Projets (27), Devis (6), Fichiers (3), Facturation (19).

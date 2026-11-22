@@ -77,6 +77,9 @@ public class DevisEntete : Entity
     public string? ValidePar { get; set; }
     public DateTime? AnnuleLe { get; set; }
     public string? AnnuleMotif { get; set; }
+
+    /// <summary>Nom de la variante quand un projet a plusieurs devis en parallèle (« Sans mezzanine », « Hangar seul »). Facultatif.</summary>
+    public string? Variante { get; set; }
     public DateTime? RemplaceLe { get; set; }
     public List<EvenementDevis> Evenements { get; set; } = [];
     public List<LigneDevis> Lignes { get; set; } = [];

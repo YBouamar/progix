@@ -192,6 +192,7 @@ export default function DevisPage() {
                 <td className="whitespace-nowrap px-5 py-3">
                   <div className={cn("font-display font-bold text-marine", d.etat === "remplace" && "line-through")}>{d.numero}</div>
                   <div className="text-[12px] text-attenue">{d.entite} · Version {d.version}</div>
+                  {d.variante && <div className="text-[12px] font-semibold text-secondaire">{d.variante}</div>}
                 </td>
                 <td className="px-5 py-3">
                   <div className="font-semibold">{d.projet}</div>

@@ -62,6 +62,7 @@ public static class DevisEtatsEndpoints
         trame = PeutEcrire(user),
         envoyer = d.Etat == EtatsDevis.Brouillon && PeutEcrire(user),
         valider = d.Etat == EtatsDevis.Envoye && RolesValidation.Any(user.IsInRole),
+        dupliquer = PeutEcrire(user),
         rejeter = d.Etat is EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide && RolesRejet.Any(user.IsInRole),
         nouvelleVersion = derniereVersion && d.Etat is EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide && PeutEcrire(user),
     };
@@ -106,10 +107,19 @@ public static class DevisEtatsEndpoints
                 if (!RolesValidation.Any(user.IsInRole)) return "Vous n'avez pas le droit de valider un devis.";
                 if (d.Etat == EtatsDevis.Expire) return "Ce devis est expiré : créez une nouvelle version.";
                 if (d.Etat != EtatsDevis.Envoye) return "Seul un devis envoyé peut être validé.";
+                // Un seul devis validé par projet ; les autres devis ouverts du projet sont annulés avec lui.
+                var autres = db.Devis.Include(x => x.Evenements).Where(x => x.ProjetId == d.ProjetId && x.Id != d.Id).ToList();
+                if (ValidationDevis.Refus(d, autres) is { } refus) return refus;
                 d.Etat = EtatsDevis.Valide;
                 d.ValideLe = DateTime.UtcNow;
                 d.ValidePar = user.UserName();
-                Tracer(db, d, user, "Devis validé");
+                var annules = ValidationDevis.AAnnuler(d, autres);
+                foreach (var a in annules)
+                {
+                    a.Etat = EtatsDevis.Annule; a.AnnuleLe = DateTime.UtcNow; a.AnnuleMotif = ValidationDevis.MotifAnnulation(d); a.UpdatedAt = DateTime.UtcNow;
+                    Tracer(db, a, user, $"Devis annulé. Motif : {a.AnnuleMotif}");
+                }
+                Tracer(db, d, user, annules.Count == 0 ? "Devis validé" : $"Devis validé ; {annules.Count} autre(s) devis du projet annulé(s)");
                 return null;
             }, d => statut.PasserEnEtudeAsync(d.ProjetId)));
 
@@ -129,6 +139,47 @@ public static class DevisEtatsEndpoints
                 // Sans aucun devis validé, le projet n'est plus en étude.
                 if (!await db.Devis.AnyAsync(x => x.ProjetId == d.ProjetId && x.Etat == EtatsDevis.Valide)) await statut.RevenirCreeAsync(d.ProjetId);
             }));
+
+        // Duplication : copie d'un devis, quel que soit son état, en brouillon sous un nouveau numéro (variante du même projet).
+        g.MapPost("/dupliquer", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
+        {
+            if (!PeutEcrire(user)) return Results.Forbid();
+            var d = await db.Devis.AsNoTracking().Include(x => x.Lignes).FirstOrDefaultAsync(x => x.Id == id);
+            if (d is null) return Results.NotFound();
+            var projet = await projets.ProjetAsync(d.ProjetId, avecDalles: true);
+            if (projet is null) return Results.NotFound();
+            if (projet.Supprime) return DevisEndpoints.Conflit("Un projet supprimé est en lecture seule.");
+            if (projet.Dalles.Count == 0) return DevisEndpoints.Conflit("Le projet n'a plus de dalle : rien à chiffrer.");
+
+            await using var tx = await db.Database.BeginTransactionAsync();
+            var jour = Aujourdhui;
+            var prm = await db.ParametresAsync();
+            var n = new DevisEntete
+            {
+                Entite = d.Entite, Numero = $"DEV-{await db.NumeroSuivantAsync($"devis:{d.Entite}:{jour.Year}"):00000}-{jour.Year}", Version = 1, ProjetId = d.ProjetId, DateDevis = jour,
+                DureeValidite = d.DureeValidite, CommercialId = projet.CommercialId, CommercialNom = projet.CommercialNom, IngenieurId = d.IngenieurId, IngenieurNom = d.IngenieurNom,
+                RemiseM2 = d.RemiseM2, RemiseMotif = d.RemiseMotif, RatioPassifSaisi = d.RatioPassifSaisi, ModalitesContrat = d.ModalitesContrat, CreePar = user.UserName(),
+                Variante = d.Variante is { Length: > 0 } v ? $"{v} (copie)" : $"Copie de {d.Numero}",
+                Echeances = d.Echeances.Select(e => new Echeance { Label = e.Label, Pourcentage = e.Pourcentage, Retenue = e.Retenue }).ToList(),
+                Evenements = [new EvenementDevis { Quoi = $"Dupliqué à partir du devis {d.Numero}, version {d.Version}", Qui = user.UserName() }],
+                // Dalles et surfaces à jour du projet ; ratios et systèmes repris du devis copié.
+                Lignes = projet.Dalles.Select((dalle, i) =>
+                {
+                    var ancienne = d.Lignes.FirstOrDefault(l => l.DalleId == dalle.Id);
+                    return new LigneDevis
+                    {
+                        DalleId = dalle.Id, Ordre = i, Reference = dalle.Reference, Emplacement = dalle.Emplacement, Surface = dalle.Surface,
+                        RatioActif = ancienne?.RatioActif ?? 0, RatioPassif = ancienne?.RatioPassif ?? 0,
+                        Systemes = (ancienne?.Systemes ?? []).Select(s => new SystemeLigne { Torons = s.Torons, Ancrages = s.Ancrages, Gaine = s.Gaine }).ToList(),
+                    };
+                }).ToList(),
+            };
+            Calcul.Recalculer(n, prm.Forfaits, await DevisEndpoints.Exonere(projet, partenaires), projet.ForfaitImpose);
+            db.Devis.Add(n);
+            await db.SaveChangesAsync();
+            await tx.CommitAsync();
+            return Results.Ok(await DevisEndpoints.Detail(n, projets, partenaires, user, db));
+        });
 
         // Nouvelle version : copie en brouillon avec les dalles et surfaces à jour du projet ; l'ancienne version est remplacée.
         g.MapPost("/nouvelle-version", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>

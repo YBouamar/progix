@@ -18,7 +18,7 @@ public record TrancheInput(decimal APartirDe, decimal Prix);
 public record ForfaitsInput(List<TrancheInput>? Tranches);
 /// <param name="IngenieurId">Ingénieur qui établit le devis. Le commercial, lui, vient du projet.</param>
 public record DevisInput(DateOnly DateDevis, int DureeValidite, Guid? IngenieurId, decimal RemiseM2, string? RemiseMotif,
-    List<EcheanceInput>? Echeances, string? ModalitesContrat, List<LigneInput>? Lignes, decimal? RatioPassifSaisi = null);
+    List<EcheanceInput>? Echeances, string? ModalitesContrat, List<LigneInput>? Lignes, decimal? RatioPassifSaisi = null, string? Variante = null);
 
 public static class DevisEndpoints
 {
@@ -176,7 +176,7 @@ public static class DevisEndpoints
                     var p = infos.GetValueOrDefault(d.ProjetId);
                     return new
                     {
-                        id = d.Id, numero = d.Numero, entite = d.Entite, version = d.Version, projetId = d.ProjetId,
+                        id = d.Id, numero = d.Numero, variante = d.Variante, entite = d.Entite, version = d.Version, projetId = d.ProjetId,
                         projet = p?.Libelle ?? "", projetCode = p?.Code ?? "", client = p is null ? "" : noms.GetValueOrDefault(p.ClientId, ""),
                         commercial = d.CommercialNom, ingenieur = d.IngenieurNom, etat = d.Etat, etatLabel = EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat),
                         dateDevis = d.DateDevis, echeance = d.Echeance, totalTTC = d.TotalTTC,
@@ -244,6 +244,7 @@ public static class DevisEndpoints
 
             var e = new Dictionary<string, string[]>();
             if (input.DureeValidite is < 1 or > 365) e["dureeValidite"] = ["La durée de validité est comprise entre 1 et 365 jours."];
+            if (input.Variante?.Trim().Length > 80) e["variante"] = ["Le nom de la variante compte au plus 80 caractères."];
             if (input.RemiseM2 < 0) e["remiseM2"] = ["La remise ne peut pas être négative."];
             if (input.RatioPassifSaisi is < 0 or > 1000) e["ratioPassifSaisi"] = ["Le ratio passif saisi doit être compris entre 0 et 1 000 kg/m²."];
             if (input.RemiseM2 > 0 && string.IsNullOrWhiteSpace(input.RemiseMotif)) e["remiseMotif"] = ["Le motif est obligatoire dès qu'une remise est saisie."];
@@ -278,6 +279,7 @@ public static class DevisEndpoints
 
             d.DateDevis = input.DateDevis;
             d.DureeValidite = input.DureeValidite;
+            d.Variante = string.IsNullOrWhiteSpace(input.Variante) ? null : input.Variante.Trim();
             if (input.IngenieurId is Guid iid)
             {
                 var ing = (await users.ParRolesAsync(RolesIngenieurs)).FirstOrDefault(u => u.Id == iid);
@@ -406,7 +408,7 @@ public static class DevisEndpoints
         var grille = brouillon ? (await db.ParametresAsync()).Forfaits.OrderBy(t => t.APartirDe).Select(t => new { aPartirDe = t.APartirDe, prix = t.Prix }).ToList() : [];
         return new
         {
-            id = d.Id, numero = d.Numero, version = d.Version, etat = d.Etat, etatLabel = EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat),
+            id = d.Id, numero = d.Numero, variante = d.Variante, version = d.Version, etat = d.Etat, etatLabel = EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat),
             projetId = d.ProjetId, projet = p?.Libelle, projetCode = p?.Code, entite = p?.Entite, typeConstruction = p?.TypeConstruction, typeLabel = p?.TypeLabel ?? p?.TypeConstruction,
             client = client?.Nom, exonereTva = d.ExonereTva,
             dateDevis = d.DateDevis, dureeValidite = d.DureeValidite, echeance = d.Echeance,

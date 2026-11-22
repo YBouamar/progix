@@ -1,5 +1,5 @@
 export type DevisListItem = {
-  id: string; numero: string; entite: string; version: number; projetId: string; projet: string; projetCode: string; client: string;
+  id: string; numero: string; variante: string | null; entite: string; version: number; projetId: string; projet: string; projetCode: string; client: string;
   commercial: string | null; ingenieur: string | null; etat: string; etatLabel: string; dateDevis: string; echeance: string; totalTTC: number; info: string; alerte: string | null;
   /** Où en est le devis : étape de la fiche à ouvrir (1 fichiers, 2 chiffrage, 3 impression et envoi). */
   avancement: { titre: string; detail: string | null; etape: 1 | 2 | 3 };
@@ -20,14 +20,14 @@ export type Ligne = {
 export type Echeance = { label: string; pourcentage: number; retenue: boolean };
 
 export type DevisDetail = {
-  id: string; numero: string; version: number; etat: string; etatLabel: string;
+  id: string; numero: string; variante: string | null; version: number; etat: string; etatLabel: string;
   projetId: string; projet: string; projetCode: string; entite: string; typeConstruction: string; typeLabel: string; client: string; exonereTva: boolean;
   dateDevis: string; dureeValidite: number; echeance: string; commercial: string | null; ingenieurId: string | null; ingenieur: string | null;
   remiseM2: number; remiseMotif: string | null; ratioPassifSaisi: number | null; forfaitPropre: number | null; forfaitType: number | null; echeances: Echeance[]; modalitesContrat: string | null;
   forfait: number; tranchesForfait: Tranche[]; typesAncrage: number[]; surfaceTotale: number; totalHT: number; remiseTotale: number; netHT: number; tva: number; totalTTC: number;
   signePar: string | null; signeLe: string | null; signable: boolean;
   creePar: string; lignes: Ligne[]; info: string; alerte: string | null; annuleMotif: string | null;
-  actions: { modifier: boolean; trame: boolean; envoyer: boolean; valider: boolean; rejeter: boolean; nouvelleVersion: boolean };
+  actions: { modifier: boolean; trame: boolean; envoyer: boolean; valider: boolean; rejeter: boolean; nouvelleVersion: boolean; dupliquer: boolean };
   historique: { quand: string; quoi: string; qui: string }[];
 };
 

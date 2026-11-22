@@ -169,6 +169,9 @@ namespace Progix.Modules.Devis.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Variante")
+                        .HasColumnType("text");
+
                     b.Property<int>("Version")
                         .HasColumnType("integer");
 

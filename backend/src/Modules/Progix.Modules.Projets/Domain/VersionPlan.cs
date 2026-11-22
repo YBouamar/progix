@@ -13,6 +13,9 @@ public class VersionPlan : Entity
     public const string Plan = "plan";
     public const string Modele = "modele";
     public const string Autre = "autre";
+    /// <summary>Plans de câblage ADAPT en DXF, orientations X et Y : ils servent à créer la commande usine.</summary>
+    public const string CablageX = "cablage_x";
+    public const string CablageY = "cablage_y";
 
     public const string Fige = "Les plans sont figés depuis la validation du BCT.";
 

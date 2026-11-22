@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { VersionsPlans } from "./versions";
 import { FicheTension } from "./tension";
-import { CommandeUsine } from "./commande";
+import { CommandesDalle } from "./commandes";
 import { FicheInjection } from "./injection";
 import { FicheAutoControle } from "./autocontrole";
 import { FicheSignature } from "./fiche-signature";
@@ -145,7 +145,7 @@ export function SuiviDalle({ projetId, dalleId, onClose, onChange }: {
             )}
 
             {e.numero === 4 && e.etat !== "a_venir" && (
-              <CommandeUsine key={e.etat + (e.faitLe ?? "")} projetId={projetId} dalleId={dalleId} />
+              <CommandesDalle key={e.etat + (e.faitLe ?? "")} projetId={projetId} dalleId={dalleId} />
             )}
             {e.numero === 6 && (e.etat === "courante" || e.etat === "terminee") && (
               <FicheAutoControle key={e.etat} projetId={projetId} dalleId={dalleId} />

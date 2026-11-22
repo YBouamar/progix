@@ -39,14 +39,14 @@ public class ProjetsLookup(ProjetsDbContext db, IDevisLookup devis) : IProjetsLo
         if (p is null) return null;
         var commandes = avecDalles
             ? await (from c in db.CommandesUsine.AsNoTracking() join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
-                     where d.ProjetId == id && c.Surface != null select new { c.DalleId, c.Surface }).ToDictionaryAsync(x => x.DalleId, x => x.Surface, ct)
+                     where d.ProjetId == id && c.Surface != null && c.AnnuleeLe == null select new { c.DalleId, c.Surface }).GroupBy(x => x.DalleId).ToDictionaryAsync(g => g.Key, g => (decimal?)g.Sum(x => x.Surface), ct)
             : new Dictionary<Guid, decimal?>();
         var dalles = avecDalles
             ? (await db.Dalles.AsNoTracking().Where(d => d.ProjetId == id).OrderBy(d => d.Numero).ToListAsync(ct))
                 .Select(d => new DalleResume(d.Id, $"{p.Code}-{d.Suffixe}",
                     string.Join(" · ", new[] { d.Bloc, d.Immeuble, Dalle.NiveauLabel(d.Niveau) }.Where(s => !string.IsNullOrWhiteSpace(s))), d.Surface, d.EtapesFaites, d.Conforme,
                     d.Adapt is null ? null : new AdaptResume(d.Adapt.RatioActif, d.Adapt.RatioPassif,
-                        d.Adapt.Systemes.Select(s => new SystemeAdaptResume(s.Torons, s.Cables, s.LongueurGaines)).ToList(), d.Adapt.AvecPt, d.Adapt.AvecRebar),
+                        d.Adapt.Systemes.Select(s => new SystemeAdaptResume(s.Torons, s.Ancrages, s.LongueurGaines)).ToList(), d.Adapt.AvecPt, d.Adapt.AvecRebar),
                     commandes.GetValueOrDefault(d.Id))).ToList()
             : [];
         return Resume(p, dalles);

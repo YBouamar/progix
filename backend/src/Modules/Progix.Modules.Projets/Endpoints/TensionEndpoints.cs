@@ -128,9 +128,10 @@ public static class TensionEndpoints
         var parametres = await ParametresAsync(db);
         // Sans fiche, la liste des câbles vient de la commande usine, avec le théorique calculé sur la longueur.
         var proposes = false;
-        if (mesures.Count == 0 && await db.CommandesUsine.AsNoTracking().FirstOrDefaultAsync(c => c.DalleId == dalle.Id) is { } commande)
+        var commandes = await db.CommandesUsine.AsNoTracking().Where(c => c.DalleId == dalle.Id && c.AnnuleeLe == null).OrderBy(c => c.Numero).ToListAsync();
+        if (mesures.Count == 0 && commandes.Count > 0)
         {
-            mesures = commande.Cables().Select((c, i) => new MesureTension
+            mesures = commandes.SelectMany(c => c.Cables()).Select((c, i) => new MesureTension
             {
                 DalleId = dalle.Id, Ordre = i, Cable = c.Nom, Longueur = c.Longueur, Theorique = Math.Round(c.Longueur * parametres.MmParMetre, 1),
             }).ToList();

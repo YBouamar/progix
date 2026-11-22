@@ -18,15 +18,15 @@ public class LectureAdaptTests
         + Ligne("Current plane", surface, "317.98", "2456.20", ratio, "7.72", "9824.81")
         + Ligne("Total", surface, "317.98", "2456.20", ratio, "7.72", "9824.81");
 
-    private static string Cable(int n, string plan, string duct, int torons, string toron) =>
-        Ligne(n.ToString(), $"Tendon {n}", plan, duct, "150", torons.ToString(), toron, "32", "1");
+    private static string Cable(int n, string plan, string duct, int torons, string toron, int actives = 1) =>
+        Ligne(n.ToString(), $"Tendon {n}", plan, duct, "150", torons.ToString(), toron, "32", actives.ToString());
 
     private static string Pt(string plancher = "PH-2EME", int toronsInconnus = 0) => Rtf("300.00 PT TOTALS", plancher,
         Ligne("#", "Label", "Reference Plane", "Tendon/Duct Length", "Strand Area", "Number Of Strands", "Strand Length", "Tendon Diameter", "Stressing ends"),
         Ligne("", "", "", "m", "mm2", "", "m", "mm", ""),
         Cable(1, "Current plane", "21.380", 1, "21.380"),
         Cable(2, "Current plane", "10.000", 1, "10.000"),
-        Cable(3, "Current plane", "13.939", 2, "27.878"),
+        Cable(3, "Current plane", "13.939", 2, "27.878", 2),
         Cable(4, "Current plane", "10.346", 3, "31.037"),
         Cable(5, "Other plane", "99.000", 1, "99.000"),
         toronsInconnus > 0 ? Cable(6, "Current plane", "5.000", toronsInconnus, "25.000") : "",
@@ -51,10 +51,10 @@ public class LectureAdaptTests
         Assert.Equal(12.85m, a.RatioPassif);
         Assert.Equal(1409.58m, a.SurfacePlancher);
         Assert.Equal("SOHAUS · PH-2EME · essai.adm", a.Plancher);
-        // Le câble d'un autre plan est ignoré ; ancrages = nombre de lignes, gaine = cumul de Tendon/Duct Length (le cumul de Strand Length, gardé pour information, vaut gaine × torons).
+        // Le câble d'un autre plan est ignoré ; ancrages = 2 par tendon (une extrémité à chaque bout), extrémités actives = colonne Stressing ends, gaine = cumul de Tendon/Duct Length (le cumul de Strand Length, gardé pour information, vaut gaine × torons).
         Assert.Collection(a.Systemes,
-            s => { Assert.Equal(1, s.Torons); Assert.Equal(2, s.Cables); Assert.Equal(31.38m, s.LongueurTorons); Assert.Equal(31.38m, s.LongueurGaines); },
-            s => { Assert.Equal(2, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(27.88m, s.LongueurTorons); Assert.Equal(13.94m, s.LongueurGaines); },
+            s => { Assert.Equal(1, s.Torons); Assert.Equal(2, s.Cables); Assert.Equal(4, s.Ancrages); Assert.Equal(2, s.ExtremitesActives); Assert.Equal(31.38m, s.LongueurTorons); Assert.Equal(31.38m, s.LongueurGaines); },
+            s => { Assert.Equal(2, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(2, s.Ancrages); Assert.Equal(2, s.ExtremitesActives); Assert.Equal(27.88m, s.LongueurTorons); Assert.Equal(13.94m, s.LongueurGaines); },
             s => { Assert.Equal(3, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(31.04m, s.LongueurTorons); Assert.Equal(10.35m, s.LongueurGaines); });
     }
 

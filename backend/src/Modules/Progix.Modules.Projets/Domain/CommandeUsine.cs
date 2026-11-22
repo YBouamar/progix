@@ -9,6 +9,9 @@ namespace Progix.Modules.Projets.Domain;
 public class CommandeUsine : Entity
 {
     public Guid DalleId { get; set; }
+
+    /// <summary>Rang de la commande sur la dalle : 1 pour la commande initiale, puis 2, 3... pour les compléments envoyés plus tard au chantier.</summary>
+    public int Numero { get; set; } = 1;
     /// <summary>Une ligne par tendon. Les commandes d'avant ce modèle gardent leurs lignes groupées (préfixe et nombre).</summary>
     public List<LigneCommande> Lignes { get; set; } = [];
     public List<AccessoireCommande> Accessoires { get; set; } = [];
@@ -19,14 +22,32 @@ public class CommandeUsine : Entity
     /// <summary>Nombre total de tendons, tenu à jour pour les contrôles.</summary>
     public int NbCables { get; set; }
 
-    // Suivi logistique après les deux validations : en fabrication, livrée, reçue.
+    // Suivi logistique : à préparer (après les deux validations), préparée, envoyée au chantier, reçue au chantier, ou annulée.
+    // Les colonnes gardent leurs anciens noms : FabricationLe = préparée, LivreeLe = envoyée au chantier.
     public DateTime? FabricationLe { get; set; }
     public DateTime? LivreeLe { get; set; }
     public DateTime? RecueLe { get; set; }
     public string? SuiviPar { get; set; }
 
-    /// <summary>Le stock est consommé dès que la commande est livrée.</summary>
-    public bool Consommee => LivreeLe != null;
+    /// <summary>Annulation : à tout moment, avec un motif tracé. Une commande annulée ne consomme plus de stock et n'est plus comptée.</summary>
+    public DateTime? AnnuleeLe { get; set; }
+    public string? AnnuleePar { get; set; }
+    public string? MotifAnnulation { get; set; }
+
+    /// <summary>Modifications faites après la soumission, y compris après l'envoi : ce que l'usine doit voir.</summary>
+    public List<ModificationCommande> Modifications { get; set; } = [];
+
+    public bool Annulee => AnnuleeLe != null;
+
+    /// <summary>Le stock est consommé dès que la commande est envoyée au chantier, sauf si elle est annulée.</summary>
+    public bool Consommee => LivreeLe != null && AnnuleeLe == null;
+
+    public const string APreparer = "a_preparer", Preparee = "preparee", Envoyee = "envoyee", Recue = "recue", Annulee_ = "annulee", Attente = "attente";
+
+    /// <summary>État de suivi. Une commande initiale attend ses deux validations ; un complément est à préparer dès sa création.</summary>
+    public string Etat(bool validee) =>
+        AnnuleeLe != null ? Annulee_ : RecueLe != null ? Recue : LivreeLe != null ? Envoyee : FabricationLe != null ? Preparee
+        : Numero > 1 || validee ? APreparer : Attente;
 
     /// <summary>Liste des tendons, un par un. Une ancienne ligne groupée est dépliée en X01, X02...</summary>
     public IEnumerable<Tendon> Tendons()
@@ -65,9 +86,23 @@ public class LigneCommande
     /// <summary>Ancrages du tendon, tels que donnés à l'import ou à la saisie. Absent sur une ancienne ligne : 2 par câble.</summary>
     public int? AncragesSaisis { get; set; }
 
+    /// <summary>Ligne changée après la soumission : date, et valeurs d'avant (« S2 · X · 7,00 m · 2 ancrages »). Une ligne ajoutée après est marquée telle quelle.</summary>
+    public DateTime? ModifieLe { get; set; }
+    public string? Avant { get; set; }
+    public bool Ajoutee { get; set; }
+
     public decimal Gaine => Nombre * Longueur;
     public decimal MetresTorons => Gaine * Torons;
     public int Ancrages => AncragesSaisis ?? Nombre * 2;
+}
+
+/// <summary>Une modification d'une commande déjà soumise : qui, quand, dans quel état, et chaque changement en une ligne lisible.</summary>
+public class ModificationCommande
+{
+    public DateTime Le { get; set; }
+    public string Par { get; set; } = "";
+    public string Etat { get; set; } = "";
+    public List<string> Changements { get; set; } = [];
 }
 
 public class AccessoireCommande

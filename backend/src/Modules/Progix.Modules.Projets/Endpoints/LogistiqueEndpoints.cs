@@ -9,17 +9,13 @@ using Progix.SharedKernel;
 
 namespace Progix.Modules.Projets.Endpoints;
 
-public record EtatCommandeInput(string Etat);
 public record ArticleInput(string Entite, string Code, decimal StockInitial, decimal Seuil);
 public record MouvementInput(string Entite, string Code, string Sens, decimal Quantite, string? Motif);
 
 /// <summary>Logistique : suivi des commandes usine et état de stock par entité.</summary>
 public static class LogistiqueEndpoints
 {
-    private static readonly (string Code, string Label)[] Etats =
-    [
-        (ACommander, "À commander"), ("attente", "En attente de validation"), ("validee", "Validée"), ("fabrication", "En fabrication"), ("livree", "Livrée"), ("recue", "Reçue"),
-    ];
+    private static readonly (string Code, string Label)[] Etats = [(ACommander, "À commander"), .. CommandesEndpoints.Etats];
 
     public const string ACommander = "a_commander";
 
@@ -34,8 +30,7 @@ public static class LogistiqueEndpoints
             && !db.Etapes.Any(e => e.DalleId == d.Id && e.Numero == Etapes.CommandeUsine && e.FaitLe != null)
         select d;
 
-    private static string Etat(CommandeUsine c, EtapeDalle e) =>
-        c.RecueLe != null ? "recue" : c.LivreeLe != null ? "livree" : c.FabricationLe != null ? "fabrication" : e.Validee ? "validee" : "attente";
+    private static string Etat(CommandeUsine c, EtapeDalle e) => c.Etat(e.Validee);
 
     public static void Map(IEndpointRouteBuilder app)
     {
@@ -50,11 +45,12 @@ public static class LogistiqueEndpoints
                 join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
                 join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
                 where e.FaitLe != null && !p.Supprime
-                orderby e.FaitLe descending
+                orderby c.Numero > 1 ? c.CreatedAt : e.FaitLe descending
                 select new { c, e, d, p }).ToListAsync();
             var liste = rows.Select(r => new
             {
-                dalleId = r.d.Id, projetId = r.p.Id, reference = $"{r.p.Code}-{r.d.Suffixe}", projet = r.p.Libelle, entite = r.p.Entite, demandee = r.e.FaitLe,
+                commandeId = (Guid?)r.c.Id, numero = r.c.Numero, modifiee = r.c.Modifications.Count > 0,
+                dalleId = r.d.Id, projetId = r.p.Id, reference = $"{r.p.Code}-{r.d.Suffixe}", projet = r.p.Libelle, entite = r.p.Entite, demandee = r.c.Numero > 1 ? (DateTime?)r.c.CreatedAt : r.e.FaitLe,
                 contenu = string.Join(" · ", r.c.Lignes.GroupBy(l => l.Torons).OrderBy(x => x.Key)
                     .Select(x => $"S{x.Key} · {x.Sum(l => l.Nombre)} câbles · {x.Sum(l => l.Gaine):0.##} m")),
                 validations = r.e.Validee ? "Deux validations"
@@ -69,6 +65,7 @@ public static class LogistiqueEndpoints
                 select new { d, p, c = db.CommandesUsine.FirstOrDefault(c => c.DalleId == d.Id) }).ToListAsync();
             liste.InsertRange(0, aCommander.Select(r => new
             {
+                commandeId = (Guid?)null, numero = 1, modifiee = false,
                 dalleId = r.d.Id, projetId = r.p.Id, reference = $"{r.p.Code}-{r.d.Suffixe}", projet = r.p.Libelle, entite = r.p.Entite, demandee = (DateTime?)null,
                 contenu = r.c is null || r.c.Lignes.Count == 0 ? "Commande à créer" : "Saisie commencée : " + string.Join(" · ", r.c.Lignes.GroupBy(l => l.Torons).OrderBy(x => x.Key)
                     .Select(x => $"S{x.Key} · {x.Sum(l => l.Nombre)} câbles · {x.Sum(l => l.Gaine):0.##} m")),
@@ -78,19 +75,19 @@ public static class LogistiqueEndpoints
             {
                 compteurs = Etats.Select(x => new { etat = x.Code, label = x.Label, nb = liste.Count(l => l.etat == x.Code) }),
                 commandes = liste.Where(l => string.IsNullOrEmpty(etat) || l.etat == etat)
-                    .Select(l => new { l.dalleId, l.projetId, l.reference, l.projet, l.entite, l.demandee, l.contenu, l.validations, l.etat, etatLabel = Etats.First(x => x.Code == l.etat).Label }),
+                    .Select(l => new { l.commandeId, l.numero, l.modifiee, l.dalleId, l.projetId, l.reference, l.projet, l.entite, l.demandee, l.contenu, l.validations, l.etat, etatLabel = Etats.First(x => x.Code == l.etat).Label }),
             });
         });
 
-        // Détail d'une commande usine : fiche isolée, consultable depuis la liste sans passer par le projet.
-        g.MapGet("/commandes/{dalleId:guid}", async (Guid dalleId, ProjetsDbContext db, IPartenairesLookup partenaires) =>
+        // Détail d'une commande usine (initiale ou complémentaire) : fiche isolée, consultable depuis la liste sans passer par le projet.
+        g.MapGet("/commandes/{commandeId:guid}", async (Guid commandeId, ProjetsDbContext db, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
         {
             var row = await (
                 from c in db.CommandesUsine.AsNoTracking()
                 join e in db.Etapes.AsNoTracking() on new { c.DalleId, Numero = Etapes.CommandeUsine } equals new { e.DalleId, e.Numero }
                 join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
                 join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
-                where c.DalleId == dalleId && e.FaitLe != null
+                where c.Id == commandeId && e.FaitLe != null
                 select new { c, e, d, p }).FirstOrDefaultAsync();
             if (row is null) return Results.NotFound();
             var noms = await partenaires.NomsAsync([row.p.ClientId]);
@@ -107,28 +104,27 @@ public static class LogistiqueEndpoints
                 validationAdministrativePar = row.e.ValidationAdministrativePar, validationAdministrativeLe = row.e.ValidationAdministrativeLe,
                 fabricationLe = row.c.FabricationLe, livreeLe = row.c.LivreeLe, recueLe = row.c.RecueLe, suiviPar = row.c.SuiviPar,
                 etat, etatLabel = Etats.First(x => x.Code == etat).Label,
-                tendons = row.c.Tendons().Select(t => new { numero = t.Numero, torons = t.Torons, sens = t.Sens, longueur = t.Longueur, ancrages = t.Ancrages }),
+                commandeId = row.c.Id, numero = row.c.Numero,
+                surfaceCommande = row.c.Surface,
+                tendons = row.c.Lignes.Select(l => new
+                {
+                    numero = l.Numero, torons = l.Torons, sens = l.Sens, longueur = l.Longueur, ancrages = l.Ancrages,
+                    modifiee = l.ModifieLe != null && !l.Ajoutee, ajoutee = l.Ajoutee, avant = l.Avant, modifieLe = l.ModifieLe,
+                }),
                 accessoires = row.c.Accessoires.Select(a => new { libelle = a.Libelle, unite = a.Unite, quantite = a.Quantite }),
+                modifications = row.c.Modifications.OrderByDescending(m => m.Le).Select(m => new { le = m.Le, par = m.Par, etat = CommandesEndpoints.LabelEtat(m.Etat), changements = m.Changements }),
+                annuleeLe = row.c.AnnuleeLe, annuleePar = row.c.AnnuleePar, motifAnnulation = row.c.MotifAnnulation,
+                peutPreparer = CommandesEndpoints.PeutPreparer(user), peutRecevoir = CommandesEndpoints.PeutRecevoir(user), peutAnnuler = CommandesEndpoints.PeutAnnuler(user),
             });
         });
 
-        // État de la commande après validation : validée, en fabrication, livrée, reçue.
-        g.MapPost("/commandes/{dalleId:guid}/etat", async (Guid dalleId, EtatCommandeInput input, ProjetsDbContext db, ClaimsPrincipal user) =>
+        // État de la commande : préparée, envoyée au chantier, reçue au chantier, annulée (avec motif). Chaque action a ses rôles.
+        g.MapPost("/commandes/{commandeId:guid}/etat", async (Guid commandeId, ChangementEtatInput input, ProjetsDbContext db, ClaimsPrincipal user) =>
         {
-            var c = await db.CommandesUsine.FirstOrDefaultAsync(x => x.DalleId == dalleId);
-            var e = await db.Etapes.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == dalleId && x.Numero == Etapes.CommandeUsine);
+            var c = await db.CommandesUsine.FirstOrDefaultAsync(x => x.Id == commandeId);
+            var e = c is null ? null : await db.Etapes.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == c.DalleId && x.Numero == Etapes.CommandeUsine);
             if (c is null || e is null) return Results.NotFound();
-            if (Etat(c, e) == "attente") return ProjetsEndpoints.Conflit("La commande attend encore ses deux validations.");
-            // L'état se règle librement, en avant comme en arrière ; le stock suit, puisqu'il se calcule sur les commandes livrées.
-            var rang = input.Etat switch { "validee" => 0, "fabrication" => 1, "livree" => 2, "recue" => 3, _ => -1 };
-            if (rang < 0) return ProjetsEndpoints.Conflit("État de commande inconnu.");
-            var maintenant = DateTime.UtcNow;
-            c.FabricationLe = rang >= 1 ? c.FabricationLe ?? maintenant : null;
-            c.LivreeLe = rang >= 2 ? c.LivreeLe ?? maintenant : null;
-            c.RecueLe = rang >= 3 ? c.RecueLe ?? maintenant : null;
-            c.SuiviPar = user.UserName();
-            await db.SaveChangesAsync();
-            return Results.NoContent();
+            return await CommandesEndpoints.ChangerEtat(db, c, e.Validee, input, user);
         });
 
         // Synthèse annuelle : matière livrée par mois et par entité. Le tonnage de torons se calcule à 1,18 kg par mètre (toron T15,7).
@@ -140,7 +136,7 @@ public static class LogistiqueEndpoints
                 from c in db.CommandesUsine.AsNoTracking()
                 join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
                 join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
-                where c.LivreeLe >= debut && c.LivreeLe < fin
+                where c.LivreeLe >= debut && c.LivreeLe < fin && c.AnnuleeLe == null
                 select new { c, p.Entite, d.Surface }).ToListAsync();
             const decimal KgParMetre = 1.18m;
             object Ligne(string libelle, IEnumerable<dynamic> x)
@@ -219,7 +215,7 @@ public static class LogistiqueEndpoints
             from c in db.CommandesUsine.AsNoTracking()
             join d in db.Dalles.AsNoTracking() on c.DalleId equals d.Id
             join p in db.Projets.AsNoTracking() on d.ProjetId equals p.Id
-            where p.Entite == entite
+            where p.Entite == entite && c.AnnuleeLe == null
             select c).ToListAsync();
         var livrees = commandes.Where(c => c.LivreeLe != null).ToList();
         // Les systèmes (ancrage, gaine) apparaissent dès qu'une commande les utilise, livrée ou non : le stock des câbles

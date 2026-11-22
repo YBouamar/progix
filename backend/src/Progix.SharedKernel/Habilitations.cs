@@ -64,7 +64,8 @@ public static class Habilitations
         public int Maximum => LectureSeule ? Lecture : Ecriture;
     }
 
-    private static readonly string[] Tous = Roles.All.Select(r => r.Code).ToArray();
+    // Le gestionnaire de stock n'a que la logistique : il n'est pas dans « Tous ».
+    private static readonly string[] Tous = Roles.All.Select(r => r.Code).Where(c => c != Roles.GestionnaireStock).ToArray();
     private static readonly string[] Direction = [Roles.Directeur, Roles.ChefProjet];
     // Les chantiers passent par leur menu : le menu Projets leur est fermé par défaut, et peut leur être rouvert.
     private static readonly string[] Chantiers = [Roles.ResponsableChantier, Roles.ChefChantier];
@@ -173,7 +174,7 @@ public static class Habilitations
 
     // Suivi d'une dalle et dépenses de chantier : ces points d'accès du module Projets servent aussi le menu Chantier.
     private static readonly Regex SuiviDeChantier = new(
-        @"^/api/projets/(?<projet>[0-9a-fA-F-]{36})/(dalles/[0-9a-fA-F-]{36}/(etapes|tension|commande|injection|auto-controle|rapports-ecrasement|versions)|depenses)(/|$)", RegexOptions.Compiled);
+        @"^/api/projets/(?<projet>[0-9a-fA-F-]{36})/(dalles/[0-9a-fA-F-]{36}/(etapes|tension|commandes?|injection|auto-controle|rapports-ecrasement|versions)|depenses)(/|$)", RegexOptions.Compiled);
 
     /// <summary>
     /// Second module qui ouvre une requête du module Projets : le menu Chantier pour le suivi d'une dalle et les dépenses de chantier.

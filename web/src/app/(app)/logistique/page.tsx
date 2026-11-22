@@ -12,6 +12,7 @@ import { Modal } from "@/components/ui/modal";
 import { SuiviDalle } from "../projets/[id]/suivi";
 
 type Commande = {
+  commandeId: string | null; numero: number; modifiee: boolean;
   dalleId: string; projetId: string; reference: string; projet: string; entite: string; demandee: string | null;
   contenu: string; validations: string; etat: string; etatLabel: string;
 };
@@ -19,7 +20,8 @@ type Commandes = { compteurs: { etat: string; label: string; nb: number }[]; com
 type Article = { code: string; article: string; stockInitial: number; mouvements: number; consomme: number; restant: number; seuil: number; bas: boolean; detail?: string | null };
 type Stock = { entite: string; articles: Article[]; mouvements: { date: string; article: string; sens: string; quantite: number; motif: string; par: string }[] };
 
-const ETATS: [string, string][] = [["validee", "Validée"], ["fabrication", "En fabrication"], ["livree", "Livrée"], ["recue", "Reçue"]];
+/** Étape suivante du cycle d'une commande : à préparer, préparée, envoyée au chantier, reçue au chantier. */
+const SUIVANT: Record<string, [string, string]> = { a_preparer: ["preparee", "Marquer préparée"], preparee: ["envoyee", "Marquer envoyée"], envoyee: ["recue", "Marquer reçue"] };
 const n0 = (n: number) => n.toLocaleString("fr-FR", { maximumFractionDigits: 2 }).replace(/[  ]/g, " ");
 const signe = (n: number) => `${n > 0 ? "+ " : n < 0 ? "− " : ""}${n0(Math.abs(n))}`;
 
@@ -48,7 +50,7 @@ function CommandesUsine() {
   const [filtreDate, setFiltreDate] = useState({ du: "", au: "" });
   // Dalle dont on crée la commande : le suivi de la dalle s'ouvre ici, sans passer par la fiche du projet.
   const [suivi, setSuivi] = useState<Commande | null>(null);
-  const ouvrir = (c: Commande) => (c.etat === "a_commander" ? setSuivi(c) : router.push(`/logistique/${c.dalleId}`));
+  const ouvrir = (c: Commande) => (c.etat === "a_commander" || !c.commandeId ? setSuivi(c) : router.push(`/logistique/${c.commandeId}`));
 
   const charger = useCallback(() => {
     api<Commandes>(`/logistique/commandes${etat ? `?etat=${etat}` : ""}`).then((r) => { setData(r); setErreur(""); })
@@ -65,7 +67,7 @@ function CommandesUsine() {
 
   async function changer(c: Commande, etat: string) {
     try {
-      await api(`/logistique/commandes/${c.dalleId}/etat`, { method: "POST", body: JSON.stringify({ etat }) });
+      await api(`/logistique/commandes/${c.commandeId}/etat`, { method: "POST", body: JSON.stringify({ etat }) });
       charger();
     } catch (e) {
       setErreur(e instanceof ApiError ? e.message : "Action impossible.");
@@ -111,7 +113,7 @@ function CommandesUsine() {
               <tr><td colSpan={8} className="px-5 py-8 text-center text-secondaire">Aucune commande ne correspond aux filtres.</td></tr>
             )}
             {commandesFiltrees.map((c) => (
-              <tr key={c.dalleId} tabIndex={0} role="link" aria-label={c.etat === "a_commander" ? `Créer la commande ${c.reference}` : `Détail de la commande ${c.reference}`}
+              <tr key={c.commandeId ?? c.dalleId} tabIndex={0} role="link" aria-label={c.etat === "a_commander" ? `Créer la commande ${c.reference}` : `Détail de la commande ${c.reference}`}
                 onClick={() => ouvrir(c)}
                 onKeyDown={(e) => { if (e.key === "Enter") ouvrir(c); }}
                 className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond focus:outline-none focus:bg-fond">
@@ -121,16 +123,12 @@ function CommandesUsine() {
                 <td className="px-5 py-3">{c.projet}</td>
                 <td className="px-5 py-3 font-display">{c.entite}</td>
                 <td className="whitespace-nowrap px-5 py-3 font-display text-secondaire">{c.demandee ? formatDate(c.demandee) : ""}</td>
-                <td className="px-5 py-3 text-secondaire">{c.contenu}</td>
+                <td className="px-5 py-3 text-secondaire">{c.etat !== "a_commander" && <span className="mr-1.5 font-display font-bold text-texte">n° {c.numero}</span>}{c.contenu}{c.modifiee && <span className="ml-2 rounded-full bg-orange-fond px-2 py-0.5 text-[12px] text-orange-texte">Modifiée</span>}</td>
                 <td className={cn("px-5 py-3 text-[13px]", c.etat === "attente" ? "font-semibold text-rouge-texte" : "text-secondaire")}>{c.validations}</td>
-                <td className="whitespace-nowrap px-5 py-3"><Badge ton={c.etat === "recue" ? "vert" : c.etat === "attente" ? "neutre" : c.etat === "a_commander" ? "violet" : "orange"}>{c.etatLabel}</Badge></td>
+                <td className="whitespace-nowrap px-5 py-3"><Badge ton={c.etat === "recue" ? "vert" : c.etat === "attente" || c.etat === "annulee" ? "neutre" : c.etat === "a_commander" ? "violet" : "orange"}>{c.etatLabel}</Badge></td>
                 <td className="whitespace-nowrap px-3 py-3 text-right" onClick={(e) => e.stopPropagation()}>
                   {c.etat === "a_commander" && <Button size="sm" onClick={() => setSuivi(c)}>{c.contenu === "Commande à créer" ? "Créer la commande" : "Continuer la saisie"}</Button>}
-                  {c.etat !== "attente" && c.etat !== "a_commander" && (
-                    <Select className="h-8 w-40 text-[13px]" aria-label={`État de la commande ${c.reference}`} value={c.etat} onChange={(e) => changer(c, e.target.value)}>
-                      {ETATS.map(([code, label]) => <option key={code} value={code}>{label}</option>)}
-                    </Select>
-                  )}
+                  {SUIVANT[c.etat] && <Button size="sm" variant="outline" onClick={() => changer(c, SUIVANT[c.etat][0])}>{SUIVANT[c.etat][1]}</Button>}
                 </td>
               </tr>
             ))}

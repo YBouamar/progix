@@ -13,7 +13,7 @@ type Version = { id: string; lettre: string; commentaire: string | null; creePar
 type Dalle = { id: string; reference: string; niveauLabel: string; etape: string };
 type Vue = { dalle: Dalle; peutCreer: boolean; fige: boolean; versions: Version[] };
 
-const CATEGORIES: [string, string][] = [["plan", "Plan d'exécution (dwg)"], ["modele", "Modèle de calcul"], ["autre", "Autres fichiers"]];
+const CATEGORIES: [string, string][] = [["plan", "Plan d'exécution (dwg)"], ["modele", "Modèle de calcul"], ["cablage_x", "Plan de câblage X (dxf)"], ["cablage_y", "Plan de câblage Y (dxf)"], ["autre", "Autres fichiers"]];
 
 /** Versions des plans d'exécution d'une dalle : chaque nouvelle version incrémente la lettre de la référence. */
 export function VersionsPlans({ projetId, dalleId, onChange }: { projetId: string; dalleId: string; onChange: (d: Dalle) => void }) {

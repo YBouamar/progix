@@ -1,6 +1,6 @@
 # Avancement de PROGIX
 
-**Dernière mise à jour** : 2026-11-17
+**Dernière mise à jour** : 2026-11-22
 
 Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historique.
 
@@ -10,6 +10,13 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - Backend : `dotnet test backend/Progix.sln` dans le conteneur SDK .NET 8 : 0 erreur, 0 avertissement, **111 tests passés** (2026-10-28, dont l'évaluation des formules de la trame de calcul). Aucune vulnérabilité NuGet connue (`dotnet list package --vulnerable --include-transitive`).
 - `docker compose up --build` : les 6 modules démarrent, migrations appliquées, `/api/health` OK.
 - Données de démonstration chargées sans erreur : le script parcourt par l'API les 11 étapes, les validations, BL, factures, règlements, avoirs et dépenses.
+
+## Session du 2026-11-22 (non déployée)
+
+- Plusieurs commandes par dalle, cycle de vie, rôle gestionnaire de stock, modification tracée, import des plans de câblage DXF (lecture validée sur les plans réels Mk4-847 : 22 câbles X, 9 Y, 313,72 m, surface 230,45 m² égale au Floor Area du PTTotal), icônes d'écart de surface, facturation sur la surface de la dalle. Détail : BUSINESS_RULES.md section 7 et DECISIONS.md (2026-11-22).
+- Vérifié : `dotnet test` 354 tests passés, `npm run lint` et `npm run build` sans erreur. **Non essayé dans le navigateur ni avec une base** : la migration `CommandesMultiples` et les nouveaux écrans (commandes, import DXF, logistique par commande) restent à essayer avec les données de démonstration.
+- Écarts connus : le recoupement DXF / PTTotal se fait par système (nombre de câbles), pas câble par câble ; les extrémités actives sont une moyenne par système. Le test sur plans réels est conditionné par la variable `PROGIX_DXF` (les plans clients ne sont pas versionnés).
+- Les devis en brouillon voient leurs ancrages changer (2 par tendon) à la prochaine reprise des données ADAPT.
 
 ## Terminé
 

@@ -155,9 +155,13 @@ public class ProjetsDbContext(DbContextOptions<ProjetsDbContext> options) : DbCo
         builder.Entity<CommandeUsine>(b =>
         {
             b.ToTable("commandes_usine");
-            b.HasIndex(c => c.DalleId).IsUnique();
+            b.HasIndex(c => new { c.DalleId, c.Numero }).IsUnique();
             b.Property(c => c.Surface).HasPrecision(12, 2);
             b.Ignore(c => c.Consommee);
+            b.Ignore(c => c.Annulee);
+            b.Property(c => c.AnnuleePar).HasMaxLength(200);
+            b.Property(c => c.MotifAnnulation).HasMaxLength(500);
+            b.OwnsMany(c => c.Modifications, m => m.ToJson());
             b.Property(c => c.SuiviPar).HasMaxLength(200);
             b.OwnsMany(c => c.Lignes, l => l.ToJson());
             b.OwnsMany(c => c.Accessoires, a => a.ToJson());

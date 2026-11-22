@@ -22,6 +22,7 @@ public class HabilitationsTests
         { Roles.ResponsableLogistique, [Habilitations.Projets, Habilitations.Logistique, Habilitations.Parametrage] },
         { Roles.ResponsableChantier, [Habilitations.Chantier] },
         { Roles.ChefChantier, [Habilitations.Chantier] },
+        { Roles.GestionnaireStock, [Habilitations.Logistique] },
     };
 
     [Theory]

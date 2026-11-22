@@ -70,7 +70,7 @@ public static class CommandeEndpoints
             var tendons = input.Tendons ?? [];
             // Un accessoire laissé à 0 n'entre pas dans la commande.
             var accessoires = (input.Accessoires ?? []).Where(a => !string.IsNullOrWhiteSpace(a.Libelle) && a.Quantite != 0).ToList();
-            var c = await db.CommandesUsine.FirstOrDefaultAsync(x => x.DalleId == did);
+            var c = await db.CommandesUsine.FirstOrDefaultAsync(x => x.DalleId == did && x.Numero == 1);
             if (ImportTendons.Refus(tendons, c?.Lignes.Select(l => l.Torons).ToHashSet()) is { } refus) return ProjetsEndpoints.Conflit(refus);
             if (accessoires.Any(a => a.Quantite < 0)) return ProjetsEndpoints.Conflit("La quantité d'un accessoire ne peut pas être négative.");
             if (input.Surface is not > 0) return ProjetsEndpoints.Conflit("Saisissez la surface totale de la commande (m²) : elle est reprise sur le bon de livraison et la facture.");
@@ -117,16 +117,17 @@ public static class CommandeEndpoints
     /// <summary>Système et orientation de chaque tendon de la dalle, par numéro : repris sur les fiches de tension et d'injection.</summary>
     public static async Task<Dictionary<string, Tendon>> ReperesAsync(ProjetsDbContext db, Guid dalleId)
     {
-        var c = await db.CommandesUsine.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == dalleId);
+        // Tous les tendons des commandes non annulées de la dalle : la commande initiale et ses compléments.
+        var commandes = await db.CommandesUsine.AsNoTracking().Where(x => x.DalleId == dalleId && x.AnnuleeLe == null).OrderBy(x => x.Numero).ToListAsync();
         var d = new Dictionary<string, Tendon>(StringComparer.OrdinalIgnoreCase);
-        foreach (var t in c?.Tendons() ?? []) d.TryAdd(t.Numero, t);
+        foreach (var t in commandes.SelectMany(c => c.Tendons())) d.TryAdd(t.Numero, t);
         return d;
     }
 
-    private static bool PeutSaisir(ClaimsPrincipal u) =>
+    internal static bool PeutSaisir(ClaimsPrincipal u) =>
         u.IsInRole(Roles.Directeur) || u.IsInRole(Roles.ChefProjet) || Etapes.Get(Etapes.CommandeUsine).Roles.Any(u.IsInRole);
 
-    private static async Task<(Projet?, Dalle?)> Charger(ProjetsDbContext db, Guid id, Guid did) =>
+    internal static async Task<(Projet?, Dalle?)> Charger(ProjetsDbContext db, Guid id, Guid did) =>
         (await db.Projets.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id),
          await db.Dalles.AsNoTracking().FirstOrDefaultAsync(d => d.Id == did && d.ProjetId == id));
 
@@ -143,7 +144,7 @@ public static class CommandeEndpoints
 
     private static async Task<object> Vue(ProjetsDbContext db, Projet projet, Dalle dalle, ClaimsPrincipal user)
     {
-        var c = await db.CommandesUsine.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == dalle.Id) ?? new CommandeUsine();
+        var c = await db.CommandesUsine.AsNoTracking().FirstOrDefaultAsync(x => x.DalleId == dalle.Id && x.Numero == 1) ?? new CommandeUsine();
         var verrou = await Verrou(db, projet, dalle);
         return new
         {

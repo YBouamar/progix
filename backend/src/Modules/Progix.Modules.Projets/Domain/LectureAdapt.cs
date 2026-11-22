@@ -42,8 +42,14 @@ public class SystemeAdapt
 {
     public int Torons { get; set; }
 
-    /// <summary>Nombre de lignes de câbles du type : c'est le nombre d'ancrages repris dans le devis.</summary>
+    /// <summary>Nombre de lignes de câbles (tendons) du type.</summary>
     public int Cables { get; set; }
+
+    /// <summary>Extrémités de mise en tension du type (colonne « Stressing ends » : 1 ou 2 par tendon). 0 sur un import antérieur à cette lecture.</summary>
+    public int ExtremitesActives { get; set; }
+
+    /// <summary>Ancrages repris dans le devis : un à chaque bout de chaque tendon, actif ou mort (le PTTotal compte autant d'extrémités actives que mortes : 2 par tendon). Décision du 2026-11-22.</summary>
+    public int Ancrages => Cables * 2;
 
     /// <summary>Cumul de Strand Length, en mètres (longueur de toron, soit la gaine × le nombre de torons) : gardé pour information.</summary>
     public decimal LongueurTorons { get; set; }
@@ -165,7 +171,7 @@ internal static class LectureAdapt
         var k = doc.Lignes.FindIndex(l => l.Contains("Number Of Strands") && l.Contains("Strand Length") && l.Contains("Reference Plane"));
         if (k < 0) { erreur = "le tableau des câbles (Number Of Strands, Strand Length) est introuvable"; return null; }
         var t = doc.Lignes[k];
-        int colPlan = t.IndexOf("Reference Plane"), colTorons = t.IndexOf("Number Of Strands"), colToron = t.IndexOf("Strand Length"), colGaine = t.IndexOf("Tendon/Duct Length");
+        int colPlan = t.IndexOf("Reference Plane"), colTorons = t.IndexOf("Number Of Strands"), colToron = t.IndexOf("Strand Length"), colGaine = t.IndexOf("Tendon/Duct Length"), colActives = t.IndexOf("Stressing ends");
         var groupes = new Dictionary<int, SystemeAdapt>();
         foreach (var l in doc.Lignes.Skip(k + 1))
         {
@@ -177,6 +183,7 @@ internal static class LectureAdapt
             { erreur = $"ligne {l[0]} du tableau des câbles illisible"; return null; }
             var s = groupes.TryGetValue((int)torons, out var g) ? g : groupes[(int)torons] = new SystemeAdapt { Torons = (int)torons };
             s.Cables++;
+            s.ExtremitesActives += colActives >= 0 && l.Count > colActives && Nombre(l[colActives]) is decimal actives ? (int)actives : 1;
             s.LongueurTorons += longueur;
             if (colGaine >= 0 && Nombre(l[colGaine]) is decimal gaine) s.LongueurGaines += gaine;
         }
@@ -278,7 +285,7 @@ internal static class LectureAdapt
         var a = new AdaptDalle
         {
             RatioActif = avant?.RatioActif ?? 0, RatioPassif = avant?.RatioPassif ?? 0, SurfacePlancher = avant?.SurfacePlancher ?? 0, Plancher = avant?.Plancher,
-            Systemes = (avant?.Systemes ?? []).Select(s => new SystemeAdapt { Torons = s.Torons, Cables = s.Cables, LongueurTorons = s.LongueurTorons, LongueurGaines = s.LongueurGaines }).ToList(),
+            Systemes = (avant?.Systemes ?? []).Select(s => new SystemeAdapt { Torons = s.Torons, Cables = s.Cables, ExtremitesActives = s.ExtremitesActives, LongueurTorons = s.LongueurTorons, LongueurGaines = s.LongueurGaines }).ToList(),
             FichierPt = avant?.FichierPt ?? "", FichierRebar = avant?.FichierRebar ?? "", FichierPtId = avant?.FichierPtId, FichierRebarId = avant?.FichierRebarId,
         };
         if (f.Genre == Genre.Precontrainte)

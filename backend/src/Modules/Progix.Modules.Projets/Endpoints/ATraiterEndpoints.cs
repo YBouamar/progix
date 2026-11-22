@@ -129,7 +129,14 @@ public static class ATraiterEndpoints
             }
 
             // Logistique : commandes usine à créer.
-            if (Policies.RolesLogistique.Any(user.IsInRole))
+            // Le gestionnaire de stock voit les commandes à préparer ; les autres, les commandes usine à créer.
+            if (user.IsInRole(Roles.GestionnaireStock))
+                r[Habilitations.Logistique] = await (from c in db.CommandesUsine.AsNoTracking()
+                    join e in db.Etapes.AsNoTracking() on new { c.DalleId, Numero = Etapes.CommandeUsine } equals new { e.DalleId, e.Numero }
+                    where e.FaitLe != null && c.AnnuleeLe == null && c.FabricationLe == null
+                        && (c.Numero > 1 || (e.ValidationTechniqueLe != null && e.ValidationAdministrativeLe != null))
+                    select c.Id).CountAsync();
+            else if (Policies.RolesLogistique.Any(user.IsInRole))
                 r[Habilitations.Logistique] = await LogistiqueEndpoints.DallesACommander(db).CountAsync();
 
             return Results.Ok(r);

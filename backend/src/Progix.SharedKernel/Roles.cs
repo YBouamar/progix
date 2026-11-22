@@ -1,6 +1,6 @@
 namespace Progix.SharedKernel;
 
-/// <summary>Les douze rôles de PROGIX et leurs droits transverses.</summary>
+/// <summary>Les rôles de PROGIX et leurs droits transverses.</summary>
 public static class Roles
 {
     public const string Directeur = "directeur";
@@ -15,6 +15,7 @@ public static class Roles
     public const string ResponsableLogistique = "responsable_logistique";
     public const string ResponsableChantier = "responsable_chantier";
     public const string ChefChantier = "chef_chantier";
+    public const string GestionnaireStock = "gestionnaire_stock";
 
     public sealed record Definition(string Code, string Label, bool VoitMontants);
 
@@ -32,6 +33,7 @@ public static class Roles
         new(ResponsableLogistique, "Responsable logistique", false),
         new(ResponsableChantier, "Responsable chantier", false),
         new(ChefChantier, "Chef de chantier", false),
+        new(GestionnaireStock, "Gestionnaire de stock", false),
     ];
 
     public static Definition? Find(string code) => All.FirstOrDefault(r => r.Code == code);
@@ -54,7 +56,7 @@ public static class Policies
     /// <summary>Logistique : commandes usine et stock.</summary>
     public const string Logistique = "logistique";
 
-    public static readonly string[] RolesLogistique = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableLogistique];
+    public static readonly string[] RolesLogistique = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableLogistique, Roles.GestionnaireStock];
 
     /// <summary>Suppression et restauration d'un projet : directeur ou chef de projet.</summary>
     public const string Direction = "direction";

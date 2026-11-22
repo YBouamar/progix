@@ -29,6 +29,7 @@ public class ProjetsModule : IModule
         TensionEndpoints.Map(app);
         InjectionEndpoints.Map(app);
         CommandeEndpoints.Map(app);
+        CommandesEndpoints.Map(app);
         LogistiqueEndpoints.Map(app);
         TableauDeBordEndpoints.Map(app);
         RepartitionEndpoints.Map(app);

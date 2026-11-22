@@ -27,7 +27,7 @@ function TableauDuRole() {
   if (["ingenieur", "ingenieur_chef", "dessinateur", "dessinateur_chef"].includes(user.role)) return <TableauPersonnel variante="etudes" />;
   if (user.role === "responsable_chantier" || user.role === "chef_chantier") return <TableauPersonnel variante="chantier" />;
   if (user.role === "agent_commercial") return <TableauPersonnel variante="agent" />;
-  if (user.role === "responsable_logistique") return <TableauLogistique />;
+  if (user.role === "responsable_logistique" || user.role === "gestionnaire_stock") return <TableauLogistique />;
   const modules = menuPour(user).filter((m) => m.id !== "tdb");
   return (
     <div>

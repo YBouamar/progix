@@ -43,7 +43,7 @@ type Ligne = {
 type Jours = { du: string; au: string; aujourdhui: string; jours: { jour: string; lignes: Ligne[]; surfaceExe: number; surfaceModif: number }[] };
 
 const TON = { a_affecter: "orange", a_lancer: "neutre", en_cours: "violet", termine: "vert", arrete: "rouge" } as const;
-const PIECES: [string, string][] = [["plan", "Plan d'exécution"], ["modele", "Modèle de calcul"], ["autre", "Autres fichiers"]];
+const PIECES: [string, string][] = [["plan", "Plan d'exécution"], ["modele", "Modèle de calcul"], ["cablage_x", "Plan de câblage X (DXF)"], ["cablage_y", "Plan de câblage Y (DXF)"], ["autre", "Autres fichiers"]];
 
 /** Menu Exécution : les dalles à traiter par les dessinateurs, leurs dossiers EXE et MODIF, et le suivi par jour. */
 export default function ExecutionPage() {

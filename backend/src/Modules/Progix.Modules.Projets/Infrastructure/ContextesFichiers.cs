@@ -25,7 +25,7 @@ public class FichiersPlans(ProjetsDbContext db) : IContexteFichiers
     public static readonly string[] Roles = [SharedKernel.Roles.Dessinateur, SharedKernel.Roles.DessinateurChef, SharedKernel.Roles.Directeur, SharedKernel.Roles.ChefProjet];
 
     public string Contexte => VersionPlan.Contexte;
-    public IReadOnlyList<string> Categories => [VersionPlan.Plan, VersionPlan.Modele, VersionPlan.Autre];
+    public IReadOnlyList<string> Categories => [VersionPlan.Plan, VersionPlan.Modele, VersionPlan.Autre, VersionPlan.CablageX, VersionPlan.CablageY];
     public bool PeutDeposer(ClaimsPrincipal user) => Roles.Any(user.IsInRole);
 
     public async Task<string?> RefusAsync(Guid cibleId, string? categorie, CancellationToken ct = default)

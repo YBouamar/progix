@@ -130,7 +130,9 @@ public static class SuiviEndpoints
             var derniere = await db.Etapes.Where(x => x.DalleId == did).OrderByDescending(x => x.Numero).FirstOrDefaultAsync();
             if (derniere is null || derniere.Numero != n) return ProjetsEndpoints.Conflit("Seule la dernière étape réalisée peut être déverrouillée.");
             // Déverrouiller la commande usine la ramène avant validation : son suivi logistique repart de zéro.
-            if (n == Etapes.CommandeUsine && await db.CommandesUsine.FirstOrDefaultAsync(c => c.DalleId == did) is { } commande)
+            if (n == Etapes.CommandeUsine && await db.CommandesUsine.AnyAsync(c => c.DalleId == did && c.Numero > 1 && c.AnnuleeLe == null))
+                return ProjetsEndpoints.Conflit("Des commandes complémentaires existent : annulez-les avant de déverrouiller la commande usine.");
+            if (n == Etapes.CommandeUsine && await db.CommandesUsine.FirstOrDefaultAsync(c => c.DalleId == did && c.Numero == 1) is { } commande)
                 commande.FabricationLe = commande.LivreeLe = commande.RecueLe = null;
             db.Etapes.Remove(derniere);
             db.EtapeTraces.Add(new EtapeTrace { DalleId = did, Numero = n, Motif = input.Motif.Trim(), Par = user.UserName() });

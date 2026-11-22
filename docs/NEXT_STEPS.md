@@ -1,8 +1,12 @@
 # Prochaines étapes
 
-**Dernière mise à jour** : 2026-11-14
+**Dernière mise à jour** : 2026-11-22
 
 Par ordre de priorité. Chaque étape doit pouvoir démarrer une session. Retirer une étape terminée lors du `/handoff`.
+
+## 0. Déployer et essayer le lot du 2026-11-22
+
+Migration `CommandesMultiples` (schéma projets) à appliquer au démarrage. À essayer avec les données de démonstration puis un vrai dossier : dépôt des deux DXF par le dessinateur (catégories « Plan de câblage X / Y »), import à l'étape Commande usine, complément, modification d'une commande envoyée et lecture côté usine, rôle gestionnaire de stock (création du compte par l'administrateur), réception par un chef de chantier. Confirmer les hypothèses listées dans DECISIONS.md (2026-11-22). Pas encore fait : PTTotal lu câble par câble pour le recoupement exact des longueurs et des extrémités actives.
 
 ## 1. Mettre la production à jour avec le dernier commit du 2026-11-12
 

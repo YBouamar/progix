@@ -1,27 +1,36 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { FileDown, Plus, Trash2, Upload } from "lucide-react";
+import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { CircleAlert, FileDown, FileCog, Plus, Trash2, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { cn, filtrerDecimal, formatNombre, formatSurface, lireNombre } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { ImportCablage, type ApercuCablage } from "./cablage";
 
-type TendonVue = { numero: string; torons: number; sens: string; longueur: number; ancrages: number };
+type TendonVue = { numero: string; torons: number; sens: string; longueur: number; ancrages: number; modifiee?: boolean; ajoutee?: boolean; avant?: string | null };
+type Modification = { le: string; par: string; etat: string; changements: string[] };
 type Vue = {
   modifiable: boolean; verrou: string | null; tendons: TendonVue[]; typesAncrage: number[]; surface: number | null; surfaceDalle: number;
   accessoires: { libelle: string; unite: string | null; quantite: number }[]; proposes: { libelle: string; unite: string | null }[];
+  numero?: number; modifications?: Modification[];
 };
-type Ligne = { numero: string; torons: string; sens: string; longueur: string; ancrages: string };
+/** Réponse de GET /commandes/{id} : la commande soumise, modifiable avec trace. */
+type VueCommande = { commande: { numero: number; surface: number | null; tendons: TendonVue[]; accessoires: Vue["accessoires"]; modifications: Modification[] }; modifiable: boolean; typesAncrage: number[]; proposes: Vue["proposes"]; surfaceDalle: number };
+type Ligne = { numero: string; torons: string; sens: string; longueur: string; ancrages: string; modifiee?: boolean; ajoutee?: boolean; avant?: string | null };
 type Accessoire = { libelle: string; unite: string | null; quantite: string };
 
-const versLigne = (t: TendonVue): Ligne => ({ numero: t.numero, torons: String(t.torons), sens: t.sens, longueur: String(t.longueur).replace(".", ","), ancrages: String(t.ancrages) });
+const versLigne = (t: TendonVue): Ligne => ({ numero: t.numero, torons: String(t.torons), sens: t.sens, longueur: String(t.longueur).replace(".", ","), ancrages: String(t.ancrages), modifiee: t.modifiee, ajoutee: t.ajoutee, avant: t.avant });
 const TRAMES: [string, string][] = [["xlsx", "Excel"], ["csv", "CSV"], ["json", "JSON"]];
 
 const CELL = "h-8 w-full min-w-0 rounded-md border border-bordure-forte bg-white px-2 font-display text-[13px] focus:border-marine focus:outline-none disabled:border-transparent disabled:bg-transparent";
 const ent = (s: string) => parseInt(s, 10) || 0;
 
 /** Commande usine : un tendon par ligne (numéro, système, orientation, longueur, ancrages), saisi ou importé d'un fichier, et les accessoires. */
-export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId: string }) {
+/** Avec `commandeId`, la commande est déjà soumise : ses modifications sont tracées et signalées à l'usine. Avec `modele`, on crée un complément. */
+export function CommandeUsine({ projetId, dalleId, commandeId, modele, onChange }: {
+  projetId: string; dalleId: string; commandeId?: string; onChange?: () => void;
+  modele?: { typesAncrage: number[]; proposes: Vue["proposes"]; surfaceDalle: number };
+}) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [lignes, setLignes] = useState<Ligne[]>([]);
   const [accessoires, setAccessoires] = useState<Accessoire[]>([]);
@@ -29,8 +38,10 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
   const [message, setMessage] = useState<{ ok: boolean; texte: string } | null>(null);
   const [modifie, setModifie] = useState(false);
   const [importe, setImporte] = useState<{ nb: number; erreurs: string[] } | null>(null);
+  const [dxf, setDxf] = useState(false);
   const fichier = useRef<HTMLInputElement>(null);
-  const base = `/projets/${projetId}/dalles/${dalleId}/commande`;
+  const racine = `/projets/${projetId}/dalles/${dalleId}`;
+  const base = commandeId ? `${racine}/commandes/${commandeId}` : modele ? `${racine}/commandes` : `${racine}/commande`;
 
   const charger = (r: Vue) => {
     setVue(r);
@@ -41,7 +52,16 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
     setAccessoires([...saisis, ...r.proposes.filter((p) => !r.accessoires.some((a) => a.libelle === p.libelle)).map((p) => ({ libelle: p.libelle, unite: p.unite, quantite: "" }))]);
     setModifie(false);
   };
-  useEffect(() => { api<Vue>(base).then(charger).catch(() => undefined); }, [base]);
+  useEffect(() => {
+    if (modele) { charger({ modifiable: true, verrou: null, tendons: [], typesAncrage: modele.typesAncrage, surface: null, surfaceDalle: modele.surfaceDalle, accessoires: [], proposes: modele.proposes }); return; }
+    if (commandeId) {
+      api<VueCommande>(base).then((r) => charger({ modifiable: r.modifiable, verrou: null, tendons: r.commande.tendons, typesAncrage: r.typesAncrage, surface: r.commande.surface, surfaceDalle: r.surfaceDalle,
+        accessoires: r.commande.accessoires, proposes: r.proposes, numero: r.commande.numero, modifications: r.commande.modifications })).catch(() => undefined);
+      return;
+    }
+    api<Vue>(base).then(charger).catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [base]);
 
   // Quantités calculées : gaine = longueur du tendon, torons = longueur × torons du système, ancrages = ceux du tendon.
   const calcul = useMemo(() => {
@@ -67,14 +87,21 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
   async function enregistrer() {
     setMessage(null);
     try {
-      charger(await api<Vue>(base, {
-        method: "PUT",
-        body: JSON.stringify({
+      const corps = JSON.stringify({
           tendons: lignes.map((l) => ({ numero: l.numero, torons: ent(l.torons), sens: l.sens, longueur: lireNombre(l.longueur), ancrages: ent(l.ancrages) })),
           accessoires: accessoires.map((a) => ({ libelle: a.libelle, unite: a.unite, quantite: ent(a.quantite) })),
           surface: lireNombre(surface) || null,
-        }),
-      }));
+      });
+      if (modele) { await api(base, { method: "POST", body: corps }); onChange?.(); return; }
+      if (commandeId) {
+        const r = await api<{ changements: number }>(base, { method: "PUT", body: corps });
+        const v = await api<VueCommande>(base);
+        charger({ modifiable: v.modifiable, verrou: null, tendons: v.commande.tendons, typesAncrage: v.typesAncrage, surface: v.commande.surface, surfaceDalle: v.surfaceDalle,
+          accessoires: v.commande.accessoires, proposes: v.proposes, numero: v.commande.numero, modifications: v.commande.modifications });
+        setMessage({ ok: true, texte: r.changements > 0 ? `${r.changements} changement${r.changements > 1 ? "s" : ""} enregistré${r.changements > 1 ? "s" : ""} et signalé${r.changements > 1 ? "s" : ""} à l'usine.` : "Aucun changement." });
+        setImporte(null); onChange?.(); return;
+      }
+      charger(await api<Vue>(base, { method: "PUT", body: corps }));
       setMessage({ ok: true, texte: "Commande enregistrée." }); setImporte(null);
     } catch (e) {
       setMessage({ ok: false, texte: e instanceof ApiError ? (e.status === 403 ? "Votre rôle ne permet pas de saisir la commande." : e.message) : "Enregistrement impossible." });
@@ -95,11 +122,11 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
     finally { if (fichier.current) fichier.current.value = ""; }
   }
 
-  if (lecture && lignes.length === 0) return <div className="mt-2 text-[13px] text-secondaire">Aucun tendon saisi dans la commande usine.</div>;
+  if (lecture && lignes.length === 0 && !commandeId) return <div className="mt-2 text-[13px] text-secondaire">Aucun tendon saisi dans la commande usine.</div>;
 
   return (
     <div className="mt-3 rounded-lg border border-bordure bg-white p-3">
-      <div className="text-[13px] font-bold">Commande usine</div>
+      <div className="text-[13px] font-bold">{modele ? "Nouvelle commande complémentaire" : commandeId ? `Commande n° ${vue.numero}${vue.numero === 1 ? " (initiale)" : " (complément)"}` : "Commande usine"}</div>
       {lecture && vue.verrou && <div className="mt-0.5 text-[12px] text-secondaire">{vue.verrou}</div>}
 
       {/* Surface totale de la commande : imprimée sur le bon de livraison et facturée. */}
@@ -109,12 +136,16 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
           <input id={`surface-${dalleId}`} className={cn(CELL, "w-32 text-right")} inputMode="decimal" placeholder={String(vue.surfaceDalle).replace(".", ",")}
             value={surface} onChange={(e) => { setSurface(filtrerDecimal(e.target.value)); touche(); }} />
         )}
-        <span className="text-[12px] text-secondaire">Reprise sur le bon de livraison et la facture. Surface de la dalle : {formatSurface(vue.surfaceDalle)}.</span>
+        {lireNombre(surface) > 0 && lireNombre(surface) !== vue.surfaceDalle && (
+          <span role="img" aria-label="La surface de la commande diffère de celle de la dalle" title="La surface de la commande diffère de celle de la dalle : celle de la dalle est retenue pour la facturation." className="text-orange-texte"><CircleAlert size={15} /></span>
+        )}
+        <span className="text-[12px] text-secondaire">Surface de la dalle : {formatSurface(vue.surfaceDalle)}. En cas d&apos;écart, celle de la dalle est retenue.</span>
       </div>
 
       {!lecture && (
         <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md bg-fond px-3 py-2">
           <input ref={fichier} type="file" accept=".json,.xlsx,.csv" className="hidden" onChange={(e) => e.target.files?.[0] && importer(e.target.files[0])} />
+          <Button size="sm" variant="outline" onClick={() => setDxf(true)}><FileCog size={14} />Importer depuis les plans ADAPT (DXF)</Button>
           <Button size="sm" variant="outline" onClick={() => fichier.current?.click()}><Upload size={14} />Importer les tendons</Button>
           <span className="text-[12px] text-secondaire">Fichier JSON, Excel ou CSV. Trame vide :</span>
           {TRAMES.map(([ext, label]) => (
@@ -145,7 +176,7 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
           <tbody>
             {lignes.length === 0 && <tr><td colSpan={7} className="px-2 py-4 text-center text-secondaire">Aucun tendon : importez un fichier ou ajoutez-les un par un.</td></tr>}
             {lignes.map((l, i) => (
-              <tr key={i} className="border-t border-bordure">
+              <Fragment key={i}><tr className={cn("border-t border-bordure", (l.modifiee || l.ajoutee) && "bg-orange-fond")}>
                 <td className="w-28 px-2 py-1"><input className={cn(CELL, "font-bold text-marine")} disabled={lecture} aria-label={`Numéro du tendon, ligne ${i + 1}`} inputMode="numeric" value={l.numero} onChange={(e) => majLigne(i, { numero: e.target.value.replace(/\D/g, "") })} /></td>
                 <td className="w-24 px-1 py-1">
                   {/* Types d'ancrage existants ; un type déjà enregistré hors liste reste affiché. */}
@@ -161,6 +192,12 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
                 <td className="whitespace-nowrap px-2 py-1 text-right font-display text-secondaire">{formatNombre(lireNombre(l.longueur) * ent(l.torons))}</td>
                 {!lecture && <td className="w-10"><Button variant="ghost" size="icon" aria-label={`Retirer le tendon ${l.numero}`} onClick={() => { setLignes(lignes.filter((_, j) => j !== i)); touche(); }}><Trash2 size={14} /></Button></td>}
               </tr>
+              {(l.modifiee || l.ajoutee) && (
+                <tr className="bg-orange-fond"><td colSpan={7} className="px-2 pb-1.5 text-[12px] text-orange-texte">
+                  <b>{l.ajoutee ? "Ligne ajoutée après la soumission." : "Ligne modifiée après la soumission."}</b>{l.avant && !l.ajoutee ? ` Avant : ${l.avant}.` : ""}
+                </td></tr>
+              )}
+            </Fragment>
             ))}
           </tbody>
         </table>
@@ -182,6 +219,18 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
             <dd className="font-display font-bold">{Object.entries(calcul.parSysteme).map(([t, v]) => `S${t} : ${v.tendons} tendons, ${v.ancrages} ancrages`).join(" · ")}</dd>
           </div>
         </dl>
+      )}
+
+      {(vue.modifications?.length ?? 0) > 0 && (
+        <details className="mt-3 rounded-md border border-bordure px-3 py-2 text-[13px]">
+          <summary className="cursor-pointer font-semibold">Historique des modifications ({vue.modifications!.length})</summary>
+          <ul className="mt-2 space-y-2">
+            {vue.modifications!.map((m, k) => (
+              <li key={k}><span className="text-[12px] text-secondaire">{new Date(m.le).toLocaleString("fr-FR")} · {m.par} · commande {m.etat.toLowerCase()}</span>
+                <ul className="list-disc pl-5">{m.changements.map((c, j) => <li key={j}>{c}</li>)}</ul></li>
+            ))}
+          </ul>
+        </details>
       )}
 
       <div className="mt-3 text-[12px] font-bold text-secondaire">Accessoires</div>
@@ -206,6 +255,17 @@ export function CommandeUsine({ projetId, dalleId }: { projetId: string; dalleId
           </div>
         </>
       )}
+      <ImportCablage
+        open={dxf} onOpenChange={setDxf} projetId={projetId} dalleId={dalleId}
+        dejaNumeros={lignes.map((l) => l.numero)} surfaceCommande={surface}
+        onImporter={(a: ApercuCablage, mode, surfaceDalleChangee) => {
+          const neuves = a.lignes.map((l) => ({ numero: l.numero, torons: String(l.torons), sens: l.sens, longueur: String(l.longueur).replace(".", ","), ancrages: String(l.ancrages) }));
+          setLignes(mode === "remplacer" ? neuves : [...lignes, ...neuves.filter((n) => !lignes.some((l) => l.numero === n.numero))]);
+          if (a.surfaceDxf && !commandeId && !modele && !surface) setSurface(String(a.surfaceDxf).replace(".", ","));
+          if (surfaceDalleChangee && vue) setVue({ ...vue, surfaceDalle: a.surfaceDxf ?? vue.surfaceDalle });
+          setModifie(true); setMessage(null); setDxf(false);
+        }}
+      />
     </div>
   );
 }

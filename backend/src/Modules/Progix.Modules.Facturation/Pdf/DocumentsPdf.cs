@@ -157,7 +157,7 @@ public static class DocumentsPdf
         {
             var ratio = d.RatioPassifAffiche.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("fr-FR"));
             // Ratio saisi : il est donné tel quel. Sinon, c'est la moyenne calculée, pondérée par la surface.
-            Puce(d.RatioPassifSaisi is > 0 ? $"Ratio moyen des aciers passifs : {ratio} kg/m²." : $"Ratio moyen des aciers passifs : {ratio} kg/m², moyenne pondérée par la surface des dalles.");
+            Puce(d.RatioPassifSaisi is > 0 ? $"Ratio moyen des aciers passifs : {ratio} kg/m² (sans gaines et sans poutres BA)." : $"Ratio moyen des aciers passifs : {ratio} kg/m², moyenne pondérée par la surface des dalles (sans gaines et sans poutres BA).");
         }
         Puce("Quantités : mesurées selon le plan ; seules les ouvertures entourées par des supports (voiles ou poutres) seront déduites.");
         Puce("Modification du prix : ces prix peuvent être modifiés en fonction des cours de la matière première.");

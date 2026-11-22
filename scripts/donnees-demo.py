@@ -224,7 +224,7 @@ class Demo:
         for j, did in enumerate(d["dalleIds"]):
             self.de("dessinateur.chef").put(f"/projets/{d['id']}/dalles/{did}/dessinateur", {"userId": self.users[["dessinateur", "anas.filali"][(i + j) % 2]]})
             if d["cibles"][j] == 0:
-                self.de("dessinateur.chef").put(f"/projets/{d['id']}/dalles/{did}/etude", {"date": (AUJ + timedelta(days=4 * j - 3)).isoformat()})
+                self.de("dessinateur.chef").put(f"/execution/{did}/prevue", {"date": (AUJ + timedelta(days=4 * j - 3)).isoformat()})
 
     # ----- devis
     def devis(self, d, i):

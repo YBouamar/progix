@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, ChevronLeft, ChevronRight, Plus, Search, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -35,7 +36,7 @@ type Liste = {
 };
 type Detail = { execution: Execution; dossiers: Dossier[]; historique: { nom: string; par: string; debut: string; fin: string | null; retirePar: string | null }[] };
 type Ligne = {
-  jour: string; dalleId: string; dossierId: string | null; reference: string; projet: string; ville: string | null;
+  jour: string; dalleId: string; projetId: string; dossierId: string | null; reference: string; projet: string; ville: string | null;
   client: string | null; bct: string | null; bet: string | null; niveauLabel: string; surface: number;
   type: "exe" | "modif"; typeLabel: string; etat: Etat; etatLabel: string; dessinateurs: string; ingenieurs: string;
   envoyeLe: string | null; arretMotif: string | null; enRetard: boolean;
@@ -75,6 +76,7 @@ export default function ExecutionPage() {
 }
 
 function ListeDalles({ maj, onOuvrir, onDessinateurs }: { maj: number; onOuvrir: (id: string) => void; onDessinateurs: (p: Personne[]) => void }) {
+  const router = useRouter();
   const { user } = useAuth();
   const [etat, setEtat] = useState("");
   const [dessinateur, setDessinateur] = useState("");
@@ -150,13 +152,13 @@ function ListeDalles({ maj, onOuvrir, onDessinateurs }: { maj: number; onOuvrir:
               <th className="px-4 py-3 font-semibold">Prévue le</th>
               <th className="px-4 py-3 font-semibold">Dossier</th>
               <th className="px-4 py-3 font-semibold">État</th>
-              <th className="px-4 py-3"><span className="sr-only">Suivi de la dalle</span></th>
+              <th className="px-4 py-3"><span className="sr-only">Affectation et dossiers</span></th>
             </tr>
           </thead>
           <tbody>
             {data?.items.map((e) => (
-              <tr key={e.dalleId} tabIndex={0} onClick={() => onOuvrir(e.dalleId)}
-                onKeyDown={(ev) => { if (ev.key === "Enter") onOuvrir(e.dalleId); }}
+              <tr key={e.dalleId} tabIndex={0} onClick={() => router.push(`/projets/${e.projetId}?suivi=${e.dalleId}#dalles`)}
+                onKeyDown={(ev) => { if (ev.key === "Enter") router.push(`/projets/${e.projetId}?suivi=${e.dalleId}#dalles`); }}
                 className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond">
                 <td className="whitespace-nowrap px-4 py-3 font-display font-bold text-marine">{e.reference}</td>
                 <td className="min-w-[220px] px-4 py-3">
@@ -176,7 +178,7 @@ function ListeDalles({ maj, onOuvrir, onDessinateurs }: { maj: number; onOuvrir:
                 </td>
                 <td className="whitespace-nowrap px-4 py-3"><Badge ton={TON[e.etat]}>{e.etatLabel}</Badge></td>
                 <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(ev) => ev.stopPropagation()} onKeyDown={(ev) => ev.stopPropagation()}>
-                  <Button asChild variant="outline" size="sm"><Link href={`/projets/${e.projetId}?suivi=${e.dalleId}#dalles`}>Suivi et documents</Link></Button>
+                  <Button variant="outline" size="sm" onClick={() => onOuvrir(e.dalleId)}>Affectation et dossiers</Button>
                 </td>
               </tr>
             ))}
@@ -216,6 +218,7 @@ const jourLong = (jour: string) => {
 
 /** Suivi par jour : les dossiers ouverts chaque jour et les dalles planifiées ce jour-là, semaine par semaine. */
 function SuiviParJour({ maj, onOuvrir }: { maj: number; onOuvrir: (id: string) => void }) {
+  const router = useRouter();
   const [au, setAu] = useState(() => iso(new Date()));
   const [data, setData] = useState<Jours | null>(null);
   const [erreur, setErreur] = useState("");
@@ -273,12 +276,13 @@ function SuiviParJour({ maj, onOuvrir }: { maj: number; onOuvrir: (id: string) =
                   <th className="px-4 py-2 font-semibold">Ingénieurs</th>
                   <th className="px-4 py-2 font-semibold">État</th>
                   <th className="px-4 py-2 font-semibold">Envoi</th>
+                  <th className="px-4 py-2"><span className="sr-only">Affectation et dossiers</span></th>
                 </tr>
               </thead>
               <tbody>
                 {j.lignes.map((l) => (
-                  <tr key={l.dossierId ?? l.dalleId} tabIndex={0} onClick={() => onOuvrir(l.dalleId)}
-                    onKeyDown={(ev) => { if (ev.key === "Enter") onOuvrir(l.dalleId); }}
+                  <tr key={l.dossierId ?? l.dalleId} tabIndex={0} onClick={() => router.push(`/projets/${l.projetId}?suivi=${l.dalleId}#dalles`)}
+                    onKeyDown={(ev) => { if (ev.key === "Enter") router.push(`/projets/${l.projetId}?suivi=${l.dalleId}#dalles`); }}
                     className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond">
                     <td className="whitespace-nowrap px-4 py-2.5 font-display font-bold text-marine">{l.reference}</td>
                     <td className="min-w-[180px] px-4 py-2.5">
@@ -296,6 +300,9 @@ function SuiviParJour({ maj, onOuvrir }: { maj: number; onOuvrir: (id: string) =
                         : <Badge ton={l.enRetard ? "rouge" : TON[l.etat]}>{l.enRetard ? "Planifiée, en retard" : `Planifiée, ${l.etatLabel.toLowerCase()}`}</Badge>}
                     </td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-secondaire">{l.envoyeLe ? formatDate(l.envoyeLe) : ""}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-right" onClick={(ev) => ev.stopPropagation()} onKeyDown={(ev) => ev.stopPropagation()}>
+                      <Button variant="outline" size="sm" onClick={() => onOuvrir(l.dalleId)}>Affectation et dossiers</Button>
+                    </td>
                   </tr>
                 ))}
               </tbody>

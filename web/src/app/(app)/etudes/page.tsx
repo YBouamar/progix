@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Check, Search, Wand2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
@@ -33,6 +34,7 @@ const TON = { a_affecter: "orange", en_cours: "violet", terminee: "vert" } as co
 
 /** Menu Étude : une étude par dalle de projet, ses ingénieurs, ses pièces et son état. */
 export default function EtudesPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const [etat, setEtat] = useState("");
   const [ingenieur, setIngenieur] = useState("");
@@ -107,13 +109,13 @@ export default function EtudesPage() {
               <th className="px-4 py-3 font-semibold">Ingénieurs</th>
               <th className="px-4 py-3 font-semibold">Pièces</th>
               <th className="px-4 py-3 font-semibold">État</th>
-              <th className="px-4 py-3"><span className="sr-only">Documents de la dalle</span></th>
+              <th className="px-4 py-3"><span className="sr-only">Affectation et étude</span></th>
             </tr>
           </thead>
           <tbody>
             {data?.items.map((e) => (
-              <tr key={e.dalleId} tabIndex={0} onClick={() => setOuverte(e.dalleId)}
-                onKeyDown={(ev) => { if (ev.key === "Enter") setOuverte(e.dalleId); }}
+              <tr key={e.dalleId} tabIndex={0} onClick={() => router.push(`/projets/${e.projetId}?fichiers=${e.dalleId}#dalles`)}
+                onKeyDown={(ev) => { if (ev.key === "Enter") router.push(`/projets/${e.projetId}?fichiers=${e.dalleId}#dalles`); }}
                 className="cursor-pointer border-b border-bordure last:border-0 hover:bg-fond">
                 <td className="whitespace-nowrap px-4 py-3 font-display font-bold text-marine">{e.reference}</td>
                 <td className="min-w-[220px] px-4 py-3">
@@ -130,7 +132,7 @@ export default function EtudesPage() {
                 </td>
                 <td className="whitespace-nowrap px-4 py-3"><Badge ton={TON[e.etat]}>{e.etatLabel}</Badge></td>
                 <td className="whitespace-nowrap px-4 py-3 text-right" onClick={(ev) => ev.stopPropagation()} onKeyDown={(ev) => ev.stopPropagation()}>
-                  <Button asChild variant="outline" size="sm"><Link href={`/projets/${e.projetId}?fichiers=${e.dalleId}#dalles`}>Documents de la dalle</Link></Button>
+                  <Button variant="outline" size="sm" onClick={() => setOuverte(e.dalleId)}>Affectation et étude</Button>
                 </td>
               </tr>
             ))}

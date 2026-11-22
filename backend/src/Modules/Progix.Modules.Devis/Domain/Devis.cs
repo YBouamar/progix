@@ -81,6 +81,16 @@ public class DevisEntete : Entity
     /// <summary>Nom de la variante quand un projet a plusieurs devis en parallèle (« Sans mezzanine », « Hangar seul »). Facultatif.</summary>
     public string? Variante { get; set; }
     public DateTime? RemplaceLe { get; set; }
+
+    /// <summary>
+    /// Relecture interne du brouillon par le chef de projet ou le directeur : « validee » ou « refusee » (null : pas encore relu).
+    /// Un brouillon ne peut être marqué envoyé qu'une fois validé ; toute modification du brouillon remet la relecture à zéro.
+    /// </summary>
+    public string? RevueEtat { get; set; }
+    public DateTime? RevueLe { get; set; }
+    public string? RevuePar { get; set; }
+    /// <summary>Remarque de la relecture : obligatoire quand le brouillon est refusé, pour dire pourquoi.</summary>
+    public string? RevueRemarque { get; set; }
     public List<EvenementDevis> Evenements { get; set; } = [];
     public List<LigneDevis> Lignes { get; set; } = [];
 

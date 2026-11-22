@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { ImageIcon, Plus } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { cn, filtrerDecimal, formatDate, formatDH, formatNombre, lireNombre } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
+import { Documents } from "@/components/documents";
+import { envoyerFichier } from "@/lib/fichiers";
 
 export type DallePaiement = {
   dalleId: string; reference: string; emplacement: string; montantTTC: number; avoirs: number; du: number;
@@ -50,6 +52,8 @@ export function PaiementsProjet({ projetId, onChange }: { projetId: string; onCh
   const [aAnnuler, setAAnnuler] = useState<string | null>(null);
   const [motif, setMotif] = useState("");
   const [erreur, setErreur] = useState("");
+  // Règlement dont l'image (chèque ou effet) est affichée.
+  const [image, setImage] = useState<string | null>(null);
 
   const charger = () => api<VuePaiements>(`/projets/${projetId}/paiements`).then(setVue).catch(() => setVue(null));
   useEffect(() => { charger(); }, [projetId]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -140,6 +144,10 @@ export function PaiementsProjet({ projetId, onChange }: { projetId: string; onCh
                   <div className="flex items-center gap-3">
                     <span className={cn("whitespace-nowrap font-display font-bold", e.annule && "text-attenue line-through", e.enAttente && "text-orange-texte")}>{formatDH(e.remboursement ? -e.montant : e.montant)}</span>
                     {e.numeroRecu && <a href={`/api/encaissements/${e.id}/recu`} target="_blank" rel="noreferrer" className="text-[12px] font-semibold text-marine hover:underline">Imprimer le reçu</a>}
+                    {(e.mode === "cheque" || e.mode === "effet") && !e.remboursement && (
+                      <button type="button" className="inline-flex cursor-pointer items-center gap-1 text-[12px] font-semibold text-marine hover:underline" aria-expanded={image === e.id}
+                        onClick={() => setImage(image === e.id ? null : e.id)}><ImageIcon size={13} aria-hidden />{e.mode === "cheque" ? "Image du chèque" : "Image de l'effet"}</button>
+                    )}
                     {!e.annule && vue.peutAnnuler && <button className="cursor-pointer text-[12px] font-semibold text-rouge-texte hover:underline" onClick={() => { setAAnnuler(e.id); setMotif(""); }}>Annuler</button>}
                   </div>
                 </div>
@@ -149,6 +157,10 @@ export function PaiementsProjet({ projetId, onChange }: { projetId: string; onCh
                 <div className="text-[12px] text-attenue">
                   {e.numeroRecu ? `${e.numeroRecu} · signé par` : "Saisi par"} {e.saisiPar}{e.annule ? ` · annulé par ${e.annulePar} : ${e.motifAnnulation}` : ""}
                 </div>
+                {image === e.id && (
+                  <Documents compact contexte="justificatif_paiement" cibleId={e.id} lectureSeule={e.annule}
+                    titre={e.mode === "cheque" ? "Image du chèque" : "Image de l'effet"} aide="Photo du chèque ou de l'effet reçu." />
+                )}
                 {aAnnuler === e.id && (
                   <div className="mt-2 flex items-end gap-2">
                     <Field label="Motif de l'annulation" required className="flex-1"><Input autoFocus value={motif} onChange={(ev) => setMotif(ev.target.value)} /></Field>
@@ -219,6 +231,10 @@ export function SaisiePaiement({ projetId, vue: initiale, titre, onClose, onFait
   const [montants, setMontants] = useState<Record<string, string>>({});
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  // Image du chèque ou de l'effet, jointe au règlement une fois enregistré.
+  const [image, setImage] = useState<File | null>(null);
+  // Paiement enregistré dont l'image n'a pas pu être jointe : la fenêtre reste ouverte pour le dire.
+  const [enregistre, setEnregistre] = useState<VuePaiements | null>(null);
   useEffect(() => { if (!initiale) api<VuePaiements>(`/projets/${projetId}/paiements`).then(setVue).catch(() => setErreur("Chargement impossible.")); }, [projetId, initiale]);
 
   const ouvertes = (vue?.dalles ?? []).filter((d) => d.aCouvrir > 0);
@@ -236,6 +252,15 @@ export function SaisiePaiement({ projetId, vue: initiale, titre, onClose, onFait
         }),
       });
       window.open(`/api/encaissements/${r.recuId}/recu`, "_blank", "noopener");
+      // Le règlement est enregistré : un échec d'envoi de l'image ne l'annule pas, l'image se rejoint depuis la liste.
+      if (image && (f.mode === "cheque" || f.mode === "effet")) {
+        try { await envoyerFichier("justificatif_paiement", r.recuId, undefined, image); }
+        catch (err) {
+          setErreur(`Le paiement est enregistré, mais l'image n'a pas pu être jointe${err instanceof ApiError ? ` : ${err.message}` : ""}. Joignez-la depuis la liste des règlements.`);
+          setEnregistre(r.vue); setEnvoi(false);
+          return;
+        }
+      }
       onFait(r.vue);
     } catch (e) { setErreur(e instanceof ApiError ? e.message : "Enregistrement impossible."); setEnvoi(false); }
   }
@@ -244,8 +269,12 @@ export function SaisiePaiement({ projetId, vue: initiale, titre, onClose, onFait
     <Sheet open large onOpenChange={(o) => !o && onClose()} title={titre ?? "Saisir un paiement"} description="Répartissez le montant reçu entre les dalles : un seul reçu est émis pour le paiement."
       footer={
         <>
-          <Button variant="outline" onClick={onClose}>Annuler</Button>
-          <Button disabled={envoi || total <= 0 || !f.motDePasse} onClick={enregistrer}>{envoi ? "Enregistrement..." : `Enregistrer ${total > 0 ? formatDH(total) : "le paiement"}`}</Button>
+          {enregistre ? <Button onClick={() => onFait(enregistre)}>Fermer</Button> : (
+            <>
+              <Button variant="outline" onClick={onClose}>Annuler</Button>
+              <Button disabled={envoi || total <= 0 || !f.motDePasse} onClick={enregistrer}>{envoi ? "Enregistrement..." : `Enregistrer ${total > 0 ? formatDH(total) : "le paiement"}`}</Button>
+            </>
+          )}
         </>
       }>
       {erreur && <div role="alert" className="mb-4 rounded-lg bg-rouge-fond px-4 py-3 text-rouge-texte">{erreur}</div>}
@@ -273,6 +302,14 @@ export function SaisiePaiement({ projetId, vue: initiale, titre, onClose, onFait
             </tbody>
           </table>
           <Reglement projetId={projetId} remboursement={false} f={f} set={set} especesMontant={total} />
+          {(f.mode === "cheque" || f.mode === "effet") && (
+            <Field label={f.mode === "cheque" ? "Image du chèque" : "Image de l'effet"} className="mt-3">
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" capture="environment" aria-label={f.mode === "cheque" ? "Image du chèque" : "Image de l'effet"}
+                className="block w-full text-[13px] file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-bordure-forte file:bg-white file:px-3 file:py-1.5 file:text-[13px] file:font-semibold"
+                onChange={(e) => setImage(e.target.files?.[0] ?? null)} />
+              <p className="mt-1 text-[12px] text-attenue">Facultative : photo ou scan en image (JPEG, PNG, WebP). Elle se joint aussi plus tard depuis la liste des règlements.</p>
+            </Field>
+          )}
         </>
       )}
     </Sheet>

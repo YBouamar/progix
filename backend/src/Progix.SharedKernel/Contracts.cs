@@ -41,11 +41,10 @@ public record Presence(Guid Id, string Nom, string Role, bool Actif, DateOnly? A
 public record PartenaireFiche(Guid Id, string Nom, string Type, string? Contact, bool ExonereTva);
 
 /// <summary>
-/// Identité légale d'un client. <c>Manques</c> liste les mentions obligatoires absentes pour facturer (ICE, registre de commerce) ;
-/// <c>ManquesContrat</c> celles absentes pour établir un contrat (en plus : identifiant fiscal, patente).
+/// Identité légale d'un client. <c>Manques</c> liste les mentions obligatoires absentes pour facturer ou établir un contrat (ICE, registre de commerce) ;
+/// l'identifiant fiscal et la patente (ITP) n'empêchent ni l'un ni l'autre.
 /// </summary>
-public record PartenaireLegal(Guid Id, string Nom, string Nature, string? Identifiants, string? Adresse, bool ExonereTva, IReadOnlyList<string> Manques,
-    IReadOnlyList<string>? ManquesContrat = null);
+public record PartenaireLegal(Guid Id, string Nom, string Nature, string? Identifiants, string? Adresse, bool ExonereTva, IReadOnlyList<string> Manques);
 
 /// <summary>Accès en lecture aux devis validés pour la facturation.</summary>
 public interface IDevisLookup
@@ -170,8 +169,11 @@ public interface IProjetsStatut
 /// <param name="CommercialId">Agent commercial du projet, choisi sur le projet ; les devis le reprennent.</param>
 public record ProjetResume(Guid Id, string Code, string Libelle, string Entite, Guid ClientId, string TypeConstruction,
     bool Supprime, IReadOnlyList<DalleResume> Dalles, bool Bloque = false, string? Ville = null,
-    Guid? CommercialId = null, string? CommercialNom = null, string? TypeLabel = null, decimal? ForfaitPropre = null, decimal? ForfaitType = null)
+    Guid? CommercialId = null, string? CommercialNom = null, string? TypeLabel = null, decimal? ForfaitPropre = null, decimal? ForfaitType = null, string? Statut = null)
 {
+    /// <summary>Projet lancé : en réalisation ou terminé. Un devis peut encore s'y ajouter, en variante, et être validé par le client.</summary>
+    public bool Lance => Statut is "realisation" or "termine";
+
     /// <summary>Forfait imposé au devis (DH/m²) : celui du projet, sinon celui de son type de construction ; null si la grille par surface s'applique.</summary>
     public decimal? ForfaitImpose => ForfaitPropre is > 0 ? ForfaitPropre : ForfaitType is > 0 ? ForfaitType : null;
 }
@@ -207,6 +209,9 @@ public interface IDevisDocuments
 {
     /// <summary>Contexte de fichiers des documents joints à un devis (plans de principe).</summary>
     public const string ContexteDocuments = "plan_principe";
+
+    /// <summary>Contexte de fichiers du devis signé et cacheté par le client, déposé après la validation.</summary>
+    public const string ContexteSigne = "devis_signe";
 
     Task<DevisDocument?> DocumentAsync(Guid id, CancellationToken ct = default);
 }

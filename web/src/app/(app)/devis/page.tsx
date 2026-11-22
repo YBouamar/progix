@@ -206,7 +206,7 @@ export default function DevisPage() {
                 <td className="px-5 py-3 text-secondaire">{d.commercial ?? "Non renseigné"}</td>
                 <td className="px-5 py-3"><Badge ton={TON_ETAT[d.etat] ?? "neutre"}>{d.etatLabel}</Badge></td>
                 <td className="whitespace-nowrap px-5 py-3 text-secondaire">
-                  {d.info}{d.alerte && <span className={d.alerte.startsWith("expire") ? "font-semibold text-rouge-texte" : "font-semibold text-orange-texte"}> · {d.alerte}</span>}
+                  {d.info}{d.alerte && <span className={d.alerte.startsWith("expire") ? "font-semibold text-rouge-texte" : "font-semibold text-orange-texte"}> · {d.alerte}</span>}{d.pdfSigne === false && <span className="font-semibold text-orange-texte"> · devis signé du client à importer</span>}
                 </td>
                 <td className="whitespace-nowrap px-5 py-3 text-right font-display font-bold">{formatDH(d.totalTTC)}</td>
               </tr>

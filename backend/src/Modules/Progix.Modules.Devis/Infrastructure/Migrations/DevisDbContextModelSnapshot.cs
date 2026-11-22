@@ -136,6 +136,18 @@ namespace Progix.Modules.Devis.Infrastructure.Migrations
                     b.Property<DateTime?>("RemplaceLe")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("RevueEtat")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("RevueLe")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("RevuePar")
+                        .HasColumnType("text");
+
+                    b.Property<string>("RevueRemarque")
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("SigneLe")
                         .HasColumnType("timestamp with time zone");
 

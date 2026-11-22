@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Download, Trash2, Upload } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
+import { envoyerFichier } from "@/lib/fichiers";
 import { cn, formatDate, formatTaille } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
@@ -13,8 +14,10 @@ type Liste = { peutDeposer: boolean; imagesSeulement?: boolean; tailleMax: numbe
 const extension = (nom: string) => (nom.includes(".") ? nom.split(".").pop()!.slice(0, 4).toUpperCase() : "?");
 
 /** Dépôt et liste de fichiers rattachés à un objet (projet, étape, version de plan). */
-export function Documents({ contexte, cibleId, lectureSeule, titre = "Documents", aide, categorie, compact }: {
+export function Documents({ contexte, cibleId, lectureSeule, titre = "Documents", aide, categorie, compact, onChange }: {
   contexte: string; cibleId: string; lectureSeule?: boolean; titre?: string; aide?: string; categorie?: string; compact?: boolean;
+  /** Appelé après un dépôt ou une suppression réussis. */
+  onChange?: () => void;
 }) {
   const [liste, setListe] = useState<Fichier[]>([]);
   const [envoi, setEnvoi] = useState<string | null>(null);
@@ -28,24 +31,7 @@ export function Documents({ contexte, cibleId, lectureSeule, titre = "Documents"
     api<Liste>(`/fichiers?${requete}`).then((r) => { setListe(r.fichiers); setRegles(r); }).catch(() => undefined);
   }, [requete]);
 
-  // Envoi par morceaux : aucun gros fichier ne transite en une seule requête, et la progression est visible.
-  async function envoyer(fichier: File, suivi: (pct: number) => void) {
-    const { id } = await api<{ id: string }>("/fichiers/envois", {
-      method: "POST", body: JSON.stringify({ contexte, cibleId, categorie, nom: fichier.name, taille: fichier.size, contentType: fichier.type }),
-    });
-    const morceaux: { numero: number; eTag: string }[] = [];
-    const total = Math.ceil(fichier.size / regles.tailleMorceau);
-    for (let n = 1; n <= total; n++) {
-      const part = fichier.slice((n - 1) * regles.tailleMorceau, n * regles.tailleMorceau);
-      const res = await fetch(`/api/fichiers/envois/${id}/morceaux/${n}`, {
-        method: "PUT", body: part, credentials: "include", headers: { "Content-Type": "application/octet-stream" },
-      });
-      if (!res.ok) throw new ApiError(res.status, res.status >= 500 ? "Le stockage de fichiers ne répond pas." : "Dépôt impossible.");
-      morceaux.push(await res.json());
-      suivi(Math.round((n / total) * 100));
-    }
-    return api<Fichier>(`/fichiers/envois/${id}/terminer`, { method: "POST", body: JSON.stringify({ morceaux }) });
-  }
+  const envoyer = (fichier: File, suivi: (pct: number) => void) => envoyerFichier<Fichier>(contexte, cibleId, categorie, fichier, regles.tailleMorceau, suivi);
 
   async function deposer(fichiers: FileList | null) {
     if (!fichiers || fichiers.length === 0) return;
@@ -59,6 +45,7 @@ export function Documents({ contexte, cibleId, lectureSeule, titre = "Documents"
         setEnvoi(`${f.name} · 0 %`);
         const ajoute = await envoyer(f, (pct) => setEnvoi(`${f.name} · ${pct} %`));
         setListe((l) => [ajoute, ...l]);
+        onChange?.();
       }
     } catch (e) {
       setErreur(e instanceof ApiError ? (e.status === 403 ? "Votre rôle ne permet pas de déposer ce type de fichier." : e.message) : "Connexion au serveur impossible.");
@@ -72,6 +59,7 @@ export function Documents({ contexte, cibleId, lectureSeule, titre = "Documents"
     try {
       await api(`/fichiers/${f.id}`, { method: "DELETE" });
       setListe((l) => l.filter((x) => x.id !== f.id));
+      onChange?.();
     } catch (e) {
       setErreur(e instanceof ApiError ? e.message : "Suppression impossible.");
     }

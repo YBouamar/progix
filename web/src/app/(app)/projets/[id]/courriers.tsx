@@ -100,7 +100,7 @@ function Creation({ projetId, v, recharger, onClose, onFait }: { projetId: strin
   const attestation = type === "attestation";
   const manque = type === "bordereau_bet" ? (!p.bet ? "Aucun bureau d'études n'est rattaché au projet." : "") : (!p.bct ? "Aucun bureau de contrôle n'est rattaché au projet." : "");
   const maj = (i: number, x: Partial<Ligne>) => setLignes(lignes.map((l, j) => (j === i ? { ...l, ...x } : l)));
-  const ajouter = (dalleId: string) => { const d = p.dalles.find((x) => x.id === dalleId); setLignes([...lignes, { dalleId, numeroPlan: "", designation: d?.emplacement ?? "", nombre: "" }]); };
+  const ajouter = (dalleId: string) => { const d = p.dalles.find((x) => x.id === dalleId); setLignes([...lignes, { dalleId, numeroPlan: d?.reference ?? "", designation: d?.emplacement ?? "", nombre: "" }]); };
 
   const enregistrer = async () => {
     setEnvoi(true); setErreur("");
@@ -177,7 +177,7 @@ function Creation({ projetId, v, recharger, onClose, onFait }: { projetId: strin
                     <Button variant="ghost" size="icon" aria-label="Retirer ce plan" onClick={() => setLignes(lignes.filter((_, j) => j !== i))}><Trash2 size={15} /></Button>
                   </div>
                   <div className="grid grid-cols-3 gap-2">
-                    <Field label="Numéro de plan" required className="col-span-2"><Input placeholder="MK4-337KD-0526B" value={l.numeroPlan} onChange={(e) => maj(i, { numeroPlan: e.target.value })} /></Field>
+                    <Field label="Numéro de plan" required className="col-span-2"><Input placeholder={d ? d.reference : "MK4-337KD-0526B"} value={l.numeroPlan} onChange={(e) => maj(i, { numeroPlan: e.target.value })} /></Field>
                     <Field label="Exemplaires" required><Input inputMode="numeric" value={l.nombre} onChange={(e) => maj(i, { nombre: e.target.value })} /></Field>
                     <Field label="Désignation" className="col-span-3"><Input value={l.designation} onChange={(e) => maj(i, { designation: e.target.value })} /></Field>
                   </div>

@@ -81,11 +81,13 @@ public static class CourriersEndpoints
                     c.Lignes.Add(new LigneCourrier { DalleId = d.Id, Reference = d.Reference, Designation = string.IsNullOrWhiteSpace(l.Designation) ? d.Emplacement : l.Designation.Trim(), Surface = d.Surface });
                     continue;
                 }
-                if (string.IsNullOrWhiteSpace(l.NumeroPlan)) return Conflit("Le numéro de plan est obligatoire sur chaque ligne.");
+                // Le numéro de plan d'une dalle est sa référence : sans saisie, la référence de la dalle est reprise.
+                var numeroPlan = string.IsNullOrWhiteSpace(l.NumeroPlan) ? d?.Reference : l.NumeroPlan.Trim();
+                if (string.IsNullOrWhiteSpace(numeroPlan)) return Conflit("Le numéro de plan est obligatoire sur chaque ligne.");
                 if (l.Nombre <= 0) return Conflit("Le nombre d'exemplaires doit être supérieur à zéro.");
                 c.Lignes.Add(new LigneCourrier
                 {
-                    DalleId = d?.Id, Reference = d?.Reference, NumeroPlan = l.NumeroPlan.Trim(), Nombre = l.Nombre, Surface = d?.Surface,
+                    DalleId = d?.Id, Reference = d?.Reference, NumeroPlan = numeroPlan, Nombre = l.Nombre, Surface = d?.Surface,
                     Designation = string.IsNullOrWhiteSpace(l.Designation) ? d?.Emplacement ?? "" : l.Designation.Trim(),
                 });
             }

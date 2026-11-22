@@ -19,6 +19,7 @@ export function DevisProjet({ projetId, lectureSeule }: { projetId: string; lect
   const [liste, setListe] = useState<DevisListe["items"]>([]);
   const [erreur, setErreur] = useState("");
   const [envoi, setEnvoi] = useState(false);
+  const sansPdf = liste.filter((d) => d.pdfSigne === false);
 
   useEffect(() => {
     api<DevisListe>(`/devis?projetId=${projetId}&pageSize=100`).then((r) => setListe(r.items)).catch(() => undefined);
@@ -28,7 +29,7 @@ export function DevisProjet({ projetId, lectureSeule }: { projetId: string; lect
     setEnvoi(true); setErreur("");
     try {
       const d = await api<DevisDetail>("/devis", { method: "POST", body: JSON.stringify({ projetId }) });
-      router.push(`/devis/${d.id}`);
+      router.push(`/devis/${d.id}?depuis=projet`);
     } catch (e) {
       setErreur(e instanceof ApiError ? e.message : "Création impossible.");
       setEnvoi(false);
@@ -42,14 +43,21 @@ export function DevisProjet({ projetId, lectureSeule }: { projetId: string; lect
         {peutCreer && <Button size="sm" variant="outline" disabled={envoi} onClick={creer}><Plus size={14} />Nouveau devis</Button>}
       </div>
       {erreur && <div role="alert" className="mb-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{erreur}</div>}
+      {sansPdf.length > 0 && (
+        <div role="status" className="mb-3 rounded-lg bg-orange-fond px-4 py-2.5 text-[13px] text-orange-texte">
+          <span className="font-semibold">Devis signé du client à importer.</span>{" "}
+          {sansPdf.map((d) => d.numero).join(", ")} {sansPdf.length > 1 ? "sont validés" : "est validé"} sans le PDF signé et cacheté par le client : ouvrez le devis pour le déposer.
+        </div>
+      )}
       {liste.length === 0 ? <div className="text-[13px] text-attenue">Aucun devis pour ce projet.</div> : (
         <ul className="divide-y divide-bordure">
           {liste.map((d) => (
             <li key={d.id}>
-              <Link href={`/devis/${d.id}`} className="flex flex-wrap items-center gap-3 py-2.5 hover:text-marine">
+              <Link href={`/devis/${d.id}?depuis=projet`} className="flex flex-wrap items-center gap-3 py-2.5 hover:text-marine">
                 <span className="font-display font-bold text-marine">{d.numero} · version {d.version}</span>
                 {d.variante && <span className="text-[13px] font-semibold text-secondaire">{d.variante}</span>}
                 <Badge ton={TON_ETAT[d.etat] ?? "neutre"}>{d.etatLabel}</Badge>
+                {d.pdfSigne === false && <Badge ton="orange">Devis signé à importer</Badge>}
                 <span className="text-[13px] text-secondaire">{formatDate(d.dateDevis)}</span>
                 <span className="ml-auto font-display font-bold">{formatDH(d.totalTTC)} TTC</span>
               </Link>

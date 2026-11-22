@@ -19,6 +19,23 @@ public class FichiersProjet(ProjetsDbContext db) : IContexteFichiers
     }
 }
 
+/// <summary>Fichiers propres à une dalle (plans, notes, pièces diverses) : dépôt ouvert à tous les rôles, tant que le projet n'est pas supprimé.</summary>
+public class FichiersDalle(ProjetsDbContext db) : IContexteFichiers
+{
+    public const string Nom = "dalle";
+    public string Contexte => Nom;
+    public IReadOnlyList<string> Categories => [];
+    public bool PeutDeposer(ClaimsPrincipal user) => true;
+
+    public async Task<string?> RefusAsync(Guid cibleId, string? categorie, CancellationToken ct = default)
+    {
+        var d = await db.Dalles.AsNoTracking().FirstOrDefaultAsync(x => x.Id == cibleId, ct);
+        if (d is null) return "Dalle introuvable.";
+        var p = await db.Projets.AsNoTracking().FirstAsync(x => x.Id == d.ProjetId, ct);
+        return p.Supprime ? "Un projet supprimé est en lecture seule." : null;
+    }
+}
+
 /// <summary>Plans d'exécution : réservés aux dessinateurs et à leur chef, sur la dernière version de la dalle.</summary>
 public class FichiersPlans(ProjetsDbContext db) : IContexteFichiers
 {

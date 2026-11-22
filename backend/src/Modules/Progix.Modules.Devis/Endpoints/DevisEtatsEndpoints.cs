@@ -10,6 +10,7 @@ using Progix.SharedKernel;
 namespace Progix.Modules.Devis.Endpoints;
 
 public record MotifInput(string? Motif);
+public record RelectureInput(bool Valide, string? Remarque);
 
 /// <summary>Cycle de vie du devis : envoi, validation, rejet, nouvelle version.</summary>
 /// <summary>Corps de la demande de signature. Le mot de passe n'est plus demandé : le champ reste accepté et ignoré.</summary>
@@ -24,6 +25,11 @@ public static class DevisEtatsEndpoints
     /// <summary>Rejet d'un devis, quel que soit son état : responsable administratif, chef de projet, directeur.</summary>
     private static readonly string[] RolesRejet = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif];
 
+    /// <summary>Relecture interne d'un brouillon, avant l'envoi : validation ou refus motivé par le chef de projet ou le directeur.</summary>
+    private static readonly string[] RolesRevue = [Roles.Directeur, Roles.ChefProjet];
+
+    public static bool PeutRevoir(ClaimsPrincipal user) => RolesRevue.Any(user.IsInRole);
+
     public static bool PeutSigner(ClaimsPrincipal user) => RolesValidation.Any(user.IsInRole);
 
     /// <summary>
@@ -36,7 +42,12 @@ public static class DevisEtatsEndpoints
 
     public static string Info(DevisEntete d) => d.Etat switch
     {
-        EtatsDevis.Brouillon => "Non envoyé",
+        EtatsDevis.Brouillon => d.RevueEtat switch
+        {
+            RevuesDevis.Validee => $"Non envoyé · validé en interne le {d.RevueLe:dd/MM/yyyy} par {d.RevuePar}",
+            RevuesDevis.Refusee => $"Non envoyé · refusé à la relecture le {d.RevueLe:dd/MM/yyyy} par {d.RevuePar}",
+            _ => "Non envoyé · relecture à faire",
+        },
         EtatsDevis.Envoye => $"Échéance le {d.Echeance:dd/MM/yyyy}",
         EtatsDevis.Expire => $"Expiré le {d.Echeance:dd/MM/yyyy}",
         EtatsDevis.Valide => $"Validé le {d.ValideLe:dd/MM/yyyy} par {d.ValidePar}",
@@ -61,6 +72,12 @@ public static class DevisEtatsEndpoints
         // La trame de calcul se télécharge à tout moment ; elle se réimporte seulement dans un brouillon.
         trame = PeutEcrire(user),
         envoyer = d.Etat == EtatsDevis.Brouillon && PeutEcrire(user),
+        // Le brouillon peut être marqué envoyé seulement une fois validé en interne.
+        envoyerPret = d.Etat == EtatsDevis.Brouillon && d.RevueEtat == RevuesDevis.Validee,
+        reviser = d.Etat == EtatsDevis.Brouillon && PeutRevoir(user),
+        supprimer = d.Etat == EtatsDevis.Brouillon && PeutEcrire(user),
+        // Dépôt du devis signé et cacheté par le client : après la validation.
+        deposerSigne = d.Etat == EtatsDevis.Valide && PeutSigner(user),
         valider = d.Etat == EtatsDevis.Envoye && RolesValidation.Any(user.IsInRole),
         dupliquer = PeutEcrire(user),
         rejeter = d.Etat is EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide && RolesRejet.Any(user.IsInRole),
@@ -72,7 +89,7 @@ public static class DevisEtatsEndpoints
         var g = app.MapGroup("/api/devis/{id:guid}").WithTags("Devis").RequireAuthorization(Policies.Devis);
 
         // Signature électronique : exigée avant d'imprimer ou d'envoyer le devis. Un brouillon, encore modifiable, ne se signe pas.
-        g.MapPost("/signer", async (Guid id, SignatureDevisInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IUtilisateursLookup users, ClaimsPrincipal user) =>
+        g.MapPost("/signer", async (Guid id, SignatureDevisInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, IUtilisateursLookup users, ClaimsPrincipal user) =>
         {
             if (!PeutSigner(user)) return Results.Forbid();
             var d = await db.Devis.Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
@@ -83,14 +100,15 @@ public static class DevisEtatsEndpoints
             d.Jeton = Convert.ToHexString(System.Security.Cryptography.RandomNumberGenerator.GetBytes(16)).ToLowerInvariant();
             Tracer(db, d, user, "Devis signé électroniquement");
             await db.SaveChangesAsync();
-            return Results.Ok(await DevisEndpoints.Detail(d, projets, partenaires, user, db));
+            return Results.Ok(await DevisEndpoints.Detail(d, projets, partenaires, user, db, fichiers));
         });
 
-        g.MapPost("/envoyer", (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
-            Transition(id, db, projets, partenaires, user, d =>
+        g.MapPost("/envoyer", (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, ClaimsPrincipal user) =>
+            Transition(id, db, projets, partenaires, fichiers, user, d =>
             {
                 if (!PeutEcrire(user)) return "Votre rôle permet de consulter les devis, pas de les envoyer.";
                 if (d.Etat != EtatsDevis.Brouillon) return "Seul un brouillon peut être envoyé.";
+                if (ValidationDevis.RefusEnvoi(d) is { } relecture) return relecture;
                 if (d.Lignes.FirstOrDefault(l => l.Surface <= 0) is { } sansSurface)
                     return $"La dalle {sansSurface.Reference} n'a pas de surface : renseignez-la ou importez ses fichiers ADAPT avant l'envoi.";
                 if (d.Echeances.Sum(e => e.Pourcentage) != 100) return "Le total des modalités de paiement doit faire 100 % avant l'envoi.";
@@ -101,18 +119,37 @@ public static class DevisEtatsEndpoints
                 return null;
             }));
 
-        g.MapPost("/valider", (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IProjetsStatut statut, ClaimsPrincipal user) =>
-            Transition(id, db, projets, partenaires, user, d =>
+        // Relecture interne du brouillon : validation, ou refus avec une remarque qui dit pourquoi. Le brouillon refusé reste modifiable.
+        g.MapPost("/relecture", (Guid id, RelectureInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, ClaimsPrincipal user) =>
+            Transition(id, db, projets, partenaires, fichiers, user, d =>
+            {
+                if (!PeutRevoir(user)) return "Seul le chef de projet ou le directeur valide ou refuse un brouillon.";
+                if (ValidationDevis.Reviser(d, input.Valide, input.Remarque, user.UserName(), DateTime.UtcNow) is { } refus) return refus;
+                Tracer(db, d, user, input.Valide ? "Brouillon validé en interne" : $"Brouillon refusé à la relecture. Remarque : {d.RevueRemarque}");
+                return null;
+            }));
+
+        g.MapPost("/valider", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, IProjetsStatut statut, ClaimsPrincipal user) =>
+        {
+            // Projet lancé : une variante se valide même si un devis l'est déjà, il est alors remplacé.
+            var projetId = await db.Devis.AsNoTracking().Where(x => x.Id == id).Select(x => (Guid?)x.ProjetId).FirstOrDefaultAsync();
+            var lance = projetId is Guid pid && (await projets.ProjetAsync(pid))?.Lance == true;
+            return await Transition(id, db, projets, partenaires, fichiers, user, d =>
             {
                 if (!RolesValidation.Any(user.IsInRole)) return "Vous n'avez pas le droit de valider un devis.";
                 if (d.Etat == EtatsDevis.Expire) return "Ce devis est expiré : créez une nouvelle version.";
                 if (d.Etat != EtatsDevis.Envoye) return "Seul un devis envoyé peut être validé.";
                 // Un seul devis validé par projet ; les autres devis ouverts du projet sont annulés avec lui.
                 var autres = db.Devis.Include(x => x.Evenements).Where(x => x.ProjetId == d.ProjetId && x.Id != d.Id).ToList();
-                if (ValidationDevis.Refus(d, autres) is { } refus) return refus;
+                if (ValidationDevis.Refus(d, autres, lance) is { } refus) return refus;
                 d.Etat = EtatsDevis.Valide;
                 d.ValideLe = DateTime.UtcNow;
                 d.ValidePar = user.UserName();
+                foreach (var r in ValidationDevis.ARemplacer(d, autres, lance))
+                {
+                    r.Etat = EtatsDevis.Remplace; r.RemplaceLe = DateTime.UtcNow; r.UpdatedAt = DateTime.UtcNow;
+                    Tracer(db, r, user, $"Remplacé par la variante {d.Numero} (version {d.Version}), validée par le client alors que le projet est lancé");
+                }
                 var annules = ValidationDevis.AAnnuler(d, autres);
                 foreach (var a in annules)
                 {
@@ -121,10 +158,11 @@ public static class DevisEtatsEndpoints
                 }
                 Tracer(db, d, user, annules.Count == 0 ? "Devis validé" : $"Devis validé ; {annules.Count} autre(s) devis du projet annulé(s)");
                 return null;
-            }, d => statut.PasserEnEtudeAsync(d.ProjetId)));
+            }, d => statut.PasserEnEtudeAsync(d.ProjetId));
+        });
 
-        g.MapPost("/annuler", (Guid id, MotifInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IProjetsStatut statut, ClaimsPrincipal user) =>
-            Transition(id, db, projets, partenaires, user, d =>
+        g.MapPost("/annuler", (Guid id, MotifInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, IProjetsStatut statut, ClaimsPrincipal user) =>
+            Transition(id, db, projets, partenaires, fichiers, user, d =>
             {
                 if (!RolesRejet.Any(user.IsInRole)) return "Un devis ne peut être rejeté que par le responsable administratif, le chef de projet ou le directeur.";
                 if (d.Etat is not (EtatsDevis.Brouillon or EtatsDevis.Envoye or EtatsDevis.Expire or EtatsDevis.Valide)) return "Ce devis ne peut plus être rejeté.";
@@ -141,7 +179,7 @@ public static class DevisEtatsEndpoints
             }));
 
         // Duplication : copie d'un devis, quel que soit son état, en brouillon sous un nouveau numéro (variante du même projet).
-        g.MapPost("/dupliquer", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
+        g.MapPost("/dupliquer", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, ClaimsPrincipal user) =>
         {
             if (!PeutEcrire(user)) return Results.Forbid();
             var d = await db.Devis.AsNoTracking().Include(x => x.Lignes).FirstOrDefaultAsync(x => x.Id == id);
@@ -178,11 +216,11 @@ public static class DevisEtatsEndpoints
             db.Devis.Add(n);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
-            return Results.Ok(await DevisEndpoints.Detail(n, projets, partenaires, user, db));
+            return Results.Ok(await DevisEndpoints.Detail(n, projets, partenaires, user, db, fichiers));
         });
 
         // Nouvelle version : copie en brouillon avec les dalles et surfaces à jour du projet ; l'ancienne version est remplacée.
-        g.MapPost("/nouvelle-version", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
+        g.MapPost("/nouvelle-version", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, ClaimsPrincipal user) =>
         {
             if (!PeutEcrire(user)) return Results.Forbid();
             var d = await db.Devis.Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
@@ -219,7 +257,7 @@ public static class DevisEtatsEndpoints
             Tracer(db, d, user, $"Remplacé par la version {n.Version}");
             db.Devis.Add(n);
             await db.SaveChangesAsync();
-            return Results.Ok(await DevisEndpoints.Detail(n, projets, partenaires, user, db));
+            return Results.Ok(await DevisEndpoints.Detail(n, projets, partenaires, user, db, fichiers));
         });
     }
 
@@ -227,7 +265,7 @@ public static class DevisEtatsEndpoints
     private static void Tracer(DevisDbContext db, DevisEntete d, ClaimsPrincipal user, string quoi) =>
         db.Evenements.Add(new EvenementDevis { DevisId = d.Id, Quoi = quoi, Qui = user.UserName() });
 
-    private static async Task<IResult> Transition(Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires,
+    private static async Task<IResult> Transition(Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers,
         ClaimsPrincipal user, Func<DevisEntete, string?> appliquer, Func<DevisEntete, Task>? apres = null)
     {
         await db.ExpirerAsync();
@@ -238,6 +276,6 @@ public static class DevisEtatsEndpoints
         d.UpdatedAt = DateTime.UtcNow;
         await db.SaveChangesAsync();
         if (apres is not null) await apres(d);
-        return Results.Ok(await DevisEndpoints.Detail(d, projets, partenaires, user, db));
+        return Results.Ok(await DevisEndpoints.Detail(d, projets, partenaires, user, db, fichiers));
     }
 }

@@ -59,6 +59,14 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
   const [reaffectation, setReaffectation] = useState(false);
   const [version, setVersion] = useState(0);
   const [avancement, setAvancement] = useState<Avancement | null>(null);
+  // Devis validés dont le devis signé et cacheté par le client n'est pas encore déposé : une alerte reste sur l'onglet tant qu'il en manque.
+  const [devisSansPdf, setDevisSansPdf] = useState(0);
+  const voitDevis = voitMontants(user);
+  useEffect(() => {
+    if (!voitDevis) return;
+    api<{ items: { pdfSigne: boolean | null }[] }>(`/devis?projetId=${id}&etat=valide&pageSize=100`)
+      .then((r) => setDevisSansPdf(r.items.filter((x) => x.pdfSigne === false).length)).catch(() => setDevisSansPdf(0));
+  }, [id, voitDevis]);
 
   const charger = useCallback(() => {
     api<ProjetDetail>(`/projets/${id}`).then(setP)
@@ -185,6 +193,11 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
             className={cn("-mb-px whitespace-nowrap border-b-2 px-4 py-2.5 text-[14px] font-semibold transition-colors",
               onglet === code ? "border-marine text-marine" : "border-transparent text-secondaire hover:text-marine")}>
             {label}
+            {code === "commercial" && devisSansPdf > 0 && (
+              <span role="img" className="ml-2 inline-block h-2 w-2 rounded-full bg-orange-texte align-middle"
+                aria-label={`${devisSansPdf} devis validé${devisSansPdf > 1 ? "s" : ""} sans le devis signé du client`}
+                title={`${devisSansPdf} devis validé${devisSansPdf > 1 ? "s" : ""} sans le devis signé et cacheté par le client`} />
+            )}
           </button>
         ))}
       </div>

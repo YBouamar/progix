@@ -2,6 +2,7 @@
 
 import { FileDown, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { formatDate } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { SignatureDoc } from "@/components/signature-doc";
 import type { DevisDetail } from "../types";
@@ -15,8 +16,10 @@ const LIEN = "inline-flex h-10 items-center justify-center gap-2 rounded-lg bord
  * Étape 3 de la fiche du devis : aperçu du PDF tel qu'il sera imprimé, contrôles avant envoi, puis les actions dans l'ordre
  * (relire le brouillon, marquer envoyé, signer, imprimer le devis signé).
  */
-export function ImpressionDevis({ d, controles, modifie, occupe, onEnvoyer, onSigne }: {
+export function ImpressionDevis({ d, controles, modifie, occupe, onEnvoyer, onSigne, onRelire }: {
   d: DevisDetail; controles: Controle[]; modifie: boolean; occupe: boolean; onEnvoyer: () => void; onSigne: (r: DevisDetail) => void;
+  /** Ouvre la saisie de la relecture : validation (true) ou refus (false). */
+  onRelire: (valide: boolean) => void;
 }) {
   const brouillon = d.etat === "brouillon";
   const pdf = `/api/devis/${d.id}/pdf`;
@@ -72,14 +75,34 @@ export function ImpressionDevis({ d, controles, modifie, occupe, onEnvoyer, onSi
           </section>
         )}
 
+        {brouillon && (
+          <section className="flex flex-col gap-3 rounded-xl border border-bordure bg-white p-5">
+            <h3 className="text-[15px] font-bold">Validation interne</h3>
+            {d.revue?.etat === "validee" && (
+              <p className="text-[13px]"><Badge ton="vert">Validé</Badge> par {d.revue.par}{d.revue.le ? ` le ${formatDate(d.revue.le)}` : ""}{d.revue.remarque ? `. Remarque : ${d.revue.remarque}` : ""}</p>
+            )}
+            {d.revue?.etat === "refusee" && (
+              <p className="text-[13px]"><Badge ton="rouge">Refusé</Badge> par {d.revue.par}{d.revue.le ? ` le ${formatDate(d.revue.le)}` : ""}. Remarque : {d.revue.remarque}</p>
+            )}
+            {!d.revue?.etat && <p className="text-[13px] text-secondaire">Le chef de projet ou le directeur relit le brouillon avant son envoi au client. S&apos;il le refuse, il dit pourquoi.</p>}
+            {d.actions.reviser ? (
+              <div className="flex flex-wrap gap-2">
+                <Button disabled={occupe || modifie || d.revue?.etat === "validee"} onClick={() => onRelire(true)}
+                  title={modifie ? "Enregistrez d'abord le brouillon : la validation porte sur la version enregistrée" : undefined}>Valider le brouillon</Button>
+                <Button variant="outline" disabled={occupe || modifie} onClick={() => onRelire(false)}>Refuser le brouillon</Button>
+              </div>
+            ) : <p className="text-[13px] text-secondaire">La validation revient au chef de projet et au directeur.</p>}
+          </section>
+        )}
+
         <section className="flex flex-col gap-3 rounded-xl border border-bordure bg-white p-5">
           <h3 className="text-[15px] font-bold">Envoi au client</h3>
           {brouillon ? (
             <>
-              <p className="text-[13px] text-secondaire">Marquer le devis envoyé le fige. Il se signe ensuite d&apos;un clic, puis s&apos;imprime avec le bloc de signature et le QR code.</p>
+              <p className="text-[13px] text-secondaire">Le devis s&apos;envoie une fois validé en interne. Le marquer envoyé le fige ; il se signe ensuite d&apos;un clic, puis s&apos;imprime avec le bloc de signature et le QR code.</p>
               {d.actions.envoyer
-                ? <Button disabled={occupe || modifie || bloquants.length > 0} onClick={onEnvoyer}
-                    title={modifie ? "Enregistrez d'abord le brouillon" : bloquants.length > 0 ? bloquants[0].texte : undefined}>Marquer envoyé</Button>
+                ? <Button disabled={occupe || modifie || bloquants.length > 0 || !d.actions.envoyerPret} onClick={onEnvoyer}
+                    title={modifie ? "Enregistrez d'abord le brouillon" : bloquants.length > 0 ? bloquants[0].texte : !d.actions.envoyerPret ? "Le brouillon doit d'abord être validé par le chef de projet ou le directeur" : undefined}>Marquer envoyé</Button>
                 : <p className="text-[13px] text-secondaire">Votre fonction consulte les devis sans les envoyer.</p>}
               <Button variant="outline" disabled>Signer le devis</Button>
               <Button variant="outline" disabled>Imprimer le devis signé</Button>

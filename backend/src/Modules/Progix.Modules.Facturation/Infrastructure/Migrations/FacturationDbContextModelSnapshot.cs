@@ -281,6 +281,12 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
                         .HasMaxLength(5)
                         .HasColumnType("character varying(5)");
 
+                    b.Property<DateTime?>("EnvoyeLe")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EnvoyePar")
+                        .HasColumnType("text");
+
                     b.Property<string>("Jeton")
                         .HasMaxLength(64)
                         .HasColumnType("character varying(64)");
@@ -309,8 +315,18 @@ namespace Progix.Modules.Facturation.Infrastructure.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("Statut")
+                        .IsRequired()
+                        .HasColumnType("text");
+
                     b.Property<DateTime?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("ValideClientLe")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("ValideClientPar")
+                        .HasColumnType("text");
 
                     b.HasKey("Id");
 

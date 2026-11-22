@@ -1,7 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useState } from "react";
-import { Layers, Plus, Trash2 } from "lucide-react";
+import { Layers, Paperclip, Plus, Trash2 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { peutEcrire, useAuth, voitMontants } from "@/lib/auth";
 import { formatNombre, formatSurface } from "@/lib/utils";
@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { Sheet } from "@/components/ui/sheet";
+import { Documents } from "@/components/documents";
 import { GererNiveaux, BoutonGerer } from "../gestion-listes";
 import { SuiviDalle } from "./suivi";
 import { type Adapt, AdaptDalle } from "./adapt";
@@ -40,6 +41,7 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
   const [envoi, setEnvoi] = useState(false);
   const [peutAdapt, setPeutAdapt] = useState(false);
   const [adapt, setAdapt] = useState<string | null>(null);
+  const [fichiers, setFichiers] = useState<string | null>(null);
   const [parNiveaux, setParNiveaux] = useState<FormNiveaux | null>(null);
   const [gestionNiveaux, setGestionNiveaux] = useState(false);
   const [suppression, setSuppression] = useState<{ id: string; reference: string } | null>(null);
@@ -245,7 +247,10 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
                           <div className={`mt-1 whitespace-nowrap text-[12px] ${d.etapesFaites >= 11 ? "font-semibold text-vert-texte" : "text-secondaire"}`}>{d.etape}</div>
                         </td>
                         {montants && <td className="whitespace-nowrap px-5 py-3">{taux ? <TauxPaiement taux={taux[d.id] ?? null} /> : null}</td>}
-                        <td className="px-2 py-3"><Button variant="outline" size="sm" onClick={() => setSuivi(d.id)}>Suivi</Button></td>
+                        <td className="whitespace-nowrap px-2 py-3">
+                          <Button variant="outline" size="sm" onClick={() => setSuivi(d.id)}>Suivi</Button>
+                          <Button variant="ghost" size="icon" className="ml-1" aria-label={`Fichiers de la dalle ${d.reference}`} title="Fichiers de la dalle (plans et autres)" onClick={() => setFichiers(d.id)}><Paperclip size={15} /></Button>
+                        </td>
                         {ecriture && (
                           <td className="px-3 py-3 text-right"><Button variant="ghost" size="sm" onClick={() => ouvrir(d)}>Modifier</Button></td>
                         )}
@@ -269,6 +274,13 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
       {suivi && (
         <SuiviDalle projetId={projetId} dalleId={suivi} onClose={() => setSuivi(null)}
           onChange={(n) => { setDalles((l) => l.map((x) => (x.id === n.id ? (n as Dalle) : x))); onSuivi(); }} />
+      )}
+
+      {fichiers && dalles.find((d) => d.id === fichiers) && (
+        <Sheet open onOpenChange={(o) => !o && setFichiers(null)} title={`Fichiers de la dalle ${dalles.find((d) => d.id === fichiers)!.reference}`}
+          description="Plans et autres pièces propres à cette dalle. Tous les rôles peuvent en déposer ; le dépositaire, le chef de projet et le directeur peuvent les supprimer.">
+          <Documents compact contexte="dalle" cibleId={fichiers} titre="Fichiers" lectureSeule={lectureSeule} />
+        </Sheet>
       )}
 
       {adapt && dalles.find((d) => d.id === adapt) && (

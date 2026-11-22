@@ -33,7 +33,7 @@ public class AvancementTests
     public void Brouillon_chiffre_sur_toutes_ses_dalles_est_a_relire()
     {
         var a = new LigneDevis { DalleId = Guid.NewGuid(), PrixM2 = 150, RatioActif = 2 };
-        Assert.Equal(("Chiffré, à relire et envoyer", 3), Lire(Brouillon(a)));
+        Assert.Equal(("Chiffré, à faire valider", 3), Lire(Brouillon(a)));
     }
 
     [Fact]

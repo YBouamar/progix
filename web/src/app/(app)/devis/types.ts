@@ -3,6 +3,8 @@ export type DevisListItem = {
   commercial: string | null; ingenieur: string | null; etat: string; etatLabel: string; dateDevis: string; echeance: string; totalTTC: number; info: string; alerte: string | null;
   /** Où en est le devis : étape de la fiche à ouvrir (1 fichiers, 2 chiffrage, 3 impression et envoi). */
   avancement: { titre: string; detail: string | null; etape: 1 | 2 | 3 };
+  /** Devis validé : le devis signé et cacheté par le client est-il déposé ? Null hors devis validé. */
+  pdfSigne: boolean | null;
 };
 
 export type DevisListe = {
@@ -27,7 +29,13 @@ export type DevisDetail = {
   forfait: number; tranchesForfait: Tranche[]; typesAncrage: number[]; surfaceTotale: number; totalHT: number; remiseTotale: number; netHT: number; tva: number; totalTTC: number;
   signePar: string | null; signeLe: string | null; signable: boolean;
   creePar: string; lignes: Ligne[]; info: string; alerte: string | null; annuleMotif: string | null;
-  actions: { modifier: boolean; trame: boolean; envoyer: boolean; valider: boolean; rejeter: boolean; nouvelleVersion: boolean; dupliquer: boolean };
+  /** Relecture interne du brouillon (null hors brouillon) : etat vaut null (à faire), « validee » ou « refusee ». */
+  revue: { etat: "validee" | "refusee" | null; par: string | null; le: string | null; remarque: string | null } | null;
+  pdfSigne: boolean | null;
+  actions: {
+    modifier: boolean; trame: boolean; envoyer: boolean; envoyerPret: boolean; reviser: boolean; supprimer: boolean; deposerSigne: boolean;
+    valider: boolean; rejeter: boolean; nouvelleVersion: boolean; dupliquer: boolean;
+  };
   historique: { quand: string; quoi: string; qui: string }[];
 };
 

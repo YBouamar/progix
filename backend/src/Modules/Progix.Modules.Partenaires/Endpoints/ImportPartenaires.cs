@@ -235,7 +235,7 @@ public static class ImportPartenaires
             $"Type* : {string.Join(", ", TypesPartenaire.Labels.Values)}.",
             "Catégorie* : Personne morale, Personne physique ou Autre (un nom suffit, aucun identifiant légal exigé).",
             "Raison sociale ou nom* : raison sociale d'une personne morale ou d'un partenaire « Autre » ; nom de famille d'une personne physique (avec le prénom, obligatoire, dans la colonne Prénom).",
-            "Personne morale : ICE de 15 chiffres. ICE et RC seront exigés pour établir une facture ; identifiant fiscal et patente en plus pour un contrat.",
+            "Personne morale : ICE de 15 chiffres. ICE et RC seront exigés pour établir une facture ou un contrat ; identifiant fiscal et patente restent facultatifs.",
             "Personne physique : CIN, civilité (M. ou Mme, M. par défaut). La nationalité est mise à Marocaine, modifiable ensuite dans la fiche.",
             "Exonéré de TVA : Oui ou Non (vide = Non). L'attestation d'exonération se renseigne ensuite dans la fiche.",
             "Contact : un contact principal facultatif ; les autres se saisissent dans la fiche.",

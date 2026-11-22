@@ -139,7 +139,7 @@ public static class DevisEndpoints
 
         // Liste filtrée par état, texte, projet, commercial, date du devis et ingénieur ; « sansIngenieur » ajoute à l'ingénieur choisi
         // les devis qui n'en ont pas (vue d'un ingénieur : les siens et ceux à prendre), ou les montre seuls.
-        g.MapGet("/", async (DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires,
+        g.MapGet("/", async (DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers,
             string? etat, Guid? projetId, string? q, Guid? ingenieur, bool? sansIngenieur, Guid? commercial, DateOnly? du, DateOnly? au, int page = 1, int pageSize = 20) =>
         {
             await db.ExpirerAsync();
@@ -169,6 +169,10 @@ public static class DevisEndpoints
             foreach (var pid2 in rows.Where(r => r.Etat == EtatsDevis.Brouillon).Select(r => r.ProjetId).Distinct())
                 avecFichiers[pid2] = (await projets.ProjetAsync(pid2, avecDalles: true))?.Dalles.Where(x => x.Adapt is { AvecPt: true }).Select(x => x.Id).ToHashSet() ?? [];
             var noms = await partenaires.NomsAsync(infos.Values.Select(p => p.ClientId));
+            // Devis validés de la page : lesquels ont déjà leur devis signé par le client.
+            var sansSigne = new HashSet<Guid>();
+            foreach (var v in rows.Where(r => r.Etat == EtatsDevis.Valide))
+                if (await fichiers.NombreAsync(IDevisDocuments.ContexteSigne, v.Id) == 0) sansSigne.Add(v.Id);
             return Results.Ok(new
             {
                 items = rows.Select(d =>
@@ -182,6 +186,7 @@ public static class DevisEndpoints
                         dateDevis = d.DateDevis, echeance = d.Echeance, totalTTC = d.TotalTTC,
             info = DevisEtatsEndpoints.Info(d), alerte = DevisEtatsEndpoints.Alerte(d),
                         avancement = Avancement(d, avecFichiers.GetValueOrDefault(d.ProjetId)),
+                        pdfSigne = d.Etat == EtatsDevis.Valide ? !sansSigne.Contains(d.Id) : (bool?)null,
                     };
                 }),
                 total, page, pageSize,
@@ -189,14 +194,14 @@ public static class DevisEndpoints
             });
         });
 
-        g.MapGet("/{id:guid}", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
+        g.MapGet("/{id:guid}", async (Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, ClaimsPrincipal user) =>
         {
             await db.ExpirerAsync();
             var d = await db.Devis.AsNoTracking().Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
-            return d is null ? Results.NotFound() : Results.Ok(await Detail(d, projets, partenaires, user, db));
+            return d is null ? Results.NotFound() : Results.Ok(await Detail(d, projets, partenaires, user, db, fichiers));
         });
 
-        g.MapPost("/", async (CreationInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IUtilisateursLookup users, ClaimsPrincipal user) =>
+        g.MapPost("/", async (CreationInput input, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, IUtilisateursLookup users, ClaimsPrincipal user) =>
         {
             if (!DevisEtatsEndpoints.PeutEcrire(user)) return Results.Forbid();
             var projet = await projets.ProjetAsync(input.ProjetId, avecDalles: true);
@@ -227,13 +232,13 @@ public static class DevisEndpoints
             db.Devis.Add(d);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
-            return Results.Created($"/api/devis/{d.Id}", await Detail(d, projets, partenaires, user, db));
+            return Results.Created($"/api/devis/{d.Id}", await Detail(d, projets, partenaires, user, db, fichiers));
         });
 
         g.MapPost("/{id:guid}/adapt", ReprendreAdapt);
 
         g.MapPut("/{id:guid}", async (Guid id, DevisInput input, DevisDbContext db, IProjetsLookup projets,
-            IPartenairesLookup partenaires, IUtilisateursLookup users, IProjetsStatut statut, ClaimsPrincipal user) =>
+            IPartenairesLookup partenaires, IFichiersLookup fichiers, IUtilisateursLookup users, IProjetsStatut statut, ClaimsPrincipal user) =>
         {
             if (!DevisEtatsEndpoints.PeutEcrire(user)) return Results.Forbid();
             var d = await db.Devis.Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
@@ -308,13 +313,32 @@ public static class DevisEndpoints
                 if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) { l.Surface = dalle.Surface; l.Reference = dalle.Reference; l.Emplacement = dalle.Emplacement; }
             Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitImpose);
             d.UpdatedAt = DateTime.UtcNow;
+            if (ValidationDevis.ReinitialiserRevue(d)) db.Add(new EvenementDevis { DevisId = d.Id, Quoi = "Brouillon modifié : la relecture est à refaire", Qui = user.UserName() });
             await db.SaveChangesAsync();
-            return Results.Ok(await Detail(d, projets, partenaires, user, db));
+            return Results.Ok(await Detail(d, projets, partenaires, user, db, fichiers));
+        });
+
+        // Suppression d'un brouillon (jamais émis : ni envoyé ni signé). Un brouillon qui avait remplacé une version la rend à son état d'avant.
+        g.MapDelete("/{id:guid}", async (Guid id, DevisDbContext db, ClaimsPrincipal user) =>
+        {
+            if (!DevisEtatsEndpoints.PeutEcrire(user)) return Results.Forbid();
+            var d = await db.Devis.Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
+            if (d is null) return Results.NotFound();
+            if (d.Etat != EtatsDevis.Brouillon) return Conflit("Seul un brouillon se supprime : un devis envoyé ne se supprime pas, il se rejette avec un motif.");
+            if (d.Version > 1 && await db.Devis.FirstOrDefaultAsync(x => x.Entite == d.Entite && x.Numero == d.Numero && x.Version == d.Version - 1) is { } precedente
+                && ValidationDevis.EtatAvantRemplacement(precedente) is { } etat)
+            {
+                precedente.Etat = etat; precedente.RemplaceLe = null; precedente.UpdatedAt = DateTime.UtcNow;
+                db.Evenements.Add(new EvenementDevis { DevisId = precedente.Id, Quoi = $"La version {d.Version}, un brouillon, a été supprimée : cette version reprend son état", Qui = user.UserName() });
+            }
+            db.Devis.Remove(d);
+            await db.SaveChangesAsync();
+            return Results.NoContent();
         });
     }
 
     /// <summary>Brouillon : reprend les données ADAPT de toutes les dalles qui en ont, puis recalcule.</summary>
-    internal static async Task<IResult> ReprendreAdapt(Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user)
+    internal static async Task<IResult> ReprendreAdapt(Guid id, DevisDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IFichiersLookup fichiers, ClaimsPrincipal user)
     {
         if (!DevisEtatsEndpoints.PeutEcrire(user)) return Results.Forbid();
         var d = await db.Devis.Include(x => x.Lignes).Include(x => x.Evenements).FirstOrDefaultAsync(x => x.Id == id);
@@ -328,9 +352,10 @@ public static class DevisEndpoints
             if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) l.Surface = dalle.Surface;
         Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitImpose);
         d.UpdatedAt = DateTime.UtcNow;
+        ValidationDevis.ReinitialiserRevue(d);
         db.Add(new EvenementDevis { DevisId = d.Id, Quoi = $"Données ADAPT reprises pour {reprises} dalle(s)", Qui = user.UserName() });
         await db.SaveChangesAsync();
-        return Results.Ok(await Detail(d, projets, partenaires, user, db));
+        return Results.Ok(await Detail(d, projets, partenaires, user, db, fichiers));
     }
 
     /// <summary>
@@ -367,7 +392,9 @@ public static class DevisEndpoints
         var lus = d.Lignes.Count(l => dallesAvecFichiers?.Contains(l.DalleId) == true);
         var fichiers = lus == 0 ? "Aucun fichier ADAPT" : $"Fichiers ADAPT : {lus} dalle{(lus > 1 ? "s" : "")} sur {d.Lignes.Count}";
         var chiffre = d.Lignes.Count > 0 && d.Lignes.All(l => l.PrixM2 > 0 && l.RatioActif > 0);
-        return chiffre ? new { titre = "Chiffré, à relire et envoyer", detail = (string?)fichiers, etape = 3 }
+        if (d.RevueEtat == RevuesDevis.Validee) return new { titre = "Validé en interne, à envoyer", detail = (string?)fichiers, etape = 3 };
+        if (d.RevueEtat == RevuesDevis.Refusee) return new { titre = "Refusé à la relecture, à corriger", detail = (string?)d.RevueRemarque, etape = 2 };
+        return chiffre ? new { titre = "Chiffré, à faire valider", detail = (string?)fichiers, etape = 3 }
             : lus > 0 || d.TotalHT > 0 ? new { titre = "Chiffrage à compléter", detail = (string?)fichiers, etape = 2 }
             : new { titre = "Fichiers ADAPT à déposer", detail = (string?)"Ou saisie à la main", etape = 1 };
     }
@@ -397,7 +424,7 @@ public static class DevisEndpoints
     internal static async Task<bool> Exonere(ProjetResume projet, IPartenairesLookup partenaires) =>
         (await partenaires.FichesAsync([projet.ClientId])).GetValueOrDefault(projet.ClientId)?.ExonereTva ?? false;
 
-    internal static async Task<object> Detail(DevisEntete d, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user, DevisDbContext db)
+    internal static async Task<object> Detail(DevisEntete d, IProjetsLookup projets, IPartenairesLookup partenaires, ClaimsPrincipal user, DevisDbContext db, IFichiersLookup fichiers)
     {
         var derniere = !await db.Devis.AnyAsync(x => x.Entite == d.Entite && x.Numero == d.Numero && x.Version > d.Version);
         var brouillon = d.Etat == EtatsDevis.Brouillon;
@@ -423,6 +450,9 @@ public static class DevisEndpoints
             netHT = d.NetHT, tva = d.Tva, totalTTC = d.TotalTTC, creePar = d.CreePar, createdAt = d.CreatedAt,
             signePar = d.SignePar, signeLe = d.SigneLe, signable = d.Etat != EtatsDevis.Brouillon && d.Jeton is null && DevisEtatsEndpoints.PeutSigner(user),
             info = DevisEtatsEndpoints.Info(d), alerte = DevisEtatsEndpoints.Alerte(d), annuleMotif = d.AnnuleMotif,
+            revue = d.Etat == EtatsDevis.Brouillon ? new { etat = d.RevueEtat, par = d.RevuePar, le = d.RevueLe, remarque = d.RevueRemarque } : null,
+            // Devis validé : le devis signé et cacheté par le client est-il déposé ? Tant que non, une alerte reste affichée.
+            pdfSigne = d.Etat == EtatsDevis.Valide ? await fichiers.NombreAsync(IDevisDocuments.ContexteSigne, d.Id) > 0 : (bool?)null,
             actions = DevisEtatsEndpoints.Actions(d, user, derniere),
             historique = d.Evenements.OrderByDescending(e => e.CreatedAt).Select(e => new { quand = e.CreatedAt, quoi = e.Quoi, qui = e.Qui }),
             lignes = d.Lignes.OrderBy(l => l.Ordre).Select(l => new

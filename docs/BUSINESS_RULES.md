@@ -197,6 +197,12 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [décidé] Agent commercial facultatif. [code] conforme, porté par le projet depuis le 2026-10-28.
 - [code] Échéances par défaut : 30 % à la signature, 60 % par dalle à la livraison, 10 % de retenue de garantie à 6 mois.
 
+- [décidé 2026-11-22, code] **Relecture d'un brouillon** : un devis en brouillon doit être validé par le chef de projet ou le directeur avant d'être marqué envoyé ou validé par le client. Le relecteur valide ou refuse ; un refus exige une remarque. Toute modification du brouillon remet la relecture à zéro. [à confirmer] un relecteur peut valider son propre brouillon ; un refus laisse le brouillon modifiable.
+- [décidé 2026-11-22, code] **Suppression** : un brouillon peut être supprimé ; supprimer une version supérieure à 1 rétablit l'état de la version précédente.
+- [décidé 2026-11-22, code] **Devis signé par le client** : après validation, import du PDF signé et cacheté (contexte de fichiers `devis_signe`, sans restriction de format). Une alerte reste sur l'onglet Devis du projet tant qu'un devis validé n'en a pas.
+- [décidé 2026-11-22, code] **Variante sur projet lancé** (réalisation ou terminé) : une nouvelle variante peut être créée et validée par le client ; elle remplace le devis validé (état Remplacé, pas Annulé). [à confirmer]
+- [décidé 2026-11-22, code] Le dossier ZIP du devis se nomme « DEV_{numéro}-{année} {nom du projet} ».
+
 ## 9. Facturation et paiements
 
 - [décidé 2026-10-28, code] **Une facture se crée uniquement à partir d'un bon de livraison.** Plus de facture d'acompte : le paiement à la signature se saisit comme un paiement sur les dalles, sans facture. Les factures d'acompte déjà émises restent consultables et leur acompte reste déduit au prorata des factures de livraison qui suivent (montant de la dalle × pourcentage d'acompte du devis).
@@ -214,6 +220,10 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 - [code] Statuts de facture : Impayée, Partielle, En retard, Payée, Annulée (avoir total), calculés sur le réglé imputé depuis les dalles. Trop-perçu : remboursement sur la dalle par virement, chèque ou espèces.
 - [code] Annulation d'un encaissement, d'une dépense, d'un contrat ou d'un courrier : responsable administratif, chef de projet, directeur.
 
+- [décidé 2026-11-22, code] **Contrat** : la création n'est plus bloquée par l'absence d'IF ou d'ITP (seuls ICE et RC restent exigés). Suivi : en attente, envoyée, validée par le client, avec date et auteur ; après validation, dépôt du contrat signé et cacheté (PDF ou image). Marquer envoyé exige la signature électronique du contrat. [à confirmer] retour arrière d'un niveau réservé aux rôles d'annulation.
+- [décidé 2026-11-22, code] **Chèque ou effet (LCN)** : une image du titre peut être jointe au paiement (images seulement).
+- [décidé 2026-11-22, code] **Bordereau au BET ou au bureau de contrôle** : le numéro de plan est prérempli avec la référence de la dalle.
+
 ## 10. Indicateurs
 
 - [décidé] Chiffre d'affaires calculé sur le TTC ; marge = chiffre d'affaires moins dépenses. [code] conforme : CA = TTC des factures de la période moins avoirs ; marge = CA moins dépenses (générales et de dalle) de la période.
@@ -225,6 +235,8 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 ## 12. Fichiers
 
 - [code] Suppression logique, purge du stockage un mois après. Droits de dépôt par contexte (plans : dessinateurs ; photos d'étape : images seulement, pendant l'étape ; rapports : dernier rapport seulement). Pièces figées une fois l'étape validée.
+
+- [décidé 2026-11-22, code] **Fichiers par dalle** (plans et autres), contexte `dalle`, dépôt ouvert à tous les rôles. [à confirmer]
 
 ## 13. Points mis de côté
 

@@ -22,6 +22,8 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 
 - Variantes de devis, duplication et validation unique (non commité) : migration `VarianteDevis`, 370 tests passés, lint et build web sans erreur ; écrans non essayés dans le navigateur.
 
+- Lot du 2026-11-22 soir (non commité) : relecture des brouillons, suppression, devis signé, variante sur projet lancé, ZIP renommé, retours de navigation, suivi et pièce signée du contrat, IF et ITP non bloquants, images chèque et effet, fichiers par dalle, plan du bordereau prérempli. Migrations `RelectureDevis` et `SuiviContrat`. 387 tests passés, lint et build web sans erreur, parcours vérifiés par appels API sur Postgres local. **Non essayé** : dépôts de fichiers (pas de MinIO en local) et rendu visuel des écrans. Hypothèses à confirmer : voir DECISIONS.md.
+
 ## Terminé
 
 - Six modules backend : Identity (1 migration), Partenaires (2), Projets (27), Devis (6), Fichiers (3), Facturation (19).

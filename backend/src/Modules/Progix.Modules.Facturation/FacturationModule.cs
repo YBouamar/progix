@@ -14,7 +14,7 @@ public class FacturationModule : IModule
     public string Name => "Facturation";
 
     public void AddServices(IServiceCollection services, IConfiguration configuration) =>
-        services.AddScoped<IEncoursProjet, Infrastructure.EncoursFacturation>().AddScoped<IUsagesDalle, Infrastructure.UsagesDalleFacturation>().AddScoped<IVerificationDocuments, Infrastructure.VerificationFacturation>().AddScoped<IReaffectationEntite, Infrastructure.NumerotationLivraisons>().AddDbContext<FacturationDbContext>(o => o.UseNpgsql(
+        services.AddScoped<IEncoursProjet, Infrastructure.EncoursFacturation>().AddScoped<IContexteFichiers, Infrastructure.FichiersContratSigne>().AddScoped<IContexteFichiers, Infrastructure.FichiersJustificatifPaiement>().AddScoped<IUsagesDalle, Infrastructure.UsagesDalleFacturation>().AddScoped<IVerificationDocuments, Infrastructure.VerificationFacturation>().AddScoped<IReaffectationEntite, Infrastructure.NumerotationLivraisons>().AddDbContext<FacturationDbContext>(o => o.UseNpgsql(
             configuration.GetConnectionString("Postgres"),
             npgsql => npgsql.MigrationsHistoryTable("__ef_migrations", FacturationDbContext.Schema)));
 

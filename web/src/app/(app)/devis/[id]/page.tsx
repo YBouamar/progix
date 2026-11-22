@@ -5,7 +5,7 @@ import { Fragment, use, useCallback, useEffect, useMemo, useState } from "react"
 import Link from "next/link";
 import { ArrowLeft, ChevronDown, ChevronUp, FileDown, Plus, Trash2, X } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { cn, filtrerDecimal, formatDate, formatDateHeure, formatDH, formatNombre, lireNombre } from "@/lib/utils";
 import { Modal } from "@/components/ui/modal";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,11 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const [modifie, setModifie] = useState(false);
   const [annulation, setAnnulation] = useState<string | null>(null);
   const [validation, setValidation] = useState(false);
+  // Relecture interne : null, ou la décision en cours de saisie (validation, ou refus avec sa remarque).
+  const [relecture, setRelecture] = useState<{ valide: boolean; remarque: string } | null>(null);
+  const [suppression, setSuppression] = useState(false);
+  // Provenance : « projet » quand on arrive depuis l'onglet des devis de la fiche du projet ; sinon, depuis la liste des devis.
+  const depuis = useSearchParams().get("depuis") === "projet" ? "projet" : "liste";
   // Étapes de la fiche : 1, fichiers ADAPT ; 2, chiffrage. Un brouillon pas encore chiffré s'ouvre sur les fichiers.
   const [etape, setEtape] = useState<1 | 2 | 3 | null>(null);
   // Données lues dans les fichiers ADAPT, par dalle : elles signalent dans le chiffrage ce qui a été modifié à la main.
@@ -124,7 +129,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   }, [f, d]);
 
   if (!d || !f || !calcul) {
-    return <div><Retour />{message ? <div role="alert" className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{message.texte}</div> : <AttenteFiche />}</div>;
+    return <div><Retour depuis={depuis} projetId={d?.projetId} />{message ? <div role="alert" className="rounded-xl border border-bordure bg-white p-12 text-center text-secondaire">{message.texte}</div> : <AttenteFiche />}</div>;
   }
 
   // Lecture seule : devis émis, ou rôle qui consulte seulement (administrateur).
@@ -167,7 +172,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     try {
       const r = await api<DevisDetail>(`/devis/${id}/${chemin}`, { method: "POST", body: JSON.stringify(corps ?? {}) });
       setAnnulation(null);
-      if (r.id !== id) { router.push(`/devis/${r.id}`); return true; }
+      if (r.id !== id) { router.push(`/devis/${r.id}${depuis === "projet" ? "?depuis=projet" : ""}`); return true; }
       setD(r); setF(versForm(r)); setModifie(false);
       return true;
     } catch (e) {
@@ -175,6 +180,18 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
       setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Action impossible." });
       return false;
     } finally {
+      setEnvoi(false);
+    }
+  }
+
+  async function supprimerBrouillon() {
+    setEnvoi(true); setMessage(null);
+    try {
+      await api(`/devis/${id}`, { method: "DELETE" });
+      router.push(depuis === "projet" && d ? `/projets/${d.projetId}#commercial` : "/devis");
+    } catch (e) {
+      setSuppression(false);
+      setMessage({ ok: false, texte: e instanceof ApiError ? e.message : "Suppression impossible." });
       setEnvoi(false);
     }
   }
@@ -257,7 +274,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
 
   return (
     <div className="pb-24">
-      <Retour />
+      <Retour depuis={depuis} projetId={d?.projetId} />
       <div className="rounded-xl border border-bordure bg-white p-6">
         <div className="flex flex-wrap items-center gap-2">
           <span className="font-display text-xl font-bold text-marine">{d.numero}</span>
@@ -286,11 +303,30 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           {d.actions.dupliquer && <Button size="sm" variant="outline" disabled={envoi} onClick={() => transition("dupliquer")}>Dupliquer le devis</Button>}
           {d.actions.nouvelleVersion && <Button size="sm" variant="outline" disabled={envoi} onClick={() => transition("nouvelle-version")}>Nouvelle version</Button>}
           {d.actions.rejeter && <Button size="sm" variant="outline" disabled={envoi} onClick={() => setAnnulation("")}>Rejeter le devis</Button>}
+          {d.actions.supprimer && <Button size="sm" variant="outline" className="text-rouge-texte" disabled={envoi} onClick={() => setSuppression(true)}><Trash2 size={14} aria-hidden />Supprimer le brouillon</Button>}
         </div>
+        {brouillon && d.revue?.etat === "refusee" && (
+          <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-3 text-[13px] text-rouge-texte">
+            <span className="font-semibold">Refusé à la relecture</span> par {d.revue.par}{d.revue.le ? ` le ${formatDate(d.revue.le)}` : ""}. Remarque : {d.revue.remarque}
+            <div className="mt-0.5 text-secondaire">Corrigez le brouillon : une fois modifié, il repart en relecture.</div>
+          </div>
+        )}
         {importOuvert && <ImportDevis devisId={d.id} onClose={() => setImportOuvert(false)} onImporter={importer} />}
         {/* Documents du devis : visibles à toutes les étapes, ils partent avec le devis dans le dossier ZIP. */}
         <Documents compact key={`plans-${d.etat}`} contexte="plan_principe" cibleId={d.id} lectureSeule={d.etat !== "brouillon"} titre="Documents joints au devis"
           aide="Plans de principe et autres pièces remises au client avec le devis. Dépôt possible tant que le devis est en brouillon." />
+        {d.etat === "valide" && (
+          <div className={cn("mt-4 rounded-lg border px-4 py-3", d.pdfSigne === false ? "border-orange-texte/40 bg-orange-fond" : "border-bordure bg-fond")}>
+            {d.pdfSigne === false && (
+              <div role="status" className="mb-1 text-[13px] font-semibold text-orange-texte">
+                Devis signé du client à importer : ce devis est validé, mais le PDF signé et cacheté par le client n&apos;est pas encore déposé.
+              </div>
+            )}
+            <Documents compact contexte="devis_signe" cibleId={d.id} lectureSeule={!d.actions.deposerSigne} titre="Devis signé et cacheté par le client"
+              aide="PDF ou image du devis signé et cacheté par le client."
+              onChange={() => api<DevisDetail>(`/devis/${id}`).then(setD).catch(() => undefined)} />
+          </div>
+        )}
         {lecture && message && !message.ok && <div role="alert" className="mt-3 rounded-lg bg-rouge-fond px-4 py-2 text-rouge-texte">{message.texte}</div>}
 
         <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
@@ -341,7 +377,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
 
       {etapeVue === 3 && (
         <ImpressionDevis d={d} controles={controles} modifie={modifie} occupe={envoi}
-          onEnvoyer={() => transition("envoyer")} onSigne={(r) => { setD(r); setF(versForm(r)); }} />
+          onEnvoyer={() => transition("envoyer")} onSigne={(r) => { setD(r); setF(versForm(r)); }} onRelire={(valide) => setRelecture({ valide, remarque: "" })} />
       )}
 
       {etapeVue === 2 && <>
@@ -565,6 +601,36 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           </>
         } />
 
+      <Modal open={relecture !== null} onOpenChange={(o) => !o && setRelecture(null)}
+        title={relecture?.valide ? "Valider le brouillon" : "Refuser le brouillon"}
+        description={relecture?.valide
+          ? "Une fois validé, le brouillon peut être marqué envoyé. S'il est modifié ensuite, la validation tombe et la relecture est à refaire."
+          : "Le brouillon reste modifiable : la remarque dit à l'ingénieur ce qu'il doit corriger avant une nouvelle relecture."}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setRelecture(null)}>Retour</Button>
+            <Button variant={relecture?.valide ? "default" : "danger"} disabled={envoi || (!relecture?.valide && !relecture?.remarque.trim())}
+              onClick={async () => { const r = relecture!; setRelecture(null); await transition("relecture", { valide: r.valide, remarque: r.remarque.trim() || null }); }}>
+              {relecture?.valide ? "Valider le brouillon" : "Refuser le brouillon"}
+            </Button>
+          </>
+        }>
+        <label className="block">
+          <span className="mb-1.5 block text-[13px] font-semibold text-secondaire">Remarque{!relecture?.valide && <span className="text-rouge-vif"> *</span>}</span>
+          <textarea rows={3} autoFocus={!relecture?.valide} value={relecture?.remarque ?? ""} onChange={(e) => setRelecture((r) => (r ? { ...r, remarque: e.target.value } : r))}
+            className="w-full rounded-lg border border-bordure-forte px-3 py-2 text-sm focus:border-marine focus:outline-none" />
+        </label>
+      </Modal>
+
+      <Modal open={suppression} onOpenChange={setSuppression} title="Supprimer le brouillon ?"
+        description={`Le brouillon ${d.numero}${d.version > 1 ? `, version ${d.version}` : ""} sera supprimé définitivement. ${d.version > 1 ? "La version précédente reprend son état. " : ""}Un devis envoyé ne se supprime pas : il se rejette.`}
+        footer={
+          <>
+            <Button variant="outline" onClick={() => setSuppression(false)}>Retour</Button>
+            <Button variant="danger" disabled={envoi} onClick={supprimerBrouillon}>Supprimer le brouillon</Button>
+          </>
+        } />
+
       <Modal open={annulation !== null} onOpenChange={(o) => !o && setAnnulation(null)} title="Rejeter le devis"
         description="Le devis passe à l'état Rejeté et ne pourra plus être modifié."
         footer={
@@ -592,10 +658,17 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   );
 }
 
-function Retour() {
+/** Retour selon la provenance : la fiche du projet si on en vient, sinon la liste des devis, avec dans les deux cas un lien vers l'autre. */
+function Retour({ depuis, projetId }: { depuis: "projet" | "liste"; projetId?: string }) {
+  const style = "inline-flex items-center gap-1.5 text-[13px] font-semibold text-secondaire hover:text-marine";
+  const fiche = projetId ? `/projets/${projetId}#commercial` : null;
   return (
-    <Link href="/devis" className="mb-4 inline-flex items-center gap-1.5 text-[13px] font-semibold text-secondaire hover:text-marine">
-      <ArrowLeft size={15} />Tous les devis
-    </Link>
+    <div className="mb-4 flex flex-wrap items-center gap-x-5 gap-y-1">
+      {depuis === "projet" && fiche
+        ? <Link href={fiche} className={style}><ArrowLeft size={15} />Retour à la fiche du projet</Link>
+        : <Link href="/devis" className={style}><ArrowLeft size={15} />Tous les devis</Link>}
+      {depuis === "liste" && fiche && <Link href={fiche} className={style}>Fiche du projet</Link>}
+      {depuis === "projet" && <Link href="/devis" className={style}>Tous les devis</Link>}
+    </div>
   );
 }

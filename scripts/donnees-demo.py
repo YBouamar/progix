@@ -242,6 +242,8 @@ class Demo:
         etat = d.get("devis", "valide")
         dv = adm.put(f"/devis/{dv['id']}", corps)
         if etat == "brouillon": return dv
+        # Un brouillon est relu par le chef de projet avant d'être marqué envoyé.
+        self.de("chef.projet").post(f"/devis/{dv['id']}/relecture", {"valide": True})
         adm.post(f"/devis/{dv['id']}/envoyer")
         sig.post(f"/devis/{dv['id']}/signer", {"motDePasse": MDP})
         if etat == "version2":
@@ -249,6 +251,7 @@ class Demo:
             corps["remiseM2"], corps["remiseMotif"], corps["dateDevis"], corps["lignes"] = 6, "Négociation après la première offre", jour(20), [
                 {**l, "id": n["id"]} for l, n in zip(corps["lignes"], v2["lignes"])]
             adm.put(f"/devis/{v2['id']}", corps)
+            self.de("chef.projet").post(f"/devis/{v2['id']}/relecture", {"valide": True})
             adm.post(f"/devis/{v2['id']}/envoyer"); sig.post(f"/devis/{v2['id']}/signer", {"motDePasse": MDP})
             return v2
         if etat == "valide":
@@ -260,6 +263,9 @@ class Demo:
         ra = self.de("responsable.administratif")
         c = ra.post(f"/projets/{d['id']}/contrats", {"devisId": d["devisId"], "dateContrat": jour(max(d["age"] - 7, 0)), "lieu": "Casablanca"})
         ra.post(f"/contrats/{c['id']}/signer", {"motDePasse": MDP})
+        # Suivi du contrat : envoyé au client, puis validé par lui pour les projets déjà avancés.
+        ra.post(f"/contrats/{c['id']}/statut", {"statut": "envoye"})
+        if d["age"] > 60: ra.post(f"/contrats/{c['id']}/statut", {"statut": "valide_client"})
 
     # ----- suivi de chantier
     def avancer(self, d, j, cible):

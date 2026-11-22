@@ -143,7 +143,7 @@ public static class PdfEndpoints
                     await Ajouter($"documents/{chemin}", lu.Contenu.ToArray());
                 }
             }
-            return Results.File(tampon.ToArray(), "application/zip", $"{nom}-dossier.zip");
+            return Results.File(tampon.ToArray(), "application/zip", NomDossierDevis(d.Numero, p.Libelle) + ".zip");
         }).WithTags("Documents PDF").RequireAuthorization(Policies.Devis);
 
         // Vérification publique d'un document signé, atteinte par son QR code : aucun compte n'est nécessaire, seul le jeton du document donne accès.
@@ -171,6 +171,17 @@ public static class PdfEndpoints
     public static string Lien(IConfiguration config, string jeton) => $"{(config["App:PublicUrl"] ?? "http://localhost:3000").TrimEnd('/')}/verification/{jeton}";
     private static IResult NonSigne() => Results.Conflict(new { message = "Ce document n'est pas encore signé : signez-le avant de l'imprimer ou de l'envoyer." 
 });
+
+    /// <summary>Nom du dossier ZIP d'un devis : « DEV_00012-2026 Nom du projet » (numéro d'offre DEV-00012-2026, sans la version).</summary>
+    internal static string NomDossierDevis(string numero, string projet)
+    {
+        var parts = numero.Split('-');
+        var base_ = parts.Length == 3 ? $"{parts[0]}_{parts[1]}-{parts[2]}" : numero.Replace('-', '_');
+        // Le nom du projet entre en entier : les caractères interdits dans un nom de fichier deviennent « _ » (un « / » ne coupe pas le nom).
+        var interdits = Path.GetInvalidFileNameChars().Concat(['/', (char)92, ':', '*', '?', '"', '<', '>', '|']).ToHashSet();
+        var nom = string.Concat($"{base_} {projet}".Select(c => interdits.Contains(c) ? '_' : c)).Trim();
+        return nom.Length == 0 ? "devis" : nom;
+    }
 
     /// <summary>Nom d'un fichier joint tel qu'il entre dans un ZIP : sans dossier ni caractère interdit.</summary>
     internal static string NomDeFichier(string nom)

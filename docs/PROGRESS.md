@@ -1,6 +1,6 @@
 # Avancement de PROGIX
 
-**Dernière mise à jour** : 2026-11-22
+**Dernière mise à jour** : 2026-11-22 (lot Négoce)
 
 Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historique.
 
@@ -23,6 +23,14 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - Variantes de devis, duplication et validation unique (non commité) : migration `VarianteDevis`, 370 tests passés, lint et build web sans erreur ; écrans non essayés dans le navigateur.
 
 - Lot du 2026-11-22 soir (non commité) : relecture des brouillons, suppression, devis signé, variante sur projet lancé, ZIP renommé, retours de navigation, suivi et pièce signée du contrat, IF et ITP non bloquants, images chèque et effet, fichiers par dalle, plan du bordereau prérempli. Migrations `RelectureDevis` et `SuiviContrat`. 387 tests passés, lint et build web sans erreur, parcours vérifiés par appels API sur Postgres local. **Non essayé** : dépôts de fichiers (pas de MinIO en local) et rendu visuel des écrans. Hypothèses à confirmer : voir DECISIONS.md.
+
+## Lot Négoce du 2026-11-22 (non commité, non déployé)
+
+- Module `Progix.Modules.Negoce` complet : catalogue (articles, catégories, unités), groupes de clients et prix, fournisseurs, commandes d'achat avec réceptions, factures et paiements fournisseur, stock (mouvements, CMP, tendons en tonnes), devis, commandes, BL, factures, avoirs, encaissements. Migration `Negoce` à appliquer au démarrage ; les deux nouveaux rôles sont créés par le seed d'identité.
+- Écrans : `ventes-directes/` (devis et commandes, livraisons, factures et avoirs, groupes) et `achats-stock/` (articles, fournisseurs, commandes d'achat, stock). Menus par rôle dans `nav.ts`.
+- Vérifié (premier lot) : `dotnet test` 467 passés, `npm run lint` et `npm run build` sans erreur, parcours complet par l'API sur Postgres local (78 vérifications). **Non essayé dans le navigateur** : rendu des écrans, dépôts d'images (pas de MinIO local).
+- Second lot du soir : plafond espèces 5 000 DH, signature et PDF des documents de vente, verrou du stock, données de démonstration. 473 tests, e2e 104 vérifications (dont 4 courses de sorties simultanées). Migration `NegoceSignatureEtVerrouStock`. PDF non regardés à l'écran.
+- Écart : le gestionnaire de stock a la lecture des achats plutôt que « R » seul. Hypothèses et limites : BUSINESS_RULES.md section 14.
 
 ## Terminé
 

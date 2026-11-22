@@ -16,6 +16,8 @@ public static class Roles
     public const string ResponsableChantier = "responsable_chantier";
     public const string ChefChantier = "chef_chantier";
     public const string GestionnaireStock = "gestionnaire_stock";
+    public const string ResponsableAchats = "responsable_achats";
+    public const string ResponsableVentesDirectes = "responsable_ventes_directes";
 
     public sealed record Definition(string Code, string Label, bool VoitMontants);
 
@@ -34,6 +36,8 @@ public static class Roles
         new(ResponsableChantier, "Responsable chantier", false),
         new(ChefChantier, "Chef de chantier", false),
         new(GestionnaireStock, "Gestionnaire de stock", false),
+        new(ResponsableAchats, "Responsable d'achats", false),
+        new(ResponsableVentesDirectes, "Responsable de ventes directes", false),
     ];
 
     public static Definition? Find(string code) => All.FirstOrDefault(r => r.Code == code);

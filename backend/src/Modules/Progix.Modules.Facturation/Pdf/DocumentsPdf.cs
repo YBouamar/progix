@@ -207,6 +207,56 @@ public static class DocumentsPdf
         return Rendu(doc);
     }
 
+    /// <summary>Devis, bon de livraison, facture ou avoir d'une vente directe : mêmes en-tête, pied de page, signature et QR code que la post-tension.</summary>
+    public static byte[] VenteDirecte(DocumentVentePdf d, ParametresEntite e, string lienVerification)
+    {
+        var (doc, s) = Cadre(e, d.Numero);
+        var (titre, quoi) = d.Type switch
+        {
+            "devis" => ("DEVIS", "ce devis"), "bl" => ("BON DE LIVRAISON", "ce bon de livraison"), "avoir" => ("AVOIR", "cet avoir"), _ => ("FACTURE", "cette facture"),
+        };
+        var refs = new List<(string, string)> { ("Numéro", d.Numero), (d.Type == "bl" ? "Date de livraison" : "Date d'émission", Date(d.Date)) };
+        if (d.Echeance is not null && d.Type is "devis" or "facture") refs.Add((d.Type == "devis" ? "Valable jusqu'au" : "Date limite de paiement", Date(d.Echeance.Value)));
+        if (d.Reference is not null) refs.Add((d.Type == "avoir" ? "Sur la facture" : "Commande", d.Reference));
+        if (d.ProjetCode is not null) refs.Add(("Projet", d.ProjetCode));
+        Entete(s, d.ClientNom, d.ClientAdresse, d.ClientIdentifiants, titre + (d.Annule ? " (ANNULÉ)" : ""), refs);
+
+        var avecPrix = d.Type != "bl";
+        var t = avecPrix
+            ? Tableau(s, [(2.8, "Réf.", false), (6.2, "Désignation", false), (2.2, "Quantité", true), (2.0, "P.U. HT", true), (2.8, "Total HT", true), (1.4, "TVA", true)])
+            : Tableau(s, [(3.4, "Réf.", false), (10.8, "Désignation", false), (3.2, "Quantité", true)]);
+        foreach (var l in d.Lignes)
+        {
+            var qte = $"{l.Quantite.ToString("0.####", Fr)} {l.Unite}";
+            if (avecPrix) LigneTableau(t, l.Code, l.Designation, qte, Nb(l.PrixUnitaire), Nb(l.MontantHt), $"{d.TauxTva:0.##} %");
+            else LigneTableau(t, l.Code, l.Designation, qte);
+        }
+        if (avecPrix)
+        {
+            Totaux(s, [("Total hors taxes (HT)", DH(d.TotalHt)), ($"Montant de la TVA ({d.TauxTva:0.##} %)", DH(d.TotalTva))], d.Type == "avoir" ? "Total de l'avoir (TTC)" : "Total toutes taxes comprises (TTC)", DH(d.TotalTtc));
+            EnToutesLettres(s, d.Type switch { "devis" => "Arrêté le présent devis à la somme de : ", "avoir" => "Arrêté le présent avoir à la somme de : ", _ => "Arrêtée la présente facture à la somme de : " }, d.TotalTtc);
+        }
+        else Totaux(s, [("Nombre de lignes", d.Lignes.Count.ToString())], "Livraison", "Complète les lignes ci-dessus");
+
+        if (d.Notes is not null)
+        {
+            var n = s.AddParagraph(d.Type == "avoir" ? $"Motif : {d.Notes}" : d.Notes);
+            n.Format.SpaceBefore = "0.2cm"; n.Format.Font.Italic = true; n.Format.Font.Color = Gris;
+        }
+        if (d.Type == "facture")
+        {
+            var m = s.AddParagraph(d.TauxTva == 0 ? $"{MentionExoneration} {MentionRetard}" : MentionRetard);
+            m.Format.SpaceBefore = "0.4cm"; m.Format.Font.Size = 7.5; m.Format.Font.Italic = true; m.Format.Font.Color = Gris;
+        }
+        if (d.Annule)
+        {
+            var p = s.AddParagraph($"Document annulé : {d.MotifAnnulation}");
+            p.Format.SpaceBefore = "0.4cm"; p.Format.Font.Bold = true; p.Format.Font.Color = Rouge;
+        }
+        Signature(s, d.SignePar, d.SigneLe, lienVerification, quoi, d.Type switch { "devis" => "Bon pour accord : date, cachet et signature du client", "bl" => "Reçu par le client : nom, date, cachet et signature", _ => "Cachet de la société" });
+        return Rendu(doc);
+    }
+
     /// <param name="facture">Facture réglée, pour un règlement saisi avant le suivi par dalle ; sinon null.</param>
     public static byte[] Recu(Encaissement x, Facture? facture, ParametresEntite e, string lienVerification)
     {

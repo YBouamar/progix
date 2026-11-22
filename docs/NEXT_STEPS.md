@@ -6,6 +6,8 @@ Par ordre de priorité. Chaque étape doit pouvoir démarrer une session. Retire
 
 ## 0. Déployer et essayer le lot du 2026-11-22
 
+Lot Négoce : migration `Negoce` à appliquer. Essayer dans le navigateur avec une base de démonstration : création d'articles, groupe et prix, achat, réception, stock, devis, commande, BL, facture, encaissement avec image de chèque (MinIO). Regarder les PDF de vente directe à l'écran. Reste à faire : tableau de bord des nouveaux rôles, confirmer qu'un devis signé ne se modifie plus.
+
 Migrations à appliquer au démarrage : `CommandesMultiples`, `ForfaitFixeTypeConstruction`, `VarianteDevis`, `RelectureDevis`, `SuiviContrat`. Essayer aussi le lot du soir (relecture des devis, dépôts de fichiers avec MinIO). Migration `CommandesMultiples` (schéma projets) à appliquer au démarrage. À essayer avec les données de démonstration puis un vrai dossier : dépôt des deux DXF par le dessinateur (catégories « Plan de câblage X / Y »), import à l'étape Commande usine, complément, modification d'une commande envoyée et lecture côté usine, rôle gestionnaire de stock (création du compte par l'administrateur), réception par un chef de chantier. Confirmer les hypothèses listées dans DECISIONS.md (2026-11-22).
 
 ## 1. Mettre la production à jour avec le dernier commit du 2026-11-12
@@ -23,6 +25,8 @@ Aucun retour reçu à ce jour. À essayer avec des données réelles, et noter l
 - import du fond de plan DXF dans AutoCAD 2021 et ADAPT Builder.
 
 ## 3. Décisions à prendre (aucun code avant réponse)
+
+- Ventes directes, achats et stock : confirmer les cinq points codés selon hypothèses (BUSINESS_RULES.md section 14), notamment CMD et ACH, la grille de droits et le sort des accessoires de post-tension.
 
 - Devis : un relecteur peut-il valider son propre brouillon ? Un refus laisse-t-il le brouillon modifiable ? Une variante validée sur projet lancé remplace-t-elle le devis validé (état Remplacé) ?
 

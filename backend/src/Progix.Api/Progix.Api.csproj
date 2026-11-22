@@ -8,6 +8,7 @@
     <ProjectReference Include="..\Modules\Progix.Modules.Devis\Progix.Modules.Devis.csproj" />
     <ProjectReference Include="..\Modules\Progix.Modules.Fichiers\Progix.Modules.Fichiers.csproj" />
     <ProjectReference Include="..\Modules\Progix.Modules.Facturation\Progix.Modules.Facturation.csproj" />
+    <ProjectReference Include="..\Modules\Progix.Modules.Negoce\Progix.Modules.Negoce.csproj" />
   </ItemGroup>
 
   <ItemGroup>

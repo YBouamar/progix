@@ -294,3 +294,64 @@ public static class ClaimsExtensions
     public static string UserName(this ClaimsPrincipal u) => u.FindFirstValue(ClaimTypes.Name) ?? "";
     public static string RoleLabel(this ClaimsPrincipal u) => Roles.Find(u.FindFirstValue(ClaimTypes.Role) ?? "")?.Label ?? "";
 }
+
+/// <summary>
+/// Numérotation des devis, partagée entre la post-tension et les ventes directes : une seule série DEV par entité et par an.
+/// </summary>
+public interface INumerotationDevis
+{
+    /// <summary>Prochain numéro, de la forme DEV-00001-2026.</summary>
+    Task<string> ProchainAsync(string entite, int annee, CancellationToken ct = default);
+}
+
+/// <summary>
+/// Numérotation des livraisons, factures et avoirs, partagée entre la post-tension et les ventes directes :
+/// une seule série par entité et par an pour chaque type.
+/// </summary>
+public interface INumerotationFacturation
+{
+    /// <param name="type">Un des types de <see cref="TypesNumero"/>.</param>
+    Task<string> ProchainAsync(string type, string entite, int annee, CancellationToken ct = default);
+}
+
+public static class TypesNumero
+{
+    public const string BonLivraison = "bl";
+    public const string Facture = "facture";
+    public const string Avoir = "avoir";
+}
+
+/// <summary>
+/// Espèces encaissées auprès d'un client sur un mois civil. Le plafond légal de 5 000 DH vaut par client et par mois, toutes activités confondues :
+/// chaque module qui encaisse en espèces fournit son total, et les autres modules l'ajoutent au leur avant d'accepter un nouveau règlement.
+/// </summary>
+public interface IEspecesClient
+{
+    /// <summary>Module qui fournit le total (pour qu'il ne compte pas deux fois ses propres encaissements).</summary>
+    string Source { get; }
+
+    Task<decimal> DuMoisAsync(Guid clientId, DateOnly date, CancellationToken ct = default);
+}
+
+/// <summary>Plafond légal des règlements en espèces, par client et par mois civil.</summary>
+public static class PlafondEspecesClient
+{
+    public const decimal Montant = 5000m;
+}
+
+/// <summary>
+/// Mise en page PDF d'un document de vente directe (devis, bon de livraison, facture, avoir). Le module Négoce fournit les données,
+/// le module Facturation, qui porte les entités émettrices, le logo et le style des PDF, produit le document. Renvoie null si l'entité n'est pas paramétrée.
+/// </summary>
+public interface IRenduPdfVente
+{
+    Task<byte[]?> RendreAsync(DocumentVentePdf document, string lienVerification, CancellationToken ct = default);
+}
+
+/// <param name="Type">devis, bl, facture ou avoir.</param>
+/// <param name="Reference">Document parent à rappeler (facture d'un avoir, commande d'un bon), sinon null.</param>
+public record DocumentVentePdf(string Type, string Numero, string Entite, DateOnly Date, DateOnly? Echeance, string ClientNom, string? ClientAdresse, string? ClientIdentifiants,
+    string? ProjetCode, string? Reference, decimal TauxTva, IReadOnlyList<LigneVentePdf> Lignes, decimal TotalHt, decimal TotalTva, decimal TotalTtc,
+    string? Notes, bool Annule, string? MotifAnnulation, string SignePar, DateTime SigneLe);
+
+public record LigneVentePdf(string Code, string Designation, string Unite, decimal Quantite, decimal PrixUnitaire, decimal MontantHt);

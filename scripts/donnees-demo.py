@@ -409,6 +409,15 @@ class Demo:
         ra.post(f"/avoirs/{a['avoirs'][-1]['id']}/signer", {"motDePasse": MDP})
         return a
 
+    def rembourser(self, d, age, montant, reference):
+        """Rembourse le trop-perçu d'une dalle du projet (le remboursement se fait par dalle) : il naît ici de l'avoir sur une facture déjà réglée."""
+        ra = self.de("responsable.administratif")
+        excedent = [x for x in ra.get(f"/projets/{d['id']}/paiements")["dalles"] if x["tropPercu"] > 0]
+        if not excedent: return
+        x = excedent[0]
+        ra.post(f"/projets/{d['id']}/remboursements", {"dalleId": x["dalleId"], "datePaiement": jour(age), "mode": "virement",
+            "montant": min(montant, x["tropPercu"]), "reference": reference, "banque": "Attijariwafa bank", "motDePasse": MDP})
+
     def finances(self):
         """Factures, règlements et avoirs, joués dans l'ordre des dates pour que les numéros se suivent."""
         P = {d["cle"]: d for d in PROJETS}
@@ -425,8 +434,7 @@ class Demo:
         a(78, lambda d=d: m.__setitem__("anfa2", self.facturer(d, [m["anfaB2"]], 78, mode="cheque")))
         a(60, lambda: self.regler(m["anfa2"], m["anfa2"]["totalTTC"], "virement", 60))
         a(55, lambda: self.avoir(m["anfa2"], 55, "Geste commercial : reprise d'une réservation oubliée au 3e étage", 5000))
-        a(50, lambda: self.de("responsable.administratif").post(f"/factures/{m['anfa2']['id']}/remboursements", {"datePaiement": jour(50), "mode": "virement",
-              "montant": 6000, "reference": "VIR RMB 2026-031", "banque": "Attijariwafa bank", "motDePasse": MDP}))
+        a(50, lambda d=d: self.rembourser(d, 50, 6000, "VIR RMB 2026-031"))
         a(50, lambda d=d: m.__setitem__("anfaB3", self.livrer(d, [4], 50)))
         a(48, lambda d=d: m.__setitem__("anfa3", self.facturer(d, [m["anfaB3"]], 48)))
         a(30, lambda: self.regler(m["anfa3"], round(m["anfa3"]["totalTTC"] * 0.6, 2), "virement", 30))

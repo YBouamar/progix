@@ -11,7 +11,7 @@ using Progix.SharedKernel;
 
 namespace Progix.Modules.Projets.Endpoints;
 
-public record TypeConstructionInput(string? Code, string? Libelle, bool Actif);
+public record TypeConstructionInput(string? Code, string? Libelle, bool Actif, decimal? Forfait = null);
 public record TypesConstructionInput(List<TypeConstructionInput>? Types);
 
 /// <summary>Types de construction proposés à la création d'un projet : liste ordonnée, réglée par les fonctions qui ont l'écriture sur le module « Types de construction » (Paramétrage, ou boutons de la fiche du projet).</summary>
@@ -29,6 +29,7 @@ public static class TypesConstructionEndpoints
             if (liste.Any(t => t.Libelle!.Length > 60)) return ProjetsEndpoints.Conflit("Un libellé compte au plus 60 caractères.");
             if (liste.GroupBy(t => t.Libelle!.ToUpperInvariant()).FirstOrDefault(x => x.Count() > 1) is { } double_)
                 return ProjetsEndpoints.Conflit($"Le type « {double_.First().Libelle} » figure deux fois.");
+            if (liste.Any(t => t.Forfait is < 0 or > 100000)) return ProjetsEndpoints.Conflit("Le forfait d'un type est un nombre positif (DH/m²), ou vide pour suivre la grille.");
             if (!liste.Any(t => t.Actif)) return ProjetsEndpoints.Conflit("Au moins un type doit rester proposé.");
             var existants = await db.TypesConstruction.ToListAsync();
             if (liste.Any(t => t.Code is { } c && existants.All(e => e.Code != c))) return ProjetsEndpoints.Conflit("Un type de la liste n'existe plus : rechargez la page.");
@@ -46,6 +47,7 @@ public static class TypesConstructionEndpoints
                 if (t is null) db.TypesConstruction.Add(t = new TypeConstructionParam { Code = NouveauCode(liste[i].Libelle!, pris) });
                 t.Libelle = liste[i].Libelle!;
                 t.Actif = liste[i].Actif;
+                t.ForfaitFixe = liste[i].Forfait is > 0 ? Math.Round(liste[i].Forfait!.Value, 2) : null;
                 t.Ordre = i;
                 t.UpdatedAt = DateTime.UtcNow;
             }
@@ -82,7 +84,7 @@ public static class TypesConstructionEndpoints
         return new
         {
             modifiable,
-            types = types.Select(t => new { code = t.Code, libelle = t.Libelle, actif = t.Actif, projets = parType.GetValueOrDefault(t.Code) }),
+            types = types.Select(t => new { code = t.Code, libelle = t.Libelle, actif = t.Actif, forfait = t.ForfaitFixe, projets = parType.GetValueOrDefault(t.Code) }),
         };
     }
 }

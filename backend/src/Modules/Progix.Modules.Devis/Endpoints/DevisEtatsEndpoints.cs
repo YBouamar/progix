@@ -162,7 +162,7 @@ public static class DevisEtatsEndpoints
                     };
                 }).ToList(),
             };
-            Calcul.Recalculer(n, (await db.ParametresAsync()).Forfaits, await DevisEndpoints.Exonere(projet, partenaires), projet.ForfaitPropre);
+            Calcul.Recalculer(n, (await db.ParametresAsync()).Forfaits, await DevisEndpoints.Exonere(projet, partenaires), projet.ForfaitImpose);
             d.Etat = EtatsDevis.Remplace;
             d.RemplaceLe = DateTime.UtcNow;
             Tracer(db, d, user, $"Remplacé par la version {n.Version}");

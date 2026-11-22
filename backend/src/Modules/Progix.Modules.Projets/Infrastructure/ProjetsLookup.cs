@@ -88,5 +88,5 @@ public class ProjetsLookup(ProjetsDbContext db, IDevisLookup devis) : IProjetsLo
 
     private static ProjetResume Resume(Projet p, IReadOnlyList<DalleResume> dalles) =>
         new(p.Id, p.Code, p.Libelle, p.Entite, p.ClientId, p.TypeConstruction, p.Supprime, dalles, p.Bloque, p.Ville,
-            p.CommercialId, p.CommercialNom, TypesConstruction.Libelle(p.TypeConstruction), p.ForfaitPropre);
+            p.CommercialId, p.CommercialNom, TypesConstruction.Libelle(p.TypeConstruction), p.ForfaitPropre, TypesConstruction.Forfait(p.TypeConstruction));
 }

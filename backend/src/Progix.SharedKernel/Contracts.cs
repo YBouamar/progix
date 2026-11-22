@@ -170,7 +170,11 @@ public interface IProjetsStatut
 /// <param name="CommercialId">Agent commercial du projet, choisi sur le projet ; les devis le reprennent.</param>
 public record ProjetResume(Guid Id, string Code, string Libelle, string Entite, Guid ClientId, string TypeConstruction,
     bool Supprime, IReadOnlyList<DalleResume> Dalles, bool Bloque = false, string? Ville = null,
-    Guid? CommercialId = null, string? CommercialNom = null, string? TypeLabel = null, decimal? ForfaitPropre = null);
+    Guid? CommercialId = null, string? CommercialNom = null, string? TypeLabel = null, decimal? ForfaitPropre = null, decimal? ForfaitType = null)
+{
+    /// <summary>Forfait imposé au devis (DH/m²) : celui du projet, sinon celui de son type de construction ; null si la grille par surface s'applique.</summary>
+    public decimal? ForfaitImpose => ForfaitPropre is > 0 ? ForfaitPropre : ForfaitType is > 0 ? ForfaitType : null;
+}
 
 /// <param name="Conforme">Avis de conformité d'une dalle réalisée : vrai, faux, ou null tant qu'il n'est pas donné.</param>
 /// <param name="SurfaceCommande">Surface totale saisie sur la commande usine : celle du bon de livraison et de la facture.</param>

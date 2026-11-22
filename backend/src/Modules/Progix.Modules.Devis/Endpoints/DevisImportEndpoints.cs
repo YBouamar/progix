@@ -211,7 +211,7 @@ public static partial class DevisImportEndpoints
             ("Ingénieur du devis", c => c.Value = d.IngenieurNom ?? ""),
             ("", _ => { }),
             ("Surface totale (m²)", c => c.FormulaA1 = $"SUM(Dalles!C2:C{derniere})"),
-            (projet?.ForfaitPropre is > 0 ? "Forfait (DH/m²), propre au projet" : "Forfait (DH/m²), selon la grille", c => { if (projet?.ForfaitPropre is > 0 and var fp) c.Value = fp; else c.FormulaA1 = $"VLOOKUP(MAX(B7,{tranches[0].APartirDe.ToString(CultureInfo.InvariantCulture)}),Forfaits!$A$2:$B${tranches.Count + 1},2,TRUE)"; }),
+            (projet?.ForfaitPropre is > 0 ? "Forfait (DH/m²), propre au projet" : projet?.ForfaitType is > 0 ? "Forfait (DH/m²), fixe pour ce type de construction" : "Forfait (DH/m²), selon la grille", c => { if (projet?.ForfaitImpose is { } fp) c.Value = fp; else c.FormulaA1 = $"VLOOKUP(MAX(B7,{tranches[0].APartirDe.ToString(CultureInfo.InvariantCulture)}),Forfaits!$A$2:$B${tranches.Count + 1},2,TRUE)"; }),
             ("Total HT (DH)", c => c.FormulaA1 = $"SUM({montant})"),
             ("Remise au m² (DH)", c => c.Value = d.RemiseM2),
             ("Remise totale (DH)", c => c.FormulaA1 = "MIN(B9,ROUND(B10*B7,2))"),

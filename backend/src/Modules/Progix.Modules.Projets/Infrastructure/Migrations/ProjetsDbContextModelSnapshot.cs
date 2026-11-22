@@ -1189,6 +1189,9 @@ namespace Progix.Modules.Projets.Infrastructure.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<decimal?>("ForfaitFixe")
+                        .HasColumnType("numeric");
+
                     b.Property<string>("Libelle")
                         .IsRequired()
                         .HasMaxLength(60)

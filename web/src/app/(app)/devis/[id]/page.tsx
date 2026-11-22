@@ -87,7 +87,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
     const surfaceTotale = lignes.reduce((a, x) => a + x.s, 0);
     // Brouillon : forfait de la grille en vigueur selon la surface totale ; devis émis : forfait figé à son calcul.
     // Un forfait propre au projet remplace la grille.
-    const forfait = d.etat === "brouillon" && d.forfaitPropre ? d.forfaitPropre : d.etat === "brouillon" && d.tranchesForfait.length > 0 ? forfaitDe(d.tranchesForfait, surfaceTotale) : d.forfait;
+    const forfait = d.etat === "brouillon" && (d.forfaitPropre || d.forfaitType) ? (d.forfaitPropre || d.forfaitType)! : d.etat === "brouillon" && d.tranchesForfait.length > 0 ? forfaitDe(d.tranchesForfait, surfaceTotale) : d.forfait;
     let totalHT = 0, actif = 0, passif = 0;
     const rows = lignes.map(({ l, s, ra, rp }) => {
       let sa = 0, sg = 0;
@@ -300,7 +300,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
           </Field>
           <Field label="Échéance, calculée"><Input disabled value={echeance} /></Field>
           <Field label="Type et forfait">
-            <Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²${d.forfaitPropre ? " (propre au projet)" : ""}`} title={d.forfaitPropre ? "Forfait propre au projet : il remplace la grille." : "Forfait de la grille, selon la surface totale du devis."} />
+            <Input disabled value={`${d.typeLabel ?? ""} · ${calcul.forfait} DH/m²${d.forfaitPropre ? " (propre au projet)" : d.forfaitType ? " (fixe pour ce type)" : ""}`} title={d.forfaitPropre ? "Forfait propre au projet : il remplace la grille." : d.forfaitType ? "Forfait fixe du type de construction : même prix quelle que soit la surface." : "Forfait de la grille, selon la surface totale du devis."} />
             {!lecture && peutEcrire(user, "forfaits") && (
               <div className="mt-1.5">
                 <ForfaitProjet projetId={d.projetId} forfaitPropre={d.forfaitPropre} peutGrille onSaved={() => { api<DevisDetail>(`/devis/${id}`).then(setD).catch(() => undefined); }} />

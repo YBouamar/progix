@@ -18,6 +18,8 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - Recoupement DXF / PTTotal tendon par tendon (non commité) : sur les plans réels, 9 tendons voisins ont une longueur inversée côté DXF (association étiquette / câble ambiguë entre câbles parallèles proches) ; le PTTotal fait foi. À améliorer : l'association des étiquettes du DXF. Sans PTTotal conservé avec la dalle, repli sur le recoupement par système. Le test sur plans réels est conditionné par la variable `PROGIX_DXF` (les plans clients ne sont pas versionnés).
 - Les devis en brouillon voient leurs ancrages changer (2 par tendon) à la prochaine reprise des données ADAPT.
 
+- Forfait fixe par type de construction (non commité) : champ dans Paramétrage, priorité projet, type, grille ; 365 tests passés, lint et types web sans erreur ; migration `ForfaitFixeTypeConstruction` à appliquer ; écrans non essayés dans le navigateur.
+
 ## Terminé
 
 - Six modules backend : Identity (1 migration), Partenaires (2), Projets (27), Devis (6), Fichiers (3), Facturation (19).

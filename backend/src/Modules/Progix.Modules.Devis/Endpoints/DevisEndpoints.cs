@@ -223,7 +223,7 @@ public static class DevisEndpoints
                     return l;
                 }).ToList(),
             };
-            Calcul.Recalculer(d, prm.Forfaits, await Exonere(projet, partenaires), projet.ForfaitPropre);
+            Calcul.Recalculer(d, prm.Forfaits, await Exonere(projet, partenaires), projet.ForfaitImpose);
             db.Devis.Add(d);
             await db.SaveChangesAsync();
             await tx.CommitAsync();
@@ -304,7 +304,7 @@ public static class DevisEndpoints
             // La surface vient toujours de la dalle : un brouillon reprend la surface à jour du projet.
             foreach (var l in d.Lignes)
                 if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) { l.Surface = dalle.Surface; l.Reference = dalle.Reference; l.Emplacement = dalle.Emplacement; }
-            Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitPropre);
+            Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitImpose);
             d.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(await Detail(d, projets, partenaires, user, db));
@@ -324,7 +324,7 @@ public static class DevisEndpoints
         if (reprises == 0) return Conflit("Aucune dalle de ce devis n'a de fichiers ADAPT importés : déposez d'abord les fichiers PTTotal et RebarTotal.");
         foreach (var l in d.Lignes)
             if (projet.Dalles.FirstOrDefault(x => x.Id == l.DalleId) is { } dalle) l.Surface = dalle.Surface;
-        Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitPropre);
+        Calcul.Recalculer(d, (await db.ParametresAsync()).Forfaits, await Exonere(projet, partenaires), projet.ForfaitImpose);
         d.UpdatedAt = DateTime.UtcNow;
         db.Add(new EvenementDevis { DevisId = d.Id, Quoi = $"Données ADAPT reprises pour {reprises} dalle(s)", Qui = user.UserName() });
         await db.SaveChangesAsync();
@@ -413,7 +413,7 @@ public static class DevisEndpoints
             // Un brouillon affiche le commercial à jour du projet ; un devis émis garde celui de son émission.
             commercial = brouillon && p is not null ? p.CommercialNom : d.CommercialNom,
             ingenieurId = d.IngenieurId, ingenieur = d.IngenieurNom,
-            forfaitPropre = brouillon ? p?.ForfaitPropre : null, remiseM2 = d.RemiseM2, remiseMotif = d.RemiseMotif, ratioPassifSaisi = d.RatioPassifSaisi,
+            forfaitPropre = brouillon ? p?.ForfaitPropre : null, forfaitType = brouillon ? p?.ForfaitType : null, remiseM2 = d.RemiseM2, remiseMotif = d.RemiseMotif, ratioPassifSaisi = d.RatioPassifSaisi,
             echeances = d.Echeances.Select(x => new { label = x.Label, pourcentage = x.Pourcentage, retenue = x.Retenue }),
             modalitesContrat = d.ModalitesContrat,
             forfait = d.Forfait, surfaceTotale = d.SurfaceTotale, totalHT = d.TotalHT, remiseTotale = d.RemiseTotale, tranchesForfait = grille,

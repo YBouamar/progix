@@ -23,7 +23,7 @@ export type DevisDetail = {
   id: string; numero: string; version: number; etat: string; etatLabel: string;
   projetId: string; projet: string; projetCode: string; entite: string; typeConstruction: string; typeLabel: string; client: string; exonereTva: boolean;
   dateDevis: string; dureeValidite: number; echeance: string; commercial: string | null; ingenieurId: string | null; ingenieur: string | null;
-  remiseM2: number; remiseMotif: string | null; ratioPassifSaisi: number | null; forfaitPropre: number | null; echeances: Echeance[]; modalitesContrat: string | null;
+  remiseM2: number; remiseMotif: string | null; ratioPassifSaisi: number | null; forfaitPropre: number | null; forfaitType: number | null; echeances: Echeance[]; modalitesContrat: string | null;
   forfait: number; tranchesForfait: Tranche[]; typesAncrage: number[]; surfaceTotale: number; totalHT: number; remiseTotale: number; netHT: number; tva: number; totalTTC: number;
   signePar: string | null; signeLe: string | null; signable: boolean;
   creePar: string; lignes: Ligne[]; info: string; alerte: string | null; annuleMotif: string | null;

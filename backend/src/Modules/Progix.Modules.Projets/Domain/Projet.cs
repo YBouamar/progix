@@ -29,6 +29,9 @@ public class TypeConstructionParam : Entity
     public int Ordre { get; set; }
     public bool Actif { get; set; } = true;
 
+    /// <summary>Forfait en DH/m² propre au type, identique quelle que soit la surface (hangar, par exemple). Vide : la grille par surface s'applique.</summary>
+    public decimal? ForfaitFixe { get; set; }
+
     /// <summary>Types créés au premier démarrage : ceux proposés jusqu'ici.</summary>
     public static readonly (string Code, string Libelle)[] ParDefaut = [("immeuble", "Immeuble"), ("villa", "Villa"), ("radier", "Radier"), ("dallage", "Dallage")];
 }
@@ -37,6 +40,10 @@ public class TypeConstructionParam : Entity
 public static class TypesConstruction
 {
     private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string> Libelles = new();
+    private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, decimal> Forfaits = new();
+
+    /// <summary>Forfait fixe du type en DH/m², ou null s'il suit la grille.</summary>
+    public static decimal? Forfait(string code) => Forfaits.TryGetValue(code, out var f) ? f : null;
 
     public static string Libelle(string code) =>
         Libelles.TryGetValue(code, out var l) ? l : TypeConstructionParam.ParDefaut.FirstOrDefault(t => t.Code == code).Libelle ?? code;
@@ -45,6 +52,8 @@ public static class TypesConstruction
     {
         var liste = types.ToList();
         foreach (var t in liste) Libelles[t.Code] = t.Libelle;
+        Forfaits.Clear();
+        foreach (var t in liste.Where(t => t.ForfaitFixe is > 0)) Forfaits[t.Code] = t.ForfaitFixe!.Value;
         foreach (var c in Libelles.Keys.Except(liste.Select(t => t.Code))) Libelles.TryRemove(c, out _);
     }
 }

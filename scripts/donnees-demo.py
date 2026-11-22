@@ -319,8 +319,10 @@ class Demo:
                 log.post(f"{base}/etapes/4/realiser", {"remarque": None})
                 if cible == "4v": return
                 valider(4)
-                etats = ["fabrication", "livree", "recue"] if fin >= 5 else ["fabrication"]
-                for e in etats: log.post(f"/logistique/commandes/{did}/etat", {"etat": e})
+                # Les commandes usine ont chacune leur identifiant : on prend la première de la dalle. Cycle : préparée, envoyée, reçue.
+                cid = log.get(f"{base}/commandes")["commandes"][0]["id"]
+                etats = ["preparee", "envoyee", "recue"] if fin >= 5 else ["preparee"]
+                for e in etats: log.post(f"/logistique/commandes/{cid}/etat", {"etat": e})
             elif n == 5:
                 photo(5, chantier); chantier.post(f"{base}/etapes/5/realiser", {"remarque": None})
             elif n == 6:
@@ -626,7 +628,10 @@ def main():
     except Exception as e:
         sys.exit(f"Connexion impossible à {API} avec le compte directeur : {e}")
     if demo.dir.get("/projets?q=" + urllib.request.quote(PROJETS[0]["libelle"]))["total"] > 0:
-        sys.exit("Les données fictives sont déjà présentes : rien n'a été ajouté.")
+        # Les projets existent (passage précédent, même interrompu) : on ne les recrée pas, mais la partie négoce se complète seule.
+        dire("Les projets de démonstration sont déjà présents : seul le négoce est complété s'il manque.")
+        dire("Ventes directes, achats et stock"); negoce(demo)
+        sys.exit(0)
     demo.lancer()
     suite(demo)
     dire("Terminé. Connexion : directeur, ou tout autre compte, avec le mot de passe de démonstration.")

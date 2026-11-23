@@ -118,6 +118,7 @@ public static class GroupesEndpoints
         {
             db.ReglesGroupe.RemoveRange(x.Regles);
             x.Regles = regles;
+            db.ReglesGroupe.AddRange(regles); // règles neuves d'un groupe suivi : à déclarer, sinon EF les croit existantes
         }
         return null;
     }

@@ -236,6 +236,7 @@ public static class AchatsEndpoints
         c.Notes = string.IsNullOrWhiteSpace(input.Notes) ? null : input.Notes.Trim();
         if (!creation) db.LignesAchat.RemoveRange(c.Lignes);
         c.Lignes = lignes;
+        if (!creation) db.LignesAchat.AddRange(lignes); // lignes neuves d'une commande suivie : à déclarer, sinon EF les croit existantes
         return null;
     }
 }

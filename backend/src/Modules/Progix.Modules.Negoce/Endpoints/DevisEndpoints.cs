@@ -49,6 +49,7 @@ public static class DevisEndpoints
             if (!string.Equals(input.Entite?.Trim(), x.Entite, StringComparison.OrdinalIgnoreCase)) return Conflit("L'entité d'un devis numéroté ne change pas : dupliquez-le pour changer d'entité.");
             db.LignesVente.RemoveRange(x.Lignes);
             if (await Remplir(x, input, db, partenaires, projets) is { } erreur) return erreur;
+            db.LignesVente.AddRange(x.Lignes); // lignes neuves d'un document suivi : à déclarer, sinon EF les croit existantes et échoue
             x.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(new { id = x.Id, numero = x.Numero });

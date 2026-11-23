@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 using Progix.Modules.Negoce.Application;
 using Progix.Modules.Negoce.Domain;
 using Progix.Modules.Negoce.Infrastructure;
@@ -51,6 +52,19 @@ public static class DevisEndpoints
             x.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(new { id = x.Id, numero = x.Numero });
+        });
+
+        // Un devis ouvert non signé est un brouillon : il se supprime. Signé ou devenu commande, il s'annule avec un motif.
+        d.MapDelete("/{id:guid}", async (Guid id, NegoceDbContext db, ILogger<DocumentVente> journal, ClaimsPrincipal user) =>
+        {
+            var x = await Charger(db, id, TypesVente.Devis, suivi: true);
+            if (x is null) return Results.NotFound();
+            var aCommande = await db.Documents.AnyAsync(c => c.ParentId == id && c.Type == TypesVente.Commande);
+            if (Suppression.RefusDevis(x, aCommande) is { } refus) return Conflit(refus);
+            db.Documents.Remove(x);
+            await db.SaveChangesAsync();
+            journal.LogInformation("Devis {Numero} supprimé par {Qui}", x.Numero, user.UserName());
+            return Results.Ok(new { id });
         });
 
         // Duplication : le devis copié repart ouvert, sous un nouveau numéro. Le client, l'entité et le projet peuvent changer ;
@@ -144,6 +158,24 @@ public static class DevisEndpoints
             db.Documents.Add(x);
             await db.SaveChangesAsync();
             return Results.Ok(new { id = x.Id, numero = x.Numero });
+        });
+
+        // Une commande jamais livrée ni facturée se supprime ; le devis d'origine redevient ouvert (ou, sans devis, rien ne reste).
+        c.MapDelete("/{id:guid}", async (Guid id, NegoceDbContext db, ILogger<DocumentVente> journal, ClaimsPrincipal user) =>
+        {
+            var x = await Charger(db, id, TypesVente.Commande, suivi: true);
+            if (x is null) return Results.NotFound();
+            var lies = await db.Documents.CountAsync(e => e.ParentId == id && (e.Type == TypesVente.Livraison || e.Type == TypesVente.Facture));
+            if (Suppression.RefusCommande(lies) is { } refus) return Conflit(refus);
+            if (x.ParentId is { } devisId)
+            {
+                var devis = await db.Documents.FirstOrDefaultAsync(e => e.Id == devisId && e.Type == TypesVente.Devis && e.Etat == EtatsVente.Accepte);
+                if (devis is not null) { devis.Etat = EtatsVente.Ouvert; devis.UpdatedAt = DateTime.UtcNow; }
+            }
+            db.Documents.Remove(x);
+            await db.SaveChangesAsync();
+            journal.LogInformation("Commande {Numero} supprimée par {Qui}", x.Numero, user.UserName());
+            return Results.Ok(new { id });
         });
 
         c.MapPost("/{id:guid}/annuler", async (Guid id, MotifInput input, NegoceDbContext db, ClaimsPrincipal user) =>

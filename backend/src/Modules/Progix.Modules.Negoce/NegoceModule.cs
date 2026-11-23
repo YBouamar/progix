@@ -34,6 +34,7 @@ public class NegoceModule : IModule
         DevisEndpoints.Map(app);
         LivraisonsEndpoints.Map(app);
         FacturesEndpoints.Map(app);
+        VentesProjetEndpoints.Map(app);
         TableauDeBordEndpoints.Map(app);
     }
 

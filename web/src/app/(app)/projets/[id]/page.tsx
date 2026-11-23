@@ -17,6 +17,7 @@ import { Documents } from "@/components/documents";
 import { DevisProjet } from "./devis";
 import { DepensesProjet } from "./depenses";
 import { ContratsProjet } from "./contrats";
+import { VentesDirectesProjet } from "./ventes";
 import { CourriersProjet } from "./courriers";
 import { PartenairesProjet } from "./partenaires";
 import { RemarquesProjet } from "./remarques";
@@ -40,6 +41,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
     ["informations", "Informations", true],
     ["dalles", "Dalles et suivi", true],
     ["commercial", voitMontants(user) && peutLire(user, "contrats") ? "Devis et contrats" : "Devis", voitMontants(user) || peutLire(user, "contrats")],
+    ["ventes", "Ventes directes", ["negoce_devis", "negoce_livraisons", "negoce_factures"].some((m) => peutLire(user, m))],
     ["courriers", "Courriers", peutLire(user, "courriers")],
     ["depenses", "Dépenses", peutEcrire(user, "depenses") || ["chef_chantier", "responsable_chantier"].includes(role)],
     ["intervenants", "Équipe et partenaires", true],
@@ -226,6 +228,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
           {peutLire(user, "contrats") && <ContratsProjet key={`contrats-${version}`} projetId={p.id} />}
         </>
       )}
+      {onglet === "ventes" && <VentesDirectesProjet key={`ventes-${version}`} projetId={p.id} />}
       {onglet === "courriers" && <CourriersProjet key={`courriers-${version}`} projetId={p.id} />}
       {onglet === "depenses" && <DepensesProjet key={`depenses-${version}`} projetId={p.id} />}
       {onglet === "intervenants" && (

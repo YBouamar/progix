@@ -48,7 +48,7 @@ export function DetailDevis({ id, onFermer, onChange, onOuvrirCommande }: { id: 
   const ecrit = peutEcrire(user, "negoce_devis");
   const [d, setD] = useState<DetailD | null>(null);
   const [erreur, setErreur] = useState("");
-  const [mode, setMode] = useState<"edition" | "duplication" | "annulation" | null>(null);
+  const [mode, setMode] = useState<"edition" | "duplication" | "annulation" | "suppression" | null>(null);
 
   const charger = useCallback(() => { api<DetailD>(`/negoce/devis/${id}`).then((r) => { setD(r); setErreur(""); }).catch((e) => setErreur(messageErreur(e, "Chargement impossible."))); }, [id]);
   useEffect(() => { charger(); }, [charger]);
@@ -65,7 +65,8 @@ export function DetailDevis({ id, onFermer, onChange, onOuvrirCommande }: { id: 
   return (
     <Sheet open onOpenChange={(o) => !o && onFermer()} large title={d.numero} description={`${d.client} · ${formatDate(d.date)} · ${d.entite}`}
       footer={<>
-        {ecrit && d.etat !== "annule" && d.etat !== "accepte" && <Button variant="outline" className="mr-auto text-rouge-texte" onClick={() => setMode("annulation")}>Annuler le devis</Button>}
+        {ecrit && !d.signePar && d.etat !== "accepte" && <Button variant="outline" className="mr-auto text-rouge-texte" onClick={() => setMode("suppression")}>Supprimer</Button>}
+        {ecrit && d.etat !== "annule" && d.etat !== "accepte" && <Button variant="outline" className={d.signePar ? "mr-auto text-rouge-texte" : "text-rouge-texte"} onClick={() => setMode("annulation")}>Annuler le devis</Button>}
         {ecrit && <Button variant="outline" onClick={() => setMode("duplication")}>Dupliquer</Button>}
         {ecrit && ouvert && <Button variant="outline" onClick={() => agir(`/negoce/devis/${d.id}/refuser`)}>Marquer refusé</Button>}
         {ecrit && ouvert && !d.signePar && <Button variant="outline" onClick={() => setMode("edition")}>Modifier</Button>}
@@ -79,6 +80,7 @@ export function DetailDevis({ id, onFermer, onChange, onOuvrirCommande }: { id: 
       {d.etat !== "annule" && <SignatureDoc signePar={d.signePar} signeLe={d.signeLe} quoi="ce devis" url={`/negoce/devis/${d.id}`} peutSigner={ecrit} onSigne={apres} />}
       {mode === "edition" && <EditionDocument type="devis" existant={existant} onFermer={() => setMode(null)} onFait={() => { setMode(null); apres(); }} />}
       {mode === "duplication" && <Duplication d={d} onFermer={() => setMode(null)} onFait={() => { setMode(null); onChange(); onFermer(); }} />}
+      {mode === "suppression" && <Suppression chemin={`/negoce/devis/${d.id}`} titre={`Supprimer ${d.numero}`} texte="Ce devis n'est pas signé : il disparaît définitivement, avec ses lignes. Son numéro ne sera pas réattribué." onFermer={() => setMode(null)} onFait={() => { setMode(null); onChange(); onFermer(); }} />}
       {mode === "annulation" && <Annulation chemin={`/negoce/devis/${d.id}/annuler`} titre="Annuler le devis" onFermer={() => setMode(null)} onFait={() => { setMode(null); apres(); }} />}
     </Sheet>
   );
@@ -138,7 +140,7 @@ export function DetailCommandeVente({ id, onFermer, onChange }: { id: string; on
   const ecrit = peutEcrire(user, "negoce_devis");
   const [d, setD] = useState<DetailC | null>(null);
   const [erreur, setErreur] = useState("");
-  const [mode, setMode] = useState<"livraison" | "facture" | "annulation" | null>(null);
+  const [mode, setMode] = useState<"livraison" | "facture" | "annulation" | "suppression" | null>(null);
 
   const charger = useCallback(() => { api<DetailC>(`/negoce/commandes/${id}`).then((r) => { setD(r); setErreur(""); }).catch((e) => setErreur(messageErreur(e, "Chargement impossible."))); }, [id]);
   useEffect(() => { charger(); }, [charger]);
@@ -153,7 +155,8 @@ export function DetailCommandeVente({ id, onFermer, onChange }: { id: string; on
   return (
     <Sheet open onOpenChange={(o) => !o && onFermer()} large title={d.numero} description={`${d.client} · ${formatDate(d.date)} · ${d.entite}`}
       footer={<>
-        {ecrit && actif && sansEnfant && <Button variant="outline" className="mr-auto text-rouge-texte" onClick={() => setMode("annulation")}>Annuler la commande</Button>}
+        {ecrit && sansEnfant && <Button variant="outline" className="mr-auto text-rouge-texte" onClick={() => setMode("suppression")}>Supprimer</Button>}
+        {ecrit && actif && sansEnfant && <Button variant="outline" className="text-rouge-texte" onClick={() => setMode("annulation")}>Annuler la commande</Button>}
         {facture && actif && <Button variant="outline" onClick={() => setMode("facture")}>Facturer ce qui est livré</Button>}
         {livre && actif && <Button onClick={() => setMode("livraison")}>Créer un bon de livraison</Button>}
       </>}>
@@ -181,6 +184,7 @@ export function DetailCommandeVente({ id, onFermer, onChange }: { id: string; on
 
       {mode === "livraison" && <Reprise titre="Nouveau bon de livraison" description="Indiquez ce qui part. La sortie de stock est enregistrée avec le bon." chemin="/negoce/livraisons" corpsDe={{ commandeId: d.id }} libelleReste="Reste à livrer" lignes={aLivrer} onFermer={() => setMode(null)} onFait={() => { setMode(null); apres(); }} />}
       {mode === "facture" && <Reprise titre="Nouvelle facture" description="On ne facture que ce qui est livré et pas encore facturé." chemin="/negoce/factures" corpsDe={{ commandeId: d.id }} avecEcheance libelleReste="Reste à facturer" lignes={aFacturer} onFermer={() => setMode(null)} onFait={() => { setMode(null); apres(); }} />}
+      {mode === "suppression" && <Suppression chemin={`/negoce/commandes/${d.id}`} titre={`Supprimer ${d.numero}`} texte={`Cette commande n'a ni livraison ni facture : elle disparaît définitivement.${d.parentNumero ? ` Le devis ${d.parentNumero} redevient ouvert.` : ""} Son numéro ne sera pas réattribué.`} onFermer={() => setMode(null)} onFait={() => { setMode(null); onChange(); onFermer(); }} />}
       {mode === "annulation" && <Annulation chemin={`/negoce/commandes/${d.id}/annuler`} titre="Annuler la commande" onFermer={() => setMode(null)} onFait={() => { setMode(null); apres(); }} />}
     </Sheet>
   );
@@ -196,5 +200,20 @@ function ListeEnfants({ titre, vide, liste }: { titre: string; vide: string; lis
         </ul>
       )}
     </section>
+  );
+}
+
+/** Confirmation d'une suppression définitive (devis non signé, commande jamais livrée). */
+function Suppression({ chemin, titre, texte, onFermer, onFait }: { chemin: string; titre: string; texte: string; onFermer: () => void; onFait: () => void }) {
+  const [erreur, setErreur] = useState("");
+  const valider = async () => {
+    setErreur("");
+    try { await api(chemin, { method: "DELETE" }); onFait(); } catch (e) { setErreur(messageErreur(e)); }
+  };
+  return (
+    <Modal open onOpenChange={(o) => !o && onFermer()} title={titre} description={texte}
+      footer={<><Button variant="outline" onClick={onFermer}>Garder</Button><Button onClick={valider}>Supprimer</Button></>}>
+      <Alerte message={erreur} />
+    </Modal>
   );
 }

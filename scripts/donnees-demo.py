@@ -549,7 +549,7 @@ class Demo:
         P = {d["cle"]: d for d in PROJETS}
         notes = [("anfa", "chef.projet", "Réception finale prononcée, levée des réserves faite avec le maître d'ouvrage."),
                  ("marina", "ingenieur", "Le BET demande une note de calcul complémentaire pour le plancher haut du 3e étage."),
-                 ("marina", "responsable.chantier", "Grue indisponible deux jours la semaine prochaine : pose décalée."),
+                 ("marina", "chef.projet", "Grue indisponible deux jours la semaine prochaine : pose décalée."),
                  ("clinique", "responsable.administratif", "Attestation d'exonération de TVA reçue et vérifiée."),
                  ("logis", "responsable.logistique", "Commande usine de la zone 2 en attente de validation depuis lundi."),
                  ("agdal", "chef.projet", "Relance du client pour l'acompte, sans réponse à ce jour."),

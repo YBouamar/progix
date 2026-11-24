@@ -6,7 +6,6 @@ import { api } from "@/lib/api";
 import { cn, formatDateHeure, formatNombre, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select } from "@/components/ui/input";
 import type { Adapt } from "../../projets/[id]/adapt";
 import type { DevisDetail } from "../types";
 
@@ -16,7 +15,9 @@ type Resultat = {
   message: string | null; surface: number; ratio: number; proposee: string | null; avertissements: string[];
 };
 /** Fichier lu mais pas rattaché : le fichier reste dans le navigateur jusqu'au choix de sa dalle. */
-type Attente = { cle: number; fichier: File; lu: Resultat; dalleId: string };
+type Attente = { cle: number; fichier: File; lu: Resultat; dalleIds: string[] };
+/** Fichier déjà lu pour une dalle, à appliquer aussi à d'autres dalles du même modèle (étages courants). */
+type Partage = { genre: "pt" | "rebar"; nom: string; fichierId: string; source: string; reference: string };
 
 const NOM = { pt: "PTTotal", rebar: "RebarTotal" } as const;
 const avecPt = (a: Adapt | null) => !!a?.fichierPt;
@@ -45,6 +46,8 @@ export function FichiersAdapt({ devis, modifiable, occupe, bloque, onGenerer, on
   const [peutImporter, setPeutImporter] = useState(false);
   const [erreur, setErreur] = useState("");
   const [attente, setAttente] = useState<Attente[]>([]);
+  const [partage, setPartage] = useState<Partage | null>(null);
+  const [partageIds, setPartageIds] = useState<string[]>([]);
   const [refus, setRefus] = useState<Resultat[]>([]);
   const [notes, setNotes] = useState<string[]>([]);
   const [bilan, setBilan] = useState("");
@@ -78,7 +81,7 @@ export function FichiersAdapt({ devis, modifiable, occupe, bloque, onGenerer, on
       const lus = data.fichiers as Resultat[];
       const maj = data.dalles as Dalle[];
       setDalles((prec) => (prec ?? []).map((d) => maj.find((m) => m.id === d.id) ?? d));
-      const enAttente = lus.flatMap((lu, i) => (lu.etat === "attente" ? [{ cle: ++compteur.current, fichier: fichiers[i], lu, dalleId: lu.proposee ?? "" }] : []));
+      const enAttente = lus.flatMap((lu, i) => (lu.etat === "attente" ? [{ cle: ++compteur.current, fichier: fichiers[i], lu, dalleIds: lu.proposee ? [lu.proposee] : [] }] : []));
       setAttente((prec) => [...prec, ...enAttente]);
       setRefus(lus.filter((l) => l.etat === "refuse"));
       setNotes(lus.flatMap((l) => l.avertissements.map((m) => `${l.reference} : ${m}`)));
@@ -93,8 +96,20 @@ export function FichiersAdapt({ devis, modifiable, occupe, bloque, onGenerer, on
   }, [devis.projetId, ids.join(",")]);
 
   async function rattacher(a: Attente) {
-    const lus = await envoyer([a.fichier], a.dalleId);
+    const lus = await envoyer([a.fichier], a.dalleIds.join(","));
     if (lus?.[0]?.etat === "rattache") setAttente((prec) => prec.filter((x) => x.cle !== a.cle));
+  }
+
+  /** Reprend le fichier déjà lu pour une dalle et le rattache aux dalles cochées : un même export sert à tous les étages d'un même modèle. */
+  async function appliquer(p: Partage) {
+    setErreur("");
+    try {
+      const rep = await fetch(`/api/fichiers/${p.fichierId}/contenu`, { credentials: "include" });
+      if (!rep.ok) throw new Error("Le fichier n'a pas pu être relu.");
+      const fichier = new File([await rep.blob()], p.nom, { type: "application/rtf" });
+      const lus = await envoyer([fichier], partageIds.join(","));
+      if (lus?.[0]?.etat === "rattache") { setPartage(null); setPartageIds([]); }
+    } catch (e) { setErreur(e instanceof Error ? e.message : "Le fichier n'a pas pu être appliqué."); }
   }
 
   if (!dalles) return <div className="mt-5 rounded-xl border border-bordure bg-white p-8 text-center text-secondaire" role={erreur ? "alert" : "status"}>{erreur || "Chargement des dalles..."}</div>;
@@ -148,16 +163,41 @@ export function FichiersAdapt({ devis, modifiable, occupe, bloque, onGenerer, on
               {a.lu.nom}, {a.lu.genre ? NOM[a.lu.genre] : "export"} : surface lue {formatSurface(a.lu.surface)}, ratio {a.lu.genre === "rebar" ? "passif" : "actif"} {formatNombre(a.lu.ratio)} kg/m²
             </div>
           </div>
-          <label className="flex flex-col gap-1 text-[12px]">Dalle
-            <Select className="h-10 w-64 text-texte" value={a.dalleId} onChange={(e) => setAttente((prec) => prec.map((x) => (x.cle === a.cle ? { ...x, dalleId: e.target.value } : x)))}>
-              <option value="">Choisir la dalle...</option>
-              {lignes.map(({ l, d }) => <option key={l.dalleId} value={l.dalleId}>{l.reference}, {l.emplacement}, {formatSurface(d?.surface ?? l.surface)}</option>)}
-            </Select>
-          </label>
-          <Button variant="outline" disabled={envoi || !a.dalleId} onClick={() => rattacher(a)}>Rattacher</Button>
+          <fieldset className="flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg bg-white px-3 py-2 text-[13px] text-texte">
+            <legend className="px-1 text-[12px] text-orange-texte">Dalles concernées (plusieurs si le modèle est le même)</legend>
+            {lignes.map(({ l, d }) => (
+              <label key={l.dalleId} className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={a.dalleIds.includes(l.dalleId)}
+                  onChange={(e) => setAttente((prec) => prec.map((x) => (x.cle === a.cle ? { ...x, dalleIds: e.target.checked ? [...x.dalleIds, l.dalleId] : x.dalleIds.filter((i) => i !== l.dalleId) } : x)))} />
+                {l.reference}, {l.emplacement}, {formatSurface(d?.surface ?? l.surface)}
+              </label>
+            ))}
+          </fieldset>
+          <Button variant="outline" disabled={envoi || a.dalleIds.length === 0} onClick={() => rattacher(a)}>Rattacher</Button>
           <Button variant="ghost" disabled={envoi} onClick={() => setAttente((prec) => prec.filter((x) => x.cle !== a.cle))}>Écarter</Button>
         </section>
       ))}
+
+      {partage && (
+        <section className="flex flex-wrap items-end gap-3 rounded-xl bg-fond px-5 py-4">
+          <div className="min-w-[260px] flex-1">
+            <div className="font-bold">Appliquer le {NOM[partage.genre]} de {partage.reference} à d&apos;autres dalles</div>
+            <div className="text-[13px] text-secondaire">{partage.nom} : les valeurs lues (ratio, ancrages, gaines) sont reprises pour chaque dalle cochée, qui garde sa propre surface.</div>
+          </div>
+          <fieldset className="flex max-h-44 flex-col gap-1 overflow-y-auto rounded-lg bg-white px-3 py-2 text-[13px]">
+            <legend className="px-1 text-[12px] text-secondaire">Dalles concernées</legend>
+            {lignes.filter(({ l }) => l.dalleId !== partage.source).map(({ l, d }) => (
+              <label key={l.dalleId} className="flex cursor-pointer items-center gap-2">
+                <input type="checkbox" checked={partageIds.includes(l.dalleId)}
+                  onChange={(e) => setPartageIds((prec) => (e.target.checked ? [...prec, l.dalleId] : prec.filter((i) => i !== l.dalleId)))} />
+                {l.reference}, {l.emplacement}, {formatSurface(d?.surface ?? l.surface)}
+              </label>
+            ))}
+          </fieldset>
+          <Button disabled={envoi || partageIds.length === 0} onClick={() => appliquer(partage)}>Appliquer</Button>
+          <Button variant="ghost" disabled={envoi} onClick={() => { setPartage(null); setPartageIds([]); }}>Annuler</Button>
+        </section>
+      )}
 
       <section className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <table className="w-full min-w-[980px] text-left">
@@ -193,6 +233,7 @@ export function FichiersAdapt({ devis, modifiable, occupe, bloque, onGenerer, on
                           : <div className="truncate font-semibold" title={nom ?? undefined}>{nom}</div>}
                         <div className="text-vert-texte">Lu le {formatDateHeure(a!.importeLe)}</div>
                         {ouvert && <button type="button" disabled={envoi} onClick={choisir} className="cursor-pointer text-[12px] font-semibold text-marine hover:underline disabled:opacity-50" aria-label={`Remplacer le ${NOM[genre]} de la dalle ${l.reference}`}>Remplacer</button>}
+                        {ouvert && id && lignes.length > 1 && <button type="button" disabled={envoi} onClick={() => { setPartage({ genre, nom: nom ?? NOM[genre], fichierId: id, source: l.dalleId, reference: l.reference }); setPartageIds([]); }} className="ml-3 cursor-pointer text-[12px] font-semibold text-marine hover:underline disabled:opacity-50" aria-label={`Appliquer le ${NOM[genre]} de la dalle ${l.reference} à d'autres dalles`}>Appliquer à d&apos;autres dalles</button>}
                       </>
                     ) : (
                       <>

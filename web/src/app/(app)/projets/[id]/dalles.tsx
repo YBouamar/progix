@@ -376,7 +376,7 @@ export function DallesProjet({ projetId, ecriture, lectureSeule, onSuivi }: { pr
 
       {suppression && (
         <Modal open onOpenChange={(o) => !o && setSuppression(null)} title="Supprimer la dalle ?"
-          description={`La dalle ${suppression.reference} sera supprimée définitivement. Utilisez cette action pour une dalle créée par erreur : elle est refusée dès que la dalle est engagée (étapes faites, import ADAPT, étude, devis, facturation).`}
+          description={`La dalle ${suppression.reference} sera supprimée définitivement. Utilisez cette action pour une dalle créée par erreur : elle est refusée dès que la dalle est engagée (étapes faites, import ADAPT, étude, devis validé, facturation). Dans un devis pas encore validé (brouillon, envoyé, expiré), la dalle est retirée et le prix recalculé : un devis envoyé redevient brouillon.`}
           footer={
             <>
               <Button variant="outline" onClick={() => setSuppression(null)}>Garder la dalle</Button>

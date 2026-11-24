@@ -66,7 +66,11 @@ public interface IDevisLookup
 /// </summary>
 public interface IUsagesDalle
 {
+    /// <summary>Phrase de refus, ou null : la dalle peut être supprimée (ce module peut devoir l'en retirer, voir <see cref="RetirerAsync"/>).</summary>
     Task<string?> UsageAsync(Guid dalleId, CancellationToken ct = default);
+
+    /// <summary>Appelée juste avant la suppression de la dalle, une fois tous les refus écartés : le module retire la dalle de ses documents encore modifiables.</summary>
+    Task RetirerAsync(Guid dalleId, string par, CancellationToken ct = default) => Task.CompletedTask;
 }
 
 /// <param name="PrixNet">Prix net au m² par dalle : prix du devis moins la remise au m².</param>

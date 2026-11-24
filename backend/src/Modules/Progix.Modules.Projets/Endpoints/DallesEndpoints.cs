@@ -124,6 +124,7 @@ public static class DallesEndpoints
                 foreach (var u in usages)
                     if (await u.UsageAsync(did, ct) is { } m) { motif = m; break; }
             if (motif is not null) return ProjetsEndpoints.Conflit(SuppressionDalle.Message(ref_, motif));
+            foreach (var u in usages) await u.RetirerAsync(did, user.Identity?.Name ?? "", ct);
             db.Dalles.Remove(d);
             await db.SaveChangesAsync(ct);
             logs.CreateLogger("Dalles").LogInformation("Dalle {Reference} supprimée par {Utilisateur}", ref_, user.Identity?.Name);
@@ -216,18 +217,19 @@ public static class DallesEndpoints
             var form = await req.ReadFormAsync();
             if (form.Files.Count is 0 or > MaxFichiersAdapt) return ProjetsEndpoints.Conflit($"Déposez entre 1 et {MaxFichiersAdapt} exports ADAPT à la fois.");
             var dalles = await db.Dalles.Where(x => x.ProjetId == id).OrderBy(x => x.Numero).ToListAsync();
-            var designees = form["dalles"].Select(v => Guid.TryParse(v, out var x) ? x : (Guid?)null).ToList();
+            // Un même fichier peut être rattaché à plusieurs dalles (étages courants au même modèle) : identifiants séparés par des virgules.
+            var designees = form["dalles"].Select(v => (v ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(x => Guid.TryParse(x, out var g) ? g : Guid.Empty).Where(g => g != Guid.Empty).ToList()).ToList();
             var restreintes = form["candidates"].Select(v => Guid.TryParse(v, out var x) ? x : Guid.Empty).ToHashSet();
             var possibles = restreintes.Count == 0 ? dalles : dalles.Where(x => restreintes.Contains(x.Id)).ToList();
 
             // Lecture de tous les fichiers, puis rattachement : les PTTotal d'abord, pour qu'un RebarTotal du même dépôt retrouve la dalle par la surface du plancher.
-            var lus = new List<(int Rang, IFormFile Fichier, byte[] Octets, LectureAdapt.Fichier Lu, Guid? Dalle)>();
+            var lus = new List<(int Rang, IFormFile Fichier, byte[] Octets, LectureAdapt.Fichier Lu, List<Guid> Dalles)>();
             for (var i = 0; i < form.Files.Count; i++)
             {
                 var f = form.Files[i];
-                if (f.Length is 0 or > TailleMaxAdapt) { lus.Add((i, f, [], new(LectureAdapt.Genre.Inconnu, 0, 0, null, [], "Chaque export ADAPT pèse au plus 5 Mo."), null)); continue; }
+                if (f.Length is 0 or > TailleMaxAdapt) { lus.Add((i, f, [], new(LectureAdapt.Genre.Inconnu, 0, 0, null, [], "Chaque export ADAPT pèse au plus 5 Mo."), [])); continue; }
                 var (brut, texte) = await LireAsync(f);
-                lus.Add((i, f, brut, LectureAdapt.AnalyserUn(texte), i < designees.Count ? designees[i] : null));
+                lus.Add((i, f, brut, LectureAdapt.AnalyserUn(texte), i < designees.Count ? designees[i] : []));
             }
 
             var resultats = new object?[lus.Count];
@@ -241,35 +243,16 @@ public static class DallesEndpoints
             };
             RapprochementAdapt.Candidat Candidat(Dalle x) => new(x.Id, x.Surface, x.Adapt?.SurfacePlancher, x.Adapt?.AvecPt == true, x.Adapt?.AvecRebar == true);
 
-            foreach (var (rang, f, octets, lu, designee) in lus.OrderBy(x => x.Lu.Genre == LectureAdapt.Genre.Precontrainte ? 0 : 1).ThenBy(x => x.Rang))
+            // Rattache un fichier lu à une dalle : surface, reprise des valeurs, dépôt du fichier. Refus : le message ; sinon les avertissements.
+            async Task<(bool Ok, string? Refus, List<string> Avertissements)> Rattacher(Dalle d, byte[] octets, IFormFile f, LectureAdapt.Fichier lu)
             {
-                if (lu.Erreur is not null) { resultats[rang] = Resultat(f, lu, "refuse", null, lu.Erreur); continue; }
-                Dalle? d;
-                if (designee is Guid choisie)
-                {
-                    d = dalles.FirstOrDefault(x => x.Id == choisie);
-                    if (d is null) { resultats[rang] = Resultat(f, lu, "refuse", null, "Dalle introuvable dans ce projet."); continue; }
-                }
-                else
-                {
-                    var sure = RapprochementAdapt.Deviner(lu.Surface, possibles.Select(Candidat).ToList());
-                    d = sure is null ? null : possibles.First(x => x.Id == sure);
-                    // Deux fichiers du même genre pour la même dalle dans un seul dépôt : le second attend, on ne devine pas lequel est le bon.
-                    if (d is null || recus.Contains((d.Id, lu.Genre)))
-                    {
-                        resultats[rang] = Resultat(f, lu, "attente", null, $"{lu.Nom} lu ({lu.Surface.ToString("N2", Fr)} m² de plancher) : choisissez sa dalle.",
-                            RapprochementAdapt.Proposer(lu.Surface, lu.Genre, possibles.Select(Candidat).ToList()));
-                        continue;
-                    }
-                }
-
                 var avertissements = LectureAdapt.Avertissements(lu, d.Adapt, d.Surface);
                 // Une dalle sans surface prend celle du plancher ADAPT ; sinon sa surface est conservée et l'écart signalé.
                 if (d.Surface == 0)
                 {
                     var surface = Math.Round(lu.Surface, 2);
                     if (await devis.DevisSurAutreSurfaceAsync(d.Id, surface) is { } engage)
-                    { resultats[rang] = Resultat(f, lu, "refuse", d, $"La surface est chiffrée dans le devis {engage} : créez d'abord une nouvelle version de ce devis."); continue; }
+                        return (false, $"La surface est chiffrée dans le devis {engage} : créez d'abord une nouvelle version de ce devis.", []);
                     d.Surface = surface;
                     avertissements.Add("La surface de la dalle est reprise du plancher ADAPT.");
                 }
@@ -284,7 +267,50 @@ public static class DallesEndpoints
                 d.UpdatedAt = DateTime.UtcNow;
                 recus.Add((d.Id, lu.Genre));
                 touchees.Add(d.Id);
-                resultats[rang] = Resultat(f, lu, "rattache", d, null, null, avertissements);
+                return (true, null, avertissements);
+            }
+
+            foreach (var (rang, f, octets, lu, designees_) in lus.OrderBy(x => x.Lu.Genre == LectureAdapt.Genre.Precontrainte ? 0 : 1).ThenBy(x => x.Rang))
+            {
+                if (lu.Erreur is not null) { resultats[rang] = Resultat(f, lu, "refuse", null, lu.Erreur); continue; }
+                var cibles = new List<Dalle>();
+                if (designees_.Count > 0)
+                {
+                    foreach (var choisie in designees_.Distinct())
+                        if (dalles.FirstOrDefault(x => x.Id == choisie) is { } trouvee) cibles.Add(trouvee);
+                    if (cibles.Count == 0) { resultats[rang] = Resultat(f, lu, "refuse", null, "Dalle introuvable dans ce projet."); continue; }
+                }
+                else
+                {
+                    var sure = RapprochementAdapt.Deviner(lu.Surface, possibles.Select(Candidat).ToList());
+                    var d = sure is null ? null : possibles.First(x => x.Id == sure);
+                    // Deux fichiers du même genre pour la même dalle dans un seul dépôt : le second attend, on ne devine pas lequel est le bon.
+                    if (d is null || recus.Contains((d.Id, lu.Genre)))
+                    {
+                        resultats[rang] = Resultat(f, lu, "attente", null, $"{lu.Nom} lu ({lu.Surface.ToString("N2", Fr)} m² de plancher) : choisissez sa dalle.",
+                            RapprochementAdapt.Proposer(lu.Surface, lu.Genre, possibles.Select(Candidat).ToList()));
+                        continue;
+                    }
+                    cibles.Add(d);
+                }
+
+                // Une ou plusieurs dalles : un refus sur l'une n'empêche pas les autres, il est signalé en avertissement.
+                var rattachees = new List<Dalle>(); var notes = new List<string>(); string? premierRefus = null;
+                foreach (var d in cibles)
+                {
+                    var (ok, refus, avert) = await Rattacher(d, octets, f, lu);
+                    var ref_ = $"{projet.Code}-{d.Suffixe}";
+                    if (ok) { rattachees.Add(d); notes.AddRange(cibles.Count > 1 ? avert.Select(m => $"{ref_} : {m}") : avert); }
+                    else { premierRefus ??= refus; if (cibles.Count > 1) notes.Add($"{ref_} : {refus}"); }
+                }
+                if (rattachees.Count == 0) { resultats[rang] = Resultat(f, lu, "refuse", cibles[0], premierRefus); continue; }
+                var res = Resultat(f, lu, "rattache", rattachees[0], null, null, notes);
+                resultats[rang] = rattachees.Count == 1 ? res : new
+                {
+                    nom = Nom(f.FileName), genre = lu.Genre == LectureAdapt.Genre.Precontrainte ? "pt" : lu.Genre == LectureAdapt.Genre.Armatures ? "rebar" : null,
+                    etat = "rattache", dalleId = rattachees[0].Id, reference = string.Join(", ", rattachees.Select(x => $"{projet.Code}-{x.Suffixe}")), message = (string?)null,
+                    surface = lu.Surface, ratio = lu.Ratio, proposee = (Guid?)null, avertissements = notes,
+                };
             }
             await db.SaveChangesAsync();
             return Results.Ok(new { fichiers = resultats, dalles = dalles.Where(x => touchees.Contains(x.Id)).Select(x => Dto(x, projet.Code)) });

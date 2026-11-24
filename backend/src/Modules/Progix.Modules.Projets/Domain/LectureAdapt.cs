@@ -51,8 +51,8 @@ public class SystemeAdapt
     /// <summary>Extrémités de mise en tension du type (colonne « Stressing ends » : 1 ou 2 par tendon). 0 sur un import antérieur à cette lecture.</summary>
     public int ExtremitesActives { get; set; }
 
-    /// <summary>Ancrages repris dans le devis : un à chaque bout de chaque tendon, actif ou mort (le PTTotal compte autant d'extrémités actives que mortes : 2 par tendon). Décision du 2026-11-22.</summary>
-    public int Ancrages => Cables * 2;
+    /// <summary>Ancrages repris dans le devis : un par tendon. La décision du 2026-11-22 (2 par tendon) était fausse, corrigée le 2026-11-24 après la recette.</summary>
+    public int Ancrages => Cables;
 
     /// <summary>Cumul de Strand Length, en mètres (longueur de toron, soit la gaine × le nombre de torons) : gardé pour information.</summary>
     public decimal LongueurTorons { get; set; }

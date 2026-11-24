@@ -3,7 +3,7 @@ namespace Progix.Modules.Projets.Domain;
 /// <summary>
 /// Suppression d'une dalle créée par erreur : permise seulement tant que rien n'en dépend.
 /// Dès qu'une étape est faite, qu'un import ADAPT, une étude, une exécution, une commande ou une fiche existe,
-/// ou que la dalle figure dans un devis ou un document de facturation, elle se garde (l'historique ne se perd pas).
+/// ou que la dalle figure dans un devis validé ou un document de facturation, elle se garde (l'historique ne se perd pas). Un devis pas encore validé la perd.
 /// </summary>
 public static class SuppressionDalle
 {

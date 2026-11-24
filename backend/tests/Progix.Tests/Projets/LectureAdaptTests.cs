@@ -51,10 +51,10 @@ public class LectureAdaptTests
         Assert.Equal(12.85m, a.RatioPassif);
         Assert.Equal(1409.58m, a.SurfacePlancher);
         Assert.Equal("SOHAUS · PH-2EME · essai.adm", a.Plancher);
-        // Le câble d'un autre plan est ignoré ; ancrages = 2 par tendon (une extrémité à chaque bout), extrémités actives = colonne Stressing ends, gaine = cumul de Tendon/Duct Length (le cumul de Strand Length, gardé pour information, vaut gaine × torons).
+        // Le câble d'un autre plan est ignoré ; ancrages = 1 par câble (décision du 2026-11-24), extrémités actives = colonne Stressing ends, gaine = cumul de Tendon/Duct Length (le cumul de Strand Length, gardé pour information, vaut gaine × torons).
         Assert.Collection(a.Systemes,
-            s => { Assert.Equal(1, s.Torons); Assert.Equal(2, s.Cables); Assert.Equal(4, s.Ancrages); Assert.Equal(2, s.ExtremitesActives); Assert.Equal(31.38m, s.LongueurTorons); Assert.Equal(31.38m, s.LongueurGaines); },
-            s => { Assert.Equal(2, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(2, s.Ancrages); Assert.Equal(2, s.ExtremitesActives); Assert.Equal(27.88m, s.LongueurTorons); Assert.Equal(13.94m, s.LongueurGaines); },
+            s => { Assert.Equal(1, s.Torons); Assert.Equal(2, s.Cables); Assert.Equal(2, s.Ancrages); Assert.Equal(2, s.ExtremitesActives); Assert.Equal(31.38m, s.LongueurTorons); Assert.Equal(31.38m, s.LongueurGaines); },
+            s => { Assert.Equal(2, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(1, s.Ancrages); Assert.Equal(2, s.ExtremitesActives); Assert.Equal(27.88m, s.LongueurTorons); Assert.Equal(13.94m, s.LongueurGaines); },
             s => { Assert.Equal(3, s.Torons); Assert.Equal(1, s.Cables); Assert.Equal(31.04m, s.LongueurTorons); Assert.Equal(10.35m, s.LongueurGaines); });
     }
 

@@ -27,7 +27,7 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - Plusieurs commandes par dalle, cycle de vie, rôle gestionnaire de stock, modification tracée, import des plans de câblage DXF (lecture validée sur les plans réels Mk4-847 : 22 câbles X, 9 Y, 313,72 m, surface 230,45 m² égale au Floor Area du PTTotal), icônes d'écart de surface, facturation sur la surface de la dalle. Détail : BUSINESS_RULES.md section 7 et DECISIONS.md (2026-11-22).
 - Vérifié : `dotnet test` 354 tests passés, `npm run lint` et `npm run build` sans erreur. **Non essayé dans le navigateur ni avec une base** : la migration `CommandesMultiples` et les nouveaux écrans (commandes, import DXF, logistique par commande) restent à essayer avec les données de démonstration.
 - Recoupement DXF / PTTotal tendon par tendon (non commité) : sur les plans réels, 9 tendons voisins ont une longueur inversée côté DXF (association étiquette / câble ambiguë entre câbles parallèles proches) ; le PTTotal fait foi. À améliorer : l'association des étiquettes du DXF. Sans PTTotal conservé avec la dalle, repli sur le recoupement par système. Le test sur plans réels est conditionné par la variable `PROGIX_DXF` (les plans clients ne sont pas versionnés).
-- Les devis en brouillon voient leurs ancrages changer (2 par tendon) à la prochaine reprise des données ADAPT.
+- Les devis en brouillon voient leurs ancrages changer (1 par tendon, correction du 2026-11-24 de la décision à 2 par tendon) à la prochaine reprise des données ADAPT.
 
 - Forfait fixe par type de construction (non commité) : champ dans Paramétrage, priorité projet, type, grille ; 365 tests passés, lint et types web sans erreur ; migration `ForfaitFixeTypeConstruction` à appliquer ; écrans non essayés dans le navigateur.
 
@@ -128,3 +128,9 @@ Aucun. Sur ce poste : pas de SDK .NET 8 ni de Python, le build et les tests back
 - En développement, le service worker sert d'anciens fichiers JavaScript après une modification (Ctrl+Maj+R nécessaire). Sans effet en production (fichiers versionnés).
 - Avis npm restant : PostCSS 8.4.31 embarqué par Next.js 15 (correction en Next 16).
 - `appsettings.json` : `AllowedHosts: "*"` et secrets de développement. Sauvegardes gardées sur le serveur. Metabase en `latest`. Clés DataProtection non persistées hors du conteneur.
+
+## Corrections de recette du 2026-11-24 (non commitées)
+- Ancrages : 1 par tendon. Dalle supprimable malgré un devis non validé (ligne retirée). Même fichier ADAPT applicable à plusieurs dalles.
+- Vérifié : 400 tests, lint, build web, suppression de dalle via l'API. Dépôt multi-dalles testé jusqu'au stockage MinIO (absent en local) : essai complet à refaire avec `docker compose up`.
+- Hypothèse à valider : un devis envoyé ou expiré repasse en brouillon quand on en retire une dalle.
+- Non faits, à valider avec le chef de projet : ratio passif moyen par dalle (point 6), condition polystyrène (point 7). La commande usine garde 2 ancrages par câble par défaut.

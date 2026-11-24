@@ -15,7 +15,7 @@ public record AnnulationInput(string? Motif);
 public static class EncaissementsEndpoints
 {
     /// <summary>Plafond légal des règlements en espèces : par client et par mois civil.</summary>
-    public const decimal PlafondEspeces = PlafondEspecesClient.Montant;
+    public const decimal PlafondEspeces = 5000m;
 
     /// <summary>Annulation d'un règlement : responsable administratif, chef de projet, directeur.</summary>
     public static readonly string[] RolesAnnulation = [Roles.ResponsableAdministratif, Roles.ChefProjet, Roles.Directeur];
@@ -38,14 +38,6 @@ public static class EncaissementsEndpoints
     }
 
     private static IResult Conflit(string message) => Results.Conflict(new { message });
-
-    /// <summary>Espèces encaissées par les autres modules (ventes directes) pour ce client sur le mois : elles comptent dans le même plafond.</summary>
-    internal static async Task<decimal> EspecesAutresModules(IEnumerable<IEspecesClient> sources, Guid clientId, DateOnly date)
-    {
-        var total = 0m;
-        foreach (var s in sources.Where(s => s.Source != Infrastructure.EspecesFacturation.Nom)) total += await s.DuMoisAsync(clientId, date);
-        return total;
-    }
 
     /// <summary>Espèces déjà encaissées pour un client sur le mois civil de la date, toutes entités confondues.</summary>
     internal static async Task<decimal> EspecesDuMois(FacturationDbContext db, Guid clientId, DateOnly date)

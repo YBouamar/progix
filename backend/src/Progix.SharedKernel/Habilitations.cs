@@ -47,22 +47,6 @@ public static class Habilitations
     public const string Forfaits = "forfaits";
     public const string Commerciaux = "commerciaux";
 
-    // Ventes directes, achats et stock (module Négoce). Chacun se règle à part.
-    public const string NegoceArticles = "negoce_articles";
-    public const string NegocePrixAchat = "negoce_prix_achat";
-    public const string NegoceGroupes = "negoce_groupes";
-    public const string NegoceDevis = "negoce_devis";
-    public const string NegoceLivraisons = "negoce_livraisons";
-    public const string NegoceFactures = "negoce_factures";
-    public const string NegoceFournisseurs = "negoce_fournisseurs";
-    public const string NegoceAchats = "negoce_achats";
-    public const string NegoceReceptions = "negoce_receptions";
-    public const string NegocePaiementsFournisseurs = "negoce_paiements_fournisseurs";
-    public const string NegoceStock = "negoce_stock";
-
-    /// <summary>Groupe d'affichage des modules des ventes directes, achats et stock.</summary>
-    public const string GroupeNegoce = "Ventes directes, achats et stock";
-
     /// <summary>Groupe d'affichage des éléments du projet dans l'écran des habilitations.</summary>
     public const string GroupeProjet = "Éléments du projet";
 
@@ -80,11 +64,8 @@ public static class Habilitations
         public int Maximum => LectureSeule ? Lecture : Ecriture;
     }
 
-    // Le gestionnaire de stock et les deux fonctions du négoce n'ont pas la post-tension : ils ne sont pas dans « Tous ».
-    private static readonly string[] SansPostTension = [Roles.GestionnaireStock, Roles.ResponsableAchats, Roles.ResponsableVentesDirectes];
-    private static readonly string[] Tous = Roles.All.Select(r => r.Code).Where(c => !SansPostTension.Contains(c)).ToArray();
-    // Fonctions du négoce : qui y écrit selon la grille validée le 22/11/2026.
-    private static readonly string[] Gestion = [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif, Roles.Administrateur];
+    // Le gestionnaire de stock n'a que la logistique : il n'est pas dans « Tous ».
+    private static readonly string[] Tous = Roles.All.Select(r => r.Code).Where(c => c != Roles.GestionnaireStock).ToArray();
     private static readonly string[] Direction = [Roles.Directeur, Roles.ChefProjet];
     // Les chantiers passent par leur menu : le menu Projets leur est fermé par défaut, et peut leur être rouvert.
     private static readonly string[] Chantiers = [Roles.ResponsableChantier, Roles.ChefChantier];
@@ -95,7 +76,7 @@ public static class Habilitations
     [
         new(Projets, "Projets", "Fiches de projet, dalles et suivi du chantier. La création des projets a son module ; qui valide une étape ou signe reste fixé par la fonction de référence.", false, false, Tous.Except(Chantiers).ToArray(), [], Chantiers),
         new(Devis, "Devis", "Devis, leurs versions et leurs imports.", false, true, Policies.RolesDevis, []),
-        new(Clients, "Clients et partenaires", "Fiches des clients et des partenaires.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs, Roles.ResponsableVentesDirectes], []),
+        new(Clients, "Clients et partenaires", "Fiches des clients et des partenaires.", false, true, [.. Policies.RolesCommercial, .. Ingenieurs], []),
         new(Livraisons, "Livraisons", "Bons de livraison.", false, true, Policies.RolesCommercial, []),
         new(Facturation, "Facturation", "Factures, avoirs et encaissements.", false, true, Policies.RolesCommercial, []),
         new(Tresorerie, "Trésorerie", "Encaissements, dépenses et marge, avec leurs exports.", true, true, [], Policies.RolesCommercial),
@@ -119,19 +100,6 @@ public static class Habilitations
         new(TypesConstruction, "Types de construction", "Ajouter, renommer, ordonner ou retirer les types proposés sur la fiche du projet.", false, true, [.. Direction, .. Ingenieurs], [], null, GroupeProjet),
         new(Forfaits, "Prix forfaitaires", "Forfait propre à un projet, et grille des forfaits des devis.", false, true, [.. Direction, Roles.ResponsableAdministratif, .. Ingenieurs], [], null, GroupeProjet),
         new(Commerciaux, "Commerciaux", "Ajouter, renommer ou désactiver les commerciaux proposés sur la fiche du projet.", false, true, [.. Direction, .. Ingenieurs], [], null, GroupeProjet),
-
-        // Ventes directes, achats et stock. Le prix d'achat n'est visible que de quatre fonctions ; le niveau « lecture » le montre, « écriture » le modifie.
-        new(NegoceArticles, "Articles, catégories et unités", "Catalogue des ventes directes : articles, catégories, unités. Les prix de vente et d'achat ont leurs modules.", false, true, [Roles.ResponsableAchats, Roles.ResponsableVentesDirectes, .. Gestion], [Roles.GestionnaireStock], null, GroupeNegoce),
-        new(NegocePrixAchat, "Prix d'achat et coût moyen", "Prix d'achat par fournisseur et coût moyen pondéré des articles.", false, true, [Roles.ResponsableAchats, Roles.Directeur], [Roles.ResponsableAdministratif, Roles.ChefProjet], null, GroupeNegoce),
-        new(NegoceGroupes, "Groupes de clients et prix de vente", "Groupes de clients, remises et prix spéciaux, prix de vente des articles.", false, true, [Roles.ResponsableVentesDirectes, .. Gestion], [], null, GroupeNegoce),
-        new(NegoceDevis, "Devis et commandes de vente", "Devis (duplication comprise) et commandes de vente directe.", false, true, [Roles.ResponsableVentesDirectes, .. Gestion], [Roles.GestionnaireStock], null, GroupeNegoce),
-        new(NegoceLivraisons, "Bons de livraison de vente directe", "Bons de livraison : chacun sort les articles du stock.", false, true, [Roles.ResponsableVentesDirectes, Roles.GestionnaireStock, .. Gestion], [], null, GroupeNegoce),
-        new(NegoceFactures, "Factures, avoirs et encaissements de vente directe", "Factures, avoirs et paiements des clients.", false, true, [Roles.ResponsableVentesDirectes, .. Gestion], [], null, GroupeNegoce),
-        new(NegoceFournisseurs, "Fournisseurs", "Liste des fournisseurs et leurs coordonnées.", false, true, [Roles.ResponsableAchats, Roles.ChefProjet, Roles.Directeur], [Roles.GestionnaireStock, Roles.ResponsableAdministratif], null, GroupeNegoce),
-        new(NegoceAchats, "Commandes d'achat", "Commandes d'achat aux fournisseurs et leur suivi. La réception a son module.", false, true, [Roles.ResponsableAchats, Roles.ChefProjet, Roles.Directeur], [Roles.GestionnaireStock, Roles.ResponsableAdministratif], null, GroupeNegoce),
-        new(NegoceReceptions, "Réceptions d'achat", "Réception, même partielle, d'une commande d'achat : chaque réception crée une entrée en stock.", false, true, [Roles.ResponsableAchats, Roles.GestionnaireStock, Roles.ChefProjet, Roles.Directeur], [], null, GroupeNegoce),
-        new(NegocePaiementsFournisseurs, "Paiements et factures fournisseur", "Factures reçues des fournisseurs, paiements et images de chèque ou d'effet.", false, true, [Roles.ResponsableAchats, Roles.ResponsableAdministratif, Roles.ChefProjet, Roles.Directeur], [], null, GroupeNegoce),
-        new(NegoceStock, "Stock et mouvements", "Stock des articles, tendons compris : entrées, Production, sorties, inventaire, correction.", false, true, [Roles.GestionnaireStock, Roles.ChefProjet, Roles.Directeur], [Roles.ResponsableAchats, Roles.ResponsableVentesDirectes, Roles.ResponsableAdministratif, Roles.Administrateur], null, GroupeNegoce),
     ];
 
     public static Module? Trouver(string code) => Modules.FirstOrDefault(m => m.Code == code);
@@ -173,20 +141,6 @@ public static class Habilitations
         (new(@"^/api/parametres/types-construction(/|$)", RegexOptions.Compiled), TypesConstruction, Mode.EcrituresSeulement),
         (new($@"^/api/(parametres/forfaits|projets/{Guid36}/forfait)(/|$)", RegexOptions.Compiled), Forfaits, Mode.EcrituresSeulement),
         (new(@"^/api/commerciaux(/|$)", RegexOptions.Compiled), Commerciaux, Mode.EcrituresSeulement),
-        // Ventes directes, achats et stock : du plus précis au plus général.
-        (new($@"^/api/negoce/achats/{Guid36}/receptions(/|$)", RegexOptions.Compiled), NegoceReceptions, Mode.Normal),
-        (new($@"^/api/negoce/achats/{Guid36}/(paiements|factures)(/|$)", RegexOptions.Compiled), NegocePaiementsFournisseurs, Mode.Normal),
-        (new(@"^/api/negoce/prix-achat(/|$)", RegexOptions.Compiled), NegocePrixAchat, Mode.Normal),
-        (new(@"^/api/negoce/(articles|categories|unites)(/|$)", RegexOptions.Compiled), NegoceArticles, Mode.Normal),
-        (new(@"^/api/negoce/groupes(/|$)", RegexOptions.Compiled), NegoceGroupes, Mode.Normal),
-        (new(@"^/api/negoce/(devis|commandes)(/|$)", RegexOptions.Compiled), NegoceDevis, Mode.Normal),
-        (new(@"^/api/negoce/livraisons(/|$)", RegexOptions.Compiled), NegoceLivraisons, Mode.Normal),
-        (new(@"^/api/negoce/(factures|avoirs|encaissements)(/|$)", RegexOptions.Compiled), NegoceFactures, Mode.Normal),
-        (new(@"^/api/negoce/fournisseurs(/|$)", RegexOptions.Compiled), NegoceFournisseurs, Mode.Normal),
-        (new(@"^/api/negoce/achats(/|$)", RegexOptions.Compiled), NegoceAchats, Mode.Normal),
-        (new(@"^/api/negoce/(stock|mouvements)(/|$)", RegexOptions.Compiled), NegoceStock, Mode.Normal),
-        // Tout autre point d'accès du négoce reste fermé aux fonctions sans accès au catalogue.
-        (new(@"^/api/negoce(/|$)", RegexOptions.Compiled), NegoceArticles, Mode.Normal),
         (new(@"^/api/devis(/|$)", RegexOptions.Compiled), Devis, Mode.Normal),
         (new(@"^/api/partenaires(/|$)", RegexOptions.Compiled), Clients, Mode.Normal),
         (new(@"^/api/livraisons(/|$)", RegexOptions.Compiled), Livraisons, Mode.Normal),

@@ -34,23 +34,3 @@ export function libellePeriode(p: { debut: string; fin: string }) {
   return `du ${a.toLocaleDateString("fr-FR")} au ${b.toLocaleDateString("fr-FR")}`;
 }
 
-export type MargePeriode = Periode & { margeBrute: number | null };
-export type NegoceTdb = {
-  debut: string; fin: string;
-  ventes: null | {
-    periode: MargePeriode; precedente: MargePeriode; creances: { nb: number; total: number }; retards: { nb: number; total: number }; nbFactures: number;
-    topClients: { client: string; montant: number }[]; topArticles: { article: string; montantHt: number }[];
-  };
-  pipeline: null | {
-    devisOuverts: { nb: number; total: number; expires: number }; devisPeriode: number; tauxConversion: number | null; commandesOuvertes: number;
-    aLivrer: number; aFacturer: { nb: number; montantHt: number };
-  };
-  achats: null | {
-    commande: number; commandePrecedente: number; enCours: { nb: number; total: number; partielles: number };
-    resteAPayer: { nb: number; total: number } | null; topFournisseurs: { fournisseur: string; montant: number }[];
-  };
-  stock: null | {
-    articles: number; sousSeuil: number; ruptures: number; valeur: number | null; mouvements: { total: number; entrees: number; sorties: number };
-    aSurveiller: { id: string; code: string; designation: string; unite: string | null; stock: number; seuil: number }[];
-  };
-};

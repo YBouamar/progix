@@ -112,7 +112,7 @@ public static class FacturesEndpoints
             });
         });
 
-        g.MapPost("/", async (FactureInput input, FacturationDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IDevisLookup devis, ClaimsPrincipal user, IEnumerable<IEspecesClient> autres) =>
+        g.MapPost("/", async (FactureInput input, FacturationDbContext db, IProjetsLookup projets, IPartenairesLookup partenaires, IDevisLookup devis, ClaimsPrincipal user) =>
         {
             var ctx = await Contexte(input.ProjetId, db, projets, partenaires, devis);
             if (ctx is null) return Results.NotFound();
@@ -171,7 +171,7 @@ public static class FacturesEndpoints
                 var debut = new DateOnly(f.DateFacture.Year, f.DateFacture.Month, 1);
                 var duMois = await db.Factures.AsNoTracking().Include(x => x.Avoirs)
                     .Where(x => x.ClientId == f.ClientId && x.ModeReglement == ModesPaiement.Especes && x.DateFacture >= debut && x.DateFacture < debut.AddMonths(1)).ToListAsync();
-                var deja = duMois.Where(x => !x.Annulee).Sum(x => x.Du) + await EncaissementsEndpoints.EspecesAutresModules(autres, f.ClientId, f.DateFacture);
+                var deja = duMois.Where(x => !x.Annulee).Sum(x => x.Du);
                 if (deja + f.TotalTTC > plafond)
                     return Conflit($"Plafond des espèces dépassé pour ce client en {f.DateFacture.ToString("MMMM yyyy", fr)} : {DH(deja)} déjà facturés en espèces sur {DH(plafond)}. Il reste {DH(Math.Max(0, plafond - deja))} possibles en espèces.");
             }

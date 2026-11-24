@@ -1,6 +1,8 @@
 # Avancement de PROGIX
 
-**Dernière mise à jour** : 2026-11-22 (tableau de bord élargi)
+**Dernière mise à jour** : 2026-11-24 (négoce retiré de main, conservé sur la branche `negoce`)
+
+**Négoce** (ventes directes, achats et stock) : retiré de `main` le 2026-11-24 pour la recette du post-tension, intégralement conservé sur la branche `negoce` (voir DECISIONS.md).
 
 Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historique.
 
@@ -11,11 +13,10 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - `docker compose up --build` : les 6 modules démarrent, migrations appliquées, `/api/health` OK.
 - Données de démonstration chargées sans erreur : le script parcourt par l'API les 11 étapes, les validations, BL, factures, règlements, avoirs et dépenses.
 
-## Tableau de bord élargi (2026-11-22, non commité)
+## Tableau de bord élargi (2026-11-22)
 
-- Backend : `Negoce/Endpoints/TableauDeBordEndpoints.cs` (`GET /api/negoce/tableau-de-bord`, blocs ventes, pipeline, achats, stock selon les droits de lecture) et `Negoce/Application/Indicateurs.cs` (calculs purs). Ajouts : `creances` dans `/api/tableau-de-bord/finances`, `dalles` dans `/api/tableau-de-bord/projets`, `montantEnAttente` dans `/api/devis/tableau-de-bord`.
-- Web : `tableau-de-bord/negoce.tsx` (`KpiNegoce`, `Carte`), intégré aux tableaux direction, commercial, logistique ; tableaux propres aux rôles `responsable_ventes_directes` et `responsable_achats`.
-- Vérifié : 482 tests, lint, build ; API contrôlée avec les données de démonstration pour cinq rôles (droits respectés : marge et valeur de stock masquées sans le droit sur les prix d'achat). **Non regardé à l'écran dans le navigateur.** Définitions des indicateurs : hypothèses à confirmer (BUSINESS_RULES.md section 14).
+- Les KPI du négoce (ventes directes, achats, stock) ont été retirés avec le reste du négoce le 2026-11-24 ; ils sont sur la branche `negoce`.
+- Reste en place pour le post-tension : `creances` dans `/api/tableau-de-bord` de Facturation, `montantEnAttente` dans celui des Devis, `dalles` (total, réalisées, en cours, par étape) dans celui des Projets, et la carte `tableau-de-bord/carte.tsx` qui les affiche sur le tableau de la direction.
 
 ## Menu latéral en accordéon (2026-11-22, non commité)
 
@@ -33,14 +34,6 @@ Remplace `docs/AVANCEMENT.md` et `TODO.md` (2026-10-06), gardés comme historiqu
 - Variantes de devis, duplication et validation unique (non commité) : migration `VarianteDevis`, 370 tests passés, lint et build web sans erreur ; écrans non essayés dans le navigateur.
 
 - Lot du 2026-11-22 soir (non commité) : relecture des brouillons, suppression, devis signé, variante sur projet lancé, ZIP renommé, retours de navigation, suivi et pièce signée du contrat, IF et ITP non bloquants, images chèque et effet, fichiers par dalle, plan du bordereau prérempli. Migrations `RelectureDevis` et `SuiviContrat`. 387 tests passés, lint et build web sans erreur, parcours vérifiés par appels API sur Postgres local. **Non essayé** : dépôts de fichiers (pas de MinIO en local) et rendu visuel des écrans. Hypothèses à confirmer : voir DECISIONS.md.
-
-## Lot Négoce du 2026-11-22 (non commité, non déployé)
-
-- Module `Progix.Modules.Negoce` complet : catalogue (articles, catégories, unités), groupes de clients et prix, fournisseurs, commandes d'achat avec réceptions, factures et paiements fournisseur, stock (mouvements, CMP, tendons en tonnes), devis, commandes, BL, factures, avoirs, encaissements. Migration `Negoce` à appliquer au démarrage ; les deux nouveaux rôles sont créés par le seed d'identité.
-- Écrans : `ventes-directes/` (devis et commandes, livraisons, factures et avoirs, groupes) et `achats-stock/` (articles, fournisseurs, commandes d'achat, stock). Menus par rôle dans `nav.ts`.
-- Vérifié (premier lot) : `dotnet test` 467 passés, `npm run lint` et `npm run build` sans erreur, parcours complet par l'API sur Postgres local (78 vérifications). **Non essayé dans le navigateur** : rendu des écrans, dépôts d'images (pas de MinIO local).
-- Second lot du soir : plafond espèces 5 000 DH, signature et PDF des documents de vente, verrou du stock, données de démonstration. 473 tests, e2e 104 vérifications (dont 4 courses de sorties simultanées). Migration `NegoceSignatureEtVerrouStock`. PDF non regardés à l'écran.
-- Écart : le gestionnaire de stock a la lecture des achats plutôt que « R » seul. Hypothèses et limites : BUSINESS_RULES.md section 14.
 
 ## Terminé
 

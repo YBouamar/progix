@@ -576,57 +576,11 @@ class Demo:
             dire("      dalles : " + ", ".join(str(c) for c in d["cibles"]) + " étapes faites")
 
 
-def negoce(demo):
-    """Ventes directes, achats et stock : catalogue, un achat reçu et payé, un groupe de prix, une vente complète (devis signé, livraison, facture, encaissement)."""
-    d = demo.dir
-    if any(a["code"] == "POU-12" for a in d.get("/negoce/articles")):
-        dire("  déjà présentes"); return
-    cats = {c["libelle"]: c["id"] for c in d.get("/negoce/categories")}
-    unites = {u["libelle"]: u["id"] for u in d.get("/negoce/unites")}
-    def article(code, des, cat, prix, origine="achete", cout=0):
-        return d.post("/negoce/articles", {"code": code, "designation": des, "categorieId": cats[cat], "uniteId": unites["Pièce"], "prixVente": prix, "origine": origine, "coutMoyen": cout, "seuilAlerte": 50})["id"]
-    pou = article("POU-12", "Poutrelle précontrainte 12 cm", "Poutrelles", 95)
-    hou = article("HOU-16", "Hourdis 16 cm", "Hourdis", 11, "produit", 7)
-    agg = article("AGG-20", "Agglo creux 20 cm", "Agglos", 4.8)
-    f1 = d.post("/negoce/fournisseurs", {"nom": "Aciers du Nord (démo)", "telephone": "0522000000"})["id"]
-    f2 = d.post("/negoce/fournisseurs", {"nom": "Ciments Atlas (démo)", "telephone": "0522111111"})["id"]
-    d.put("/negoce/prix-achat", {"articleId": pou, "fournisseurId": f1, "prixAchat": 62})
-    d.put("/negoce/prix-achat", {"articleId": agg, "fournisseurId": f2, "prixAchat": 3.1})
-    achat = d.post("/negoce/achats", {"entite": "APT", "fournisseurId": f1, "dateCommande": jour(20), "lignes": [{"articleId": pou, "quantite": 400}]})
-    a = d.get("/negoce/achats/" + achat["id"])
-    d.post(f"/negoce/achats/{achat['id']}/receptions", {"date": jour(15), "lignes": [{"ligneId": a["lignes"][0]["id"], "quantite": 400}]})
-    d.post(f"/negoce/achats/{achat['id']}/factures", {"numero": "AN-2026-114", "date": jour(15), "montantTtc": round(400 * 62 * 1.2, 2)})
-    d.post(f"/negoce/achats/{achat['id']}/paiements", {"date": jour(10), "montant": 15000, "mode": "virement", "reference": "VIR-0042"})
-    achat2 = d.post("/negoce/achats", {"entite": "APT", "fournisseurId": f2, "dateCommande": jour(3), "lignes": [{"articleId": agg, "quantite": 2000}]})
-    d.post("/negoce/mouvements", {"articleId": hou, "type": "production", "quantite": 800, "coutUnitaire": 7, "motif": "Production du lot démo"})
-    d.post("/negoce/mouvements", {"articleId": agg, "type": "inventaire", "quantite": 300, "motif": "Inventaire de départ"})
-    toron = next(x for x in d.get("/negoce/articles") if x["code"] == "TOR-T15.7")
-    d.post("/negoce/mouvements", {"articleId": toron["id"], "type": "entree", "metres": 50000, "motif": "Réception de toron (démo)"})
-    clients = [p for p in d.get("/partenaires?pageSize=20")["items"]][:2]
-    if len(clients) < 2: dire("  pas assez de clients pour la vente démo"); return
-    g = d.post("/negoce/groupes", {"nom": "Revendeurs (démo)", "description": "Remise de 8 % sur les poutrelles, hourdis à prix fixé", "regles": [
-        {"categorieId": cats["Poutrelles"], "type": "pourcent", "valeur": 8}, {"articleId": hou, "type": "prix", "valeur": 9.5}]})["id"]
-    d.post(f"/negoce/groupes/{g}/membres", {"clientId": clients[0]["id"]})
-    dv = d.post("/negoce/devis", {"entite": "APT", "clientId": clients[0]["id"], "dateDocument": jour(8), "lignes": [{"articleId": pou, "quantite": 120}, {"articleId": hou, "quantite": 300}]})
-    d.post(f"/negoce/devis/{dv['id']}/signer")
-    cmd = d.post(f"/negoce/devis/{dv['id']}/commande")
-    c = d.get("/negoce/commandes/" + cmd["id"])
-    lp = next(l for l in c["lignes"] if l["articleId"] == pou)["id"]; lh = next(l for l in c["lignes"] if l["articleId"] == hou)["id"]
-    bl = d.post("/negoce/livraisons", {"commandeId": cmd["id"], "dateDocument": jour(5), "lignes": [{"ligneId": lp, "quantite": 80}, {"ligneId": lh, "quantite": 300}]})
-    d.post(f"/negoce/livraisons/{bl['id']}/signer")
-    fa = d.post("/negoce/factures", {"commandeId": cmd["id"], "dateDocument": jour(4), "lignes": [{"ligneId": lp, "quantite": 80}, {"ligneId": lh, "quantite": 300}]})
-    d.post(f"/negoce/factures/{fa['id']}/signer")
-    d.post("/negoce/encaissements", {"factureId": fa["id"], "date": jour(2), "montant": 5000, "mode": "virement", "reference": "VIR-9001"})
-    d.post("/negoce/devis", {"entite": "BBR", "clientId": clients[1]["id"], "dateDocument": jour(1), "lignes": [{"articleId": agg, "quantite": 500}]})
-    dire(f"  catalogue de 3 articles, 2 fournisseurs, achats {achat['numero']} et {achat2['numero']}, groupe de prix, vente {dv['numero']} jusqu'à la facture {fa['numero']}")
-
-
 def suite(demo):
     dire("Factures et règlements"); demo.finances()
     dire("Dépenses"); demo.depenses()
     dire("Courriers"); demo.courriers()
     dire("Suivi"); demo.divers()
-    dire("Ventes directes, achats et stock"); negoce(demo)
 
 
 def main():
@@ -636,9 +590,7 @@ def main():
     except Exception as e:
         sys.exit(f"Connexion impossible à {API} avec le compte directeur : {e}")
     if demo.dir.get("/projets?q=" + urllib.request.quote(PROJETS[0]["libelle"]))["total"] > 0:
-        # Les projets existent (passage précédent, même interrompu) : on ne les recrée pas, mais la partie négoce se complète seule.
-        dire("Les projets de démonstration sont déjà présents : seul le négoce est complété s'il manque.")
-        dire("Ventes directes, achats et stock"); negoce(demo)
+        dire("Les données fictives sont déjà présentes : rien à faire. Pour repartir de zéro, supprimez les volumes (docker compose down -v) puis relancez.")
         sys.exit(0)
     demo.lancer()
     suite(demo)

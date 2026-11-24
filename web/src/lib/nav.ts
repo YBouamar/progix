@@ -16,14 +16,6 @@ const ITEMS: Record<string, NavItem> = {
   perfDes: { id: "perfDes", label: "Performance des dessinateurs", href: "/performance/dessinateurs", pret: true, icon: "M3 3v18h18M7 15l4-5 3 3 5-7" },
   perfIng: { id: "perfIng", label: "Performance des ingénieurs", href: "/performance/ingenieurs", pret: true, icon: "M3 3v18h18M8 17V11M13 17V7M18 17v-4" },
   niveaux: { id: "niveaux", label: "Niveaux des dalles", href: "/niveaux", pret: true, icon: "M4 20h16M4 15h16M4 10h16M4 5h16" },
-  vDevis: { id: "vDevis", label: "Devis et commandes", href: "/ventes-directes/devis", pret: true, icon: "M6 2h9l5 5v15H6zM14 2v6h6M9 13h6M9 17h6" },
-  vLivraisons: { id: "vLivraisons", label: "Bons de livraison", href: "/ventes-directes/livraisons", pret: true, icon: "M1 5h14v11H1zM15 9h4l4 4v3h-8zM5.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4zM18.5 19a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" },
-  vFactures: { id: "vFactures", label: "Factures et avoirs", href: "/ventes-directes/factures", pret: true, icon: "M5 2h14v20l-3-2-2 2-2-2-2 2-2-2-3 2zM9 8h6M9 12h6" },
-  vGroupes: { id: "vGroupes", label: "Groupes de clients", href: "/ventes-directes/groupes", pret: true, icon: "M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM17 11l2 2 4-4" },
-  aArticles: { id: "aArticles", label: "Articles et prix", href: "/achats-stock/articles", pret: true, icon: "M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01" },
-  aFournisseurs: { id: "aFournisseurs", label: "Fournisseurs", href: "/achats-stock/fournisseurs", pret: true, icon: "M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 13v.01M9 17v.01" },
-  aCommandes: { id: "aCommandes", label: "Commandes d'achat", href: "/achats-stock/commandes", pret: true, icon: "M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4zM3 6h18M16 10a4 4 0 0 1-8 0" },
-  aStock: { id: "aStock", label: "Stock", href: "/achats-stock/stock", pret: true, icon: "M21 8l-9-5-9 5v8l9 5 9-5zM3 8l9 5 9-5M12 13v8" },
   param: { id: "param", label: "Paramétrage", href: "/parametrage", pret: true, icon: "M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M16 4v4M10 10v4M18 16v4" },
 };
 
@@ -32,8 +24,6 @@ const MODULES: Record<string, string> = {
   projets: "projets", devis: "devis", clients: "clients", livraisons: "livraisons", facturation: "facturation", tresorerie: "tresorerie",
   etude: "etude", execution: "execution", chantier: "chantier", logistique: "logistique", repIng: "repartition_ingenieurs", perfDes: "performance_dessinateurs", perfIng: "performance_ingenieurs",
   niveaux: "niveaux", param: "parametrage",
-  vDevis: "negoce_devis", vLivraisons: "negoce_livraisons", vFactures: "negoce_factures", vGroupes: "negoce_groupes",
-  aArticles: "negoce_articles", aFournisseurs: "negoce_fournisseurs", aCommandes: "negoce_achats", aStock: "negoce_stock",
 };
 
 /** Modules de consultation : ils n'ont pas de niveau « écriture ». */
@@ -45,8 +35,6 @@ type Droits = { droits?: Record<string, number> };
 const GROUPES: { label: string; ids: string[]; icon?: string; plat?: boolean }[] = [
   { label: "Suivi", ids: ["tdb", "projets"], plat: true },
   { label: "Commercial", ids: ["devis", "clients", "livraisons", "facturation", "tresorerie"], icon: "tresorerie" },
-  { label: "Ventes directes", ids: ["vDevis", "vLivraisons", "vFactures", "vGroupes"], icon: "vLivraisons" },
-  { label: "Achats et stock", ids: ["aArticles", "aFournisseurs", "aCommandes", "aStock"], icon: "aStock" },
   { label: "Études et chantier", ids: ["etude", "execution", "chantier", "logistique", "repIng", "perfDes", "perfIng", "niveaux"], icon: "chantier" },
   { label: "Réglages", ids: ["param"], plat: true },
 ];

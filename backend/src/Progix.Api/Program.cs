@@ -6,7 +6,6 @@ using Progix.Modules.Projets;
 using Progix.Modules.Devis;
 using Progix.Modules.Fichiers;
 using Progix.Modules.Facturation;
-using Progix.Modules.Negoce;
 using Progix.SharedKernel;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,7 +14,7 @@ var postgres = config.GetConnectionString("Postgres")
     ?? throw new InvalidOperationException("ConnectionStrings:Postgres est obligatoire.");
 
 // Monolithe modulaire : chaque module métier s'enregistre ici.
-IModule[] modules = [new IdentityModule(), new PartenairesModule(), new ProjetsModule(), new DevisModule(), new FichiersModule(), new FacturationModule(), new NegoceModule()];
+IModule[] modules = [new IdentityModule(), new PartenairesModule(), new ProjetsModule(), new DevisModule(), new FichiersModule(), new FacturationModule()];
 foreach (var m in modules) m.AddServices(builder.Services, config);
 
 builder.Services.AddStackExchangeRedisCache(o =>

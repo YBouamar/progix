@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
 import { cn, formatDate, formatDH } from "@/lib/utils";
-import { KpiNegoce } from "./negoce";
 import { periodes, type DevisTdb, type Finances } from "./donnees";
 
 type Ligne = { id: string; ref: string; client: string; info: string; montant: number; href: string };
@@ -45,7 +44,6 @@ export function TableauCommercial() {
           </div>
         ))}
       </div>
-      <KpiNegoce debut={mois.debut} fin={mois.fin} />
       <div className="space-y-5">
         {blocs.map((b) => (
           <div key={b.titre} className="overflow-x-auto rounded-xl border border-bordure bg-white">

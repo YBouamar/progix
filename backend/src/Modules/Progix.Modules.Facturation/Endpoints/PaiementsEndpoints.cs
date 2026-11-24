@@ -28,16 +28,16 @@ public static class PaiementsEndpoints
             return projet is null ? Results.NotFound() : Results.Ok(await Vue(db, projet, devis, user));
         }).RequireAuthorization(Policies.Devis);
 
-        g.MapGet("/especes", async (Guid id, DateOnly date, FacturationDbContext db, IProjetsLookup projets, IEnumerable<IEspecesClient> autres) =>
+        g.MapGet("/especes", async (Guid id, DateOnly date, FacturationDbContext db, IProjetsLookup projets) =>
         {
             var projet = await projets.ProjetAsync(id);
             if (projet is null) return Results.NotFound();
-            var deja = await EncaissementsEndpoints.EspecesDuMois(db, projet.ClientId, date) + await EncaissementsEndpoints.EspecesAutresModules(autres, projet.ClientId, date);
+            var deja = await EncaissementsEndpoints.EspecesDuMois(db, projet.ClientId, date);
             return Results.Ok(new { plafond = EncaissementsEndpoints.PlafondEspeces, deja, disponible = Math.Max(0, EncaissementsEndpoints.PlafondEspeces - deja) });
         }).RequireAuthorization(Policies.Commercial);
 
         g.MapPost("/paiements", async (Guid id, PaiementInput input, FacturationDbContext db, IProjetsLookup projets, IDevisLookup devis, IPartenairesLookup partenaires,
-            IUtilisateursLookup users, ClaimsPrincipal user, INotificationsDirection notifications, ILoggerFactory logs, IEnumerable<IEspecesClient> autres) =>
+            IUtilisateursLookup users, ClaimsPrincipal user, INotificationsDirection notifications, ILoggerFactory logs) =>
         {
             // L'encaissement vaut signature électronique du reçu : le mot de passe de la personne qui encaisse est exigé.
             if (string.IsNullOrEmpty(input.MotDePasse) || !await users.VerifierMotDePasseAsync(user.UserId(), input.MotDePasse))
@@ -73,7 +73,7 @@ public static class PaiementsEndpoints
             var montant = ventilation.Sum(v => v.Montant);
             if (input.Mode == ModesPaiement.Especes)
             {
-                var deja = await EncaissementsEndpoints.EspecesDuMois(db, projet.ClientId, input.DatePaiement) + await EncaissementsEndpoints.EspecesAutresModules(autres, projet.ClientId, input.DatePaiement);
+                var deja = await EncaissementsEndpoints.EspecesDuMois(db, projet.ClientId, input.DatePaiement);
                 if (deja + montant > EncaissementsEndpoints.PlafondEspeces)
                     return Conflit($"Plafond des espèces dépassé : {DH(EncaissementsEndpoints.PlafondEspeces)} par client et par mois, dont {DH(deja)} déjà encaissés ce mois. Il reste {DH(Math.Max(0, EncaissementsEndpoints.PlafondEspeces - deja))} possibles en espèces.");
             }

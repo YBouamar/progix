@@ -23,9 +23,6 @@ public class HabilitationsTests
         { Roles.ResponsableChantier, [Habilitations.Chantier] },
         { Roles.ChefChantier, [Habilitations.Chantier] },
         { Roles.GestionnaireStock, [Habilitations.Logistique] },
-        // Les deux fonctions du négoce n'ont pas la post-tension : le responsable de ventes directes n'ouvre que les clients.
-        { Roles.ResponsableAchats, [] },
-        { Roles.ResponsableVentesDirectes, [Habilitations.Clients] },
     };
 
     [Theory]
@@ -37,9 +34,7 @@ public class HabilitationsTests
     [InlineData(Roles.Directeur)]
     [InlineData(Roles.ChefProjet)]
     public void La_direction_a_tous_les_modules_a_leur_niveau_le_plus_haut(string role) =>
-        // Le chef de projet voit les prix d'achat sans les modifier : le prix d'achat se saisit par le responsable d'achats et le directeur.
-        Assert.All(Habilitations.Modules.Where(m => !(role == Roles.ChefProjet && m.Code == Habilitations.NegocePrixAchat)),
-            m => Assert.Equal(m.Maximum, Habilitations.ParDefaut(role, m.Code)));
+        Assert.All(Habilitations.Modules, m => Assert.Equal(m.Maximum, Habilitations.ParDefaut(role, m.Code)));
 
     [Fact]
     public void Les_modules_de_consultation_s_arretent_a_la_lecture()

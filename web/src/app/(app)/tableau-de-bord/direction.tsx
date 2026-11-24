@@ -5,7 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { cn, formatDate, formatDH } from "@/lib/utils";
 import { Field, Input, Select } from "@/components/ui/input";
-import { KpiNegoce, Carte } from "./negoce";
+import { Carte } from "./carte";
 import { libellePeriode, periodes, type DevisTdb, type Finances, type ProjetsTdb } from "./donnees";
 
 const POINT: Record<string, string> = { cree: "bg-attenue", etude: "bg-violet-texte", realisation: "bg-orange-texte", termine: "bg-vert-texte" };
@@ -142,8 +142,6 @@ export function TableauDirection() {
           ))}
         </div>
       </div>
-
-      <KpiNegoce debut={debut} fin={fin} entite={entite} />
 
       <div className="overflow-x-auto rounded-xl border border-bordure bg-white">
         <div className="flex items-center justify-between gap-3 border-b border-bordure px-5 py-3">

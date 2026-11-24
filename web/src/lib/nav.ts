@@ -80,3 +80,6 @@ export function titrePour(pathname: string): string {
   const item = Object.values(ITEMS).filter((i) => i.href !== "/").find((i) => pathname.startsWith(i.href));
   return item?.label ?? "Tableau de bord";
 }
+
+/** Accès aux ventes directes : au moins une des entrées du menu « Ventes directes » qui portent des documents (devis et commandes, livraisons, factures). Sert à l'onglet de la fiche projet. */
+export const accesVentesDirectes = (u: Droits) => ["vDevis", "vLivraisons", "vFactures"].some((i) => visible(u, i));

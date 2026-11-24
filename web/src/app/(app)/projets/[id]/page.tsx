@@ -17,6 +17,7 @@ import { Documents } from "@/components/documents";
 import { DevisProjet } from "./devis";
 import { DepensesProjet } from "./depenses";
 import { ContratsProjet } from "./contrats";
+import { accesVentesDirectes } from "@/lib/nav";
 import { VentesDirectesProjet } from "./ventes";
 import { CourriersProjet } from "./courriers";
 import { PartenairesProjet } from "./partenaires";
@@ -41,7 +42,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
     ["informations", "Informations", true],
     ["dalles", "Dalles et suivi", true],
     ["commercial", voitMontants(user) && peutLire(user, "contrats") ? "Devis et contrats" : "Devis", voitMontants(user) || peutLire(user, "contrats")],
-    ["ventes", "Ventes directes", ["negoce_devis", "negoce_livraisons", "negoce_factures"].some((m) => peutLire(user, m))],
+    ["ventes", "Ventes directes", !!user && accesVentesDirectes(user)],
     ["courriers", "Courriers", peutLire(user, "courriers")],
     ["depenses", "Dépenses", peutEcrire(user, "depenses") || ["chef_chantier", "responsable_chantier"].includes(role)],
     ["intervenants", "Équipe et partenaires", true],

@@ -73,6 +73,15 @@ public interface IUsagesDalle
     Task RetirerAsync(Guid dalleId, string par, CancellationToken ct = default) => Task.CompletedTask;
 }
 
+/// <summary>
+/// Engagement d'un projet dans un module (devis envoyé, facture, paiement...) : sert à refuser qu'un ingénieur supprime un projet déjà avancé.
+/// La réponse est une phrase prête à afficher, ou null si le module n'a rien d'engagé sur ce projet.
+/// </summary>
+public interface IUsagesProjet
+{
+    Task<string?> UsageAsync(Guid projetId, CancellationToken ct = default);
+}
+
 /// <param name="PrixNet">Prix net au m² par dalle : prix du devis moins la remise au m².</param>
 /// <param name="TotalTTC">Montant TTC du devis : c'est le « commandé » du reste dû.</param>
 public record DevisValide(Guid Id, string Numero, int Version, DateTime ValideLe, decimal NetHT, IReadOnlyDictionary<Guid, decimal> PrixNet, decimal TotalTTC = 0);
@@ -229,9 +238,25 @@ public record DevisDocument(Guid Id, string Numero, int Version, string Entite, 
 
     /// <summary>Ratio passif des conditions de l'offre : celui saisi s'il existe, sinon le ratio moyen calculé (0 : rien à afficher).</summary>
     public decimal RatioPassifAffiche => RatioPassifSaisi is > 0 ? RatioPassifSaisi.Value : RatioPassifMoyen;
+
+    /// <summary>
+    /// Ratios passifs moyens des conditions de l'offre. Chaque dalle a le sien (le ratio du devis par défaut, ou celui saisi pour elle).
+    /// Tous égaux : un seul ratio (Commun), sans exception. Sinon : le ratio du devis, puis chaque dalle qui en diffère.
+    /// </summary>
+    public (decimal Commun, IReadOnlyList<(string Reference, decimal Ratio)> Exceptions) RatiosPassifsOffre
+    {
+        get
+        {
+            var commun = Math.Round(RatioPassifAffiche, 2);
+            var parDalle = Lignes.Select(l => (l.Reference, Ratio: Math.Round(l.RatioPassifMoyen ?? commun, 2))).ToList();
+            if (parDalle.Count > 0 && parDalle.All(x => x.Ratio == parDalle[0].Ratio)) return (parDalle[0].Ratio, []);
+            return (commun, parDalle.Where(x => x.Ratio != commun).ToList());
+        }
+    }
 }
 
-public record DevisDocumentLigne(string Reference, string Emplacement, decimal Surface, decimal RatioActif, decimal RatioPassif, int PrixM2, decimal MontantHT);
+/// <param name="RatioPassifMoyen">Ratio passif moyen saisi pour la dalle (conditions de l'offre) ; null : celui du devis.</param>
+public record DevisDocumentLigne(string Reference, string Emplacement, decimal Surface, decimal RatioActif, decimal RatioPassif, int PrixM2, decimal MontantHT, decimal? RatioPassifMoyen = null);
 
 /// <summary>Fiches de chantier d'une dalle (auto-contrôle, mise en tension, injection), prêtes à imprimer.</summary>
 public interface IFichesChantier

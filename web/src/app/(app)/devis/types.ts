@@ -14,7 +14,7 @@ export type DevisListe = {
 
 export type Systeme = { torons: number; ancrages: number; gaine: number };
 export type Ligne = {
-  id: string; dalleId: string; reference: string; emplacement: string; surface: number; ratioActif: number; ratioPassif: number;
+  id: string; dalleId: string; reference: string; emplacement: string; surface: number; ratioActif: number; ratioPassif: number; ratioPassifMoyen: number | null;
   prixM2: number; montantHT: number; systemes: Systeme[];
   /** Brouillon : la dalle a des fichiers ADAPT importés, que le devis peut reprendre. */
   adapt?: boolean;

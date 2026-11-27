@@ -207,7 +207,7 @@ public static class DevisEtatsEndpoints
                     return new LigneDevis
                     {
                         DalleId = dalle.Id, Ordre = i, Reference = dalle.Reference, Emplacement = dalle.Emplacement, Surface = dalle.Surface,
-                        RatioActif = ancienne?.RatioActif ?? 0, RatioPassif = ancienne?.RatioPassif ?? 0,
+                        RatioActif = ancienne?.RatioActif ?? 0, RatioPassif = ancienne?.RatioPassif ?? 0, RatioPassifMoyen = ancienne?.RatioPassifMoyen,
                         Systemes = (ancienne?.Systemes ?? []).Select(s => new SystemeLigne { Torons = s.Torons, Ancrages = s.Ancrages, Gaine = s.Gaine }).ToList(),
                     };
                 }).ToList(),
@@ -246,7 +246,7 @@ public static class DevisEtatsEndpoints
                     return new LigneDevis
                     {
                         DalleId = dalle.Id, Ordre = i, Reference = dalle.Reference, Emplacement = dalle.Emplacement, Surface = dalle.Surface,
-                        RatioActif = ancienne?.RatioActif ?? 0, RatioPassif = ancienne?.RatioPassif ?? 0,
+                        RatioActif = ancienne?.RatioActif ?? 0, RatioPassif = ancienne?.RatioPassif ?? 0, RatioPassifMoyen = ancienne?.RatioPassifMoyen,
                         Systemes = (ancienne?.Systemes ?? []).Select(s => new SystemeLigne { Torons = s.Torons, Ancrages = s.Ancrages, Gaine = s.Gaine }).ToList(),
                     };
                 }).ToList(),

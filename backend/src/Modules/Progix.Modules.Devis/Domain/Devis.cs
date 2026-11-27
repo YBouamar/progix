@@ -117,6 +117,12 @@ public class LigneDevis : Entity
 
     /// <summary>Saisi et repris sur les documents, sans effet sur le prix.</summary>
     public decimal RatioPassif { get; set; }
+
+    /// <summary>
+    /// Ratio passif moyen de la dalle annoncé dans les conditions de l'offre (kg/m²), modifiable dalle par dalle.
+    /// Null : la dalle prend le ratio passif moyen du devis (saisi, sinon calculé).
+    /// </summary>
+    public decimal? RatioPassifMoyen { get; set; }
     public List<SystemeLigne> Systemes { get; set; } = [];
     public int PrixM2 { get; set; }
     public decimal MontantHT { get; set; }

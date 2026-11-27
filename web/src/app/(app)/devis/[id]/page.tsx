@@ -20,7 +20,7 @@ import { Documents } from "@/components/documents";
 import type { Adapt } from "../../projets/[id]/adapt";
 import { forfaitDe, TON_ETAT, type DevisDetail } from "../types";
 
-type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; sys: Record<number, { a: string; g: string }> };
+type LigneForm = { id: string; reference: string; emplacement: string; surface: string; ra: string; rp: string; rpm: string; sys: Record<number, { a: string; g: string }> };
 type EcheanceForm = { label: string; pct: string; retenue: boolean };
 type Form = {
   variante: string; dateDevis: string; duree: string; ingenieurId: string; remise: string; motif: string; rpSaisi: string;
@@ -39,7 +39,7 @@ function versForm(d: DevisDetail): Form {
     echeances: d.echeances.map((e) => ({ label: e.label, pct: fr(e.pourcentage), retenue: e.retenue })),
     contrat: d.modalitesContrat ?? "", systemes,
     lignes: d.lignes.map((l) => ({
-      id: l.id, reference: l.reference, emplacement: l.emplacement, surface: fr(l.surface), ra: fr(l.ratioActif), rp: fr(l.ratioPassif),
+      id: l.id, reference: l.reference, emplacement: l.emplacement, surface: fr(l.surface), ra: fr(l.ratioActif), rp: fr(l.ratioPassif), rpm: fr(l.ratioPassifMoyen ?? 0),
       sys: Object.fromEntries(l.systemes.map((s) => [s.torons, { a: fr(s.ancrages), g: fr(s.gaine) }])),
     })),
   };
@@ -206,7 +206,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
         echeances: f.echeances.map((e) => ({ label: e.label, pourcentage: lireNombre(e.pct), retenue: e.retenue })),
         modalitesContrat: f.contrat,
         lignes: f.lignes.map((l) => ({
-          id: l.id, surface: lireNombre(l.surface), ratioActif: lireNombre(l.ra), ratioPassif: lireNombre(l.rp),
+          id: l.id, surface: lireNombre(l.surface), ratioActif: lireNombre(l.ra), ratioPassif: lireNombre(l.rp), ratioPassifMoyen: lireNombre(l.rpm) || null,
           systemes: f.systemes.map((t) => ({ torons: t, ancrages: lireNombre(l.sys[t]?.a ?? ""), gaine: lireNombre(l.sys[t]?.g ?? "") })),
         })),
       });
@@ -226,7 +226,14 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
   const echeance = f.dateDevis ? (() => { const x = new Date(f.dateDevis); x.setDate(x.getDate() + (parseInt(f.duree, 10) || 0)); return formatDate(x.toISOString()); })() : "";
   const pctOk = Math.abs(calcul.totalPct - 100) < 0.001;
   const aRetenue = f.echeances.some((e) => e.retenue);
-  const nbCols = 5 + f.systemes.length * 2 + 3;
+  const nbCols = 6 + f.systemes.length * 2 + 3;
+  // Ratio passif commun de l'offre : saisi pour le devis, sinon la moyenne calculée. Une dalle sans ratio propre le reprend.
+  const rpCommun = Math.round((lireNombre(f.rpSaisi) > 0 ? lireNombre(f.rpSaisi) : calcul.ratioPassif) * 100) / 100;
+  // Même règle que le PDF : les dalles sans surface ne figurent pas sur le devis remis au client.
+  const parDalle = f.lignes.filter((l) => lireNombre(l.surface) > 0).map((l) => ({ ref: l.reference, r: Math.round((lireNombre(l.rpm) || rpCommun) * 100) / 100 }));
+  const ratiosOffre = parDalle.length > 0 && parDalle.every((x) => x.r === parDalle[0].r)
+    ? `${ent(parDalle[0].r, 2)} kg/m²`
+    : [`${ent(rpCommun, 2)} kg/m²`, ...parDalle.filter((x) => x.r !== rpCommun).map((x) => `${x.ref} : ${ent(x.r, 2)}`)].join(" ; ");
   const brouillon = d.etat === "brouillon";
   const etapeVue = etape ?? (!brouillon ? 3 : d.actions.modifier && d.totalHT === 0 ? 1 : 2);
   const nbAdapt = d.lignes.filter((l) => l.adapt).length;
@@ -417,6 +424,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                 <th rowSpan={2} className="px-2 py-2 text-right font-semibold">Surface m²</th>
                 <th rowSpan={2} className="px-2 py-2 text-right font-semibold">Ratio actif</th>
                 <th rowSpan={2} className="px-2 py-2 text-right font-semibold">Ratio passif</th>
+                <th rowSpan={2} className="px-2 py-2 text-right font-semibold" title="Ratio passif moyen de la dalle annoncé dans les conditions de l'offre. Vide : le ratio passif moyen du devis.">Ratio passif<br />de l&apos;offre</th>
                 {f.systemes.map((t) => (
                   <th key={t} colSpan={2} className="border-l border-bordure px-2 py-2 text-center font-semibold">
                     Type d&apos;ancrage <span className="font-display text-texte">S{t}</span>
@@ -452,6 +460,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                       <td className="w-24 px-1 py-2"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Surface, dalle ${l.reference}`} value={l.surface} onChange={(e) => majLigne(l.id, { surface: filtrerDecimal(e.target.value) })} /></td>
                       <td className="w-20 px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].ra !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio actif, dalle ${l.reference}`} value={l.ra} onChange={(e) => majLigne(l.id, { ra: e.target.value })} /><Lu v={parLigne[i].ra} /></td>
                       <td className="w-20 px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].rp !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ratio passif, dalle ${l.reference}`} value={l.rp} onChange={(e) => majLigne(l.id, { rp: e.target.value })} /><Lu v={parLigne[i].rp} /></td>
+                      <td className="w-20 px-1 py-2 align-top"><input className={CELL} disabled={lecture} inputMode="decimal" placeholder={ent(rpCommun, 2)} aria-label={`Ratio passif de l'offre, dalle ${l.reference}`} value={l.rpm} onChange={(e) => majLigne(l.id, { rpm: filtrerDecimal(e.target.value) })} /></td>
                       {f.systemes.map((t) => (
                         <Fragment key={t}>
                           <td className="w-20 border-l border-bordure px-1 py-2 align-top"><input className={cn(CELL, parLigne[i].sys[t]?.a !== undefined && CELL_MODIF)} disabled={lectureTechnique} inputMode="decimal" aria-label={`Ancrages S${t}, dalle ${l.reference}`} value={l.sys[t]?.a ?? ""} onChange={(e) => majSys(l, t, "a", e.target.value)} /><Lu v={parLigne[i].sys[t]?.a} d={0} /></td>
@@ -494,6 +503,7 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
                   <input aria-label="Ratio passif moyen saisi, en kg/m²" inputMode="decimal" disabled={lecture} placeholder="—" value={f.rpSaisi}
                     onChange={(e) => maj({ rpSaisi: filtrerDecimal(e.target.value) })} className={CELL} />
                 </td>
+                <td className="px-3 py-2.5 text-right align-top font-sans text-[11px] font-normal text-secondaire" title="Ratio repris par les dalles dont la case est vide">Commun<div className="mt-1 font-display text-[13px] font-bold text-texte">{ent(rpCommun, 2)}</div></td>
                 {f.systemes.length > 0 && <td colSpan={f.systemes.length * 2} className="border-l border-bordure px-3 py-2.5 font-sans text-[12px] font-normal text-secondaire">Ratios en kg/m², pondérés par la surface</td>}
                 <td className="border-l border-bordure" />
                 <td className="whitespace-nowrap px-4 py-2.5 text-right">{formatDH(calcul.totalHT)}</td>
@@ -565,7 +575,8 @@ export default function DevisEditeur({ params }: { params: Promise<{ id: string 
               ["Surface totale", `${formatNombre(calcul.surfaceTotale)} m²`],
               ["Ratio actif moyen, pondéré", `${ent(calcul.ratioActif, 2)} kg/m²`],
               ["Ratio passif moyen, calculé", `${ent(calcul.ratioPassif, 2)} kg/m²`],
-              ...(lireNombre(f.rpSaisi) > 0 ? [["Ratio passif saisi (conditions de l'offre)", `${ent(lireNombre(f.rpSaisi), 2)} kg/m²`]] : []),
+              ...(lireNombre(f.rpSaisi) > 0 ? [["Ratio passif saisi", `${ent(lireNombre(f.rpSaisi), 2)} kg/m²`]] : []),
+              ["Ratio passif de l'offre", ratiosOffre],
               ["Total HT", formatDH(calcul.totalHT)],
               ...(calcul.remiseTotale > 0 ? [["Remise", `− ${formatDH(calcul.remiseTotale)}`], ["Net HT", formatDH(calcul.netHT)]] : []),
               [d.exonereTva ? "TVA 0 %, client exonéré" : "TVA 20 %", formatDH(calcul.tva)],

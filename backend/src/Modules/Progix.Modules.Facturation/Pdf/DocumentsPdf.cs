@@ -153,11 +153,16 @@ public static class DocumentsPdf
         Puce($"Validité de l'offre : {d.Echeance.DayNumber - d.DateDevis.DayNumber} jours, soit jusqu'au {Date(d.Echeance)}.");
         foreach (var ligne in (d.Modalites ?? "").Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)) Puce(ligne);
         // Seul le ratio passif moyen figure sur le document remis au client : il chiffre les aciers passifs qui restent à sa charge.
-        if (d.RatioPassifAffiche > 0)
+        var (commun, exceptions) = d.RatiosPassifsOffre;
+        if (commun > 0 || exceptions.Count > 0)
         {
-            var ratio = d.RatioPassifAffiche.ToString("N2", System.Globalization.CultureInfo.GetCultureInfo("fr-FR"));
-            // Ratio saisi : il est donné tel quel. Sinon, c'est la moyenne calculée, pondérée par la surface.
-            Puce(d.RatioPassifSaisi is > 0 ? $"Ratio moyen des aciers passifs : {ratio} kg/m² (sans gaines et sans poutres BA)." : $"Ratio moyen des aciers passifs : {ratio} kg/m², moyenne pondérée par la surface des dalles (sans gaines et sans poutres BA).");
+            var fr = System.Globalization.CultureInfo.GetCultureInfo("fr-FR");
+            // Le ratio calculé (ni saisi pour le devis ni pour une dalle) est présenté comme une moyenne pondérée.
+            var calcule = d.RatioPassifSaisi is not > 0 && commun == Math.Round(d.RatioPassifMoyen, 2) && d.Lignes.All(l => l.RatioPassifMoyen is null);
+            var texte = $"Ratio moyen des aciers passifs : {commun.ToString("N2", fr)} kg/m²" + (calcule ? ", moyenne pondérée par la surface des dalles" : "") + " (sans gaines et sans poutres BA)";
+            // Les dalles dont le ratio diffère suivent le ratio commun.
+            if (exceptions.Count > 0) texte += " ; " + string.Join(" ; ", exceptions.Select(x => $"dalle {x.Reference} : {x.Ratio.ToString("N2", fr)} kg/m²"));
+            Puce(texte + ".");
         }
         Puce("Quantités : mesurées selon le plan ; seules les ouvertures entourées par des supports (voiles ou poutres) seront déduites.");
         Puce("Modification du prix : ces prix peuvent être modifiés en fonction des cours de la matière première.");

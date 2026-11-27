@@ -4,7 +4,7 @@ import { use, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, ArrowLeftRight, Lock, Pencil, RotateCcw, Trash2, Unlock } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
-import { peutDiriger, peutEcrire, peutGererCommercial, peutGererProjets, peutLire, useAuth, voitMontants } from "@/lib/auth";
+import { peutDiriger, peutSupprimerProjet, peutEcrire, peutGererCommercial, peutGererProjets, peutLire, useAuth, voitMontants } from "@/lib/auth";
 import { cn, formatDate, formatDateHeure, formatSurface } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { AttenteFiche } from "@/components/ui/attente";
@@ -136,7 +136,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
               {peutGererProjets(user) && <Button variant="outline" onClick={() => setEdition(true)}><Pencil size={15} />Modifier</Button>}
               {user?.role === "directeur" && !p.bloque && <Button variant="outline" onClick={() => setAction("bloquer")}><Lock size={15} />Bloquer</Button>}
               {user && ["directeur", "chef_projet", "responsable_administratif"].includes(user.role) && <Button variant="outline" onClick={() => setReaffectation(true)}><ArrowLeftRight size={15} />Changer d&apos;entité</Button>}
-              {direction && <Button variant="outline" onClick={() => setAction("supprimer")}><Trash2 size={15} />Supprimer</Button>}
+              {peutSupprimerProjet(user) && <Button variant="outline" onClick={() => setAction("supprimer")}><Trash2 size={15} />Supprimer</Button>}
             </div>
           )}
         </div>
@@ -269,7 +269,7 @@ export default function ProjetFiche({ params }: { params: Promise<{ id: string }
         title={action === "bloquer" ? "Bloquer le projet" : "Supprimer le projet"}
         description={action === "bloquer"
           ? "Le blocage s'ajoute au statut du projet. Le motif, votre nom et la date seront affichés sur la fiche."
-          : "Le projet passe en lecture seule. Il reste restaurable par le directeur ou le chef de projet."}
+          : direction ? "Le projet passe en lecture seule. Il reste restaurable par le directeur ou le chef de projet." : "Le projet passe en lecture seule, restaurable par le directeur ou le chef de projet. Possible seulement s'il n'a pas encore avancé : aucun devis envoyé, aucune étape du chantier faite, ni contrat, livraison, facture ou paiement."}
         footer={
           <>
             <Button variant="outline" onClick={() => { setAction(null); setMotif(""); setErreur(""); }}>Annuler</Button>

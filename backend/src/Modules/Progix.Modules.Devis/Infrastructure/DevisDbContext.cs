@@ -60,6 +60,7 @@ public class DevisDbContext(DbContextOptions<DevisDbContext> options) : DbContex
             b.Property(l => l.Surface).HasPrecision(12, 2);
             b.Property(l => l.RatioActif).HasPrecision(8, 3);
             b.Property(l => l.RatioPassif).HasPrecision(8, 3);
+            b.Property(l => l.RatioPassifMoyen).HasPrecision(8, 2);
             b.Property(l => l.MontantHT).HasPrecision(14, 2);
             b.OwnsMany(l => l.Systemes, s => s.ToJson());
         });

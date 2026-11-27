@@ -13,7 +13,9 @@ public class DevisDocuments(DevisDbContext db) : IDevisDocuments, IVerificationD
         var d = await db.Devis.AsNoTracking().Include(x => x.Lignes).FirstOrDefaultAsync(x => x.Id == id, ct);
         if (d is null) return null;
         return new DevisDocument(d.Id, d.Numero, d.Version, d.Entite, d.ProjetId, d.Etat, EtatsDevis.Labels.GetValueOrDefault(d.Etat, d.Etat), d.DateDevis, d.Echeance, d.CommercialNom,
-            d.Lignes.OrderBy(l => l.Ordre).Select(l => new DevisDocumentLigne(l.Reference, l.Emplacement, l.Surface, l.RatioActif, l.RatioPassif, l.PrixM2, l.MontantHT)).ToList(),
+            // Une dalle sans surface ou sans prix ne figure pas sur le document remis au client (elle reste sur l'écran du devis).
+            d.Lignes.Where(l => l.Surface > 0 && l.PrixM2 > 0).OrderBy(l => l.Ordre)
+                .Select(l => new DevisDocumentLigne(l.Reference, l.Emplacement, l.Surface, l.RatioActif, l.RatioPassif, l.PrixM2, l.MontantHT, l.RatioPassifMoyen)).ToList(),
             d.SurfaceTotale, d.TotalHT, d.RemiseM2, d.RemiseTotale, d.NetHT, d.ExonereTva, d.Tva, d.TotalTTC,
             d.Echeances.Select(e => new KeyValuePair<string, decimal>(e.Label, e.Pourcentage)).ToList(), d.ModalitesContrat, d.SignePar, d.SigneLe, d.Jeton, d.RatioPassifSaisi);
     }

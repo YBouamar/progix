@@ -134,3 +134,8 @@ Aucun. Sur ce poste : pas de SDK .NET 8 ni de Python, le build et les tests back
 - Vérifié : 400 tests, lint, build web, suppression de dalle via l'API. Dépôt multi-dalles testé jusqu'au stockage MinIO (absent en local) : essai complet à refaire avec `docker compose up`.
 - Hypothèse à valider : un devis envoyé ou expiré repasse en brouillon quand on en retire une dalle.
 - Non faits, à valider avec le chef de projet : ratio passif moyen par dalle (point 6), condition polystyrène (point 7). La commande usine garde 2 ancrages par câble par défaut.
+
+## Retours de la recette des ingénieurs, 2026-11-27 (non commités)
+- Suppression d'un projet non avancé par un ingénieur ; dalle à zéro absente du PDF du devis ; ratio passif moyen par dalle (migration `RatioPassifParDalle` du module Devis).
+- Vérifié : 406 tests, lint, build web, essai API (PDF, suppression acceptée et refusée), capture de l'écran du devis.
+- Mise en tension du 2026-11-27 : contrôle du groupe à 0,95 à 1,10 en attente de confirmation du responsable des chantiers.

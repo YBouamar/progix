@@ -63,6 +63,9 @@ public static class Policies
 
     public static readonly string[] RolesDirection = [Roles.Directeur, Roles.ChefProjet];
 
+    /// <summary>Suppression d'un projet : la direction sans condition, les ingénieurs tant que rien n'est engagé.</summary>
+    public static readonly string[] RolesSuppressionProjet = [.. RolesDirection, Roles.IngenieurChef, Roles.Ingenieur];
+
     public static readonly string[] RolesCommercial =
         [Roles.Directeur, Roles.ChefProjet, Roles.ResponsableAdministratif, Roles.Administrateur];
 }

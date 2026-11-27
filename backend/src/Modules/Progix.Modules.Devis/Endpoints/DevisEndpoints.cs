@@ -11,7 +11,7 @@ namespace Progix.Modules.Devis.Endpoints;
 
 public record CreationInput(Guid ProjetId);
 public record SystemeInput(int Torons, decimal Ancrages, decimal Gaine);
-public record LigneInput(Guid Id, decimal Surface, decimal RatioActif, decimal RatioPassif, List<SystemeInput>? Systemes);
+public record LigneInput(Guid Id, decimal Surface, decimal RatioActif, decimal RatioPassif, List<SystemeInput>? Systemes, decimal? RatioPassifMoyen = null);
 public record EcheanceInput(string? Label, decimal Pourcentage, bool Retenue);
 public record ParametresDevisInput(int DureeValidite, string? Modalites, List<EcheanceInput>? Echeances);
 public record TrancheInput(decimal APartirDe, decimal Prix);
@@ -261,7 +261,9 @@ public static class DevisEndpoints
             var dejaSaisis = d.Lignes.SelectMany(l => l.Systemes.Select(s => s.Torons)).ToHashSet();
             foreach (var l in input.Lignes ?? [])
             {
-                if (l.RatioActif < 0 || l.RatioPassif < 0 || (l.Systemes ?? []).Any(s => s.Torons is < 1 or > 99 || s.Ancrages < 0 || s.Gaine < 0))
+                if (l.RatioPassifMoyen is > 1000)
+                    e["lignes"] = ["Le ratio passif moyen d'une dalle doit être compris entre 0 et 1 000 kg/m²."];
+                else if (l.RatioActif < 0 || l.RatioPassif < 0 || l.RatioPassifMoyen < 0 || (l.Systemes ?? []).Any(s => s.Torons is < 1 or > 99 || s.Ancrages < 0 || s.Gaine < 0))
                     e["lignes"] = ["Les ratios, ancrages et gaines ne peuvent pas être négatifs."];
                 else if ((l.Systemes ?? []).FirstOrDefault(s => (s.Ancrages > 0 || s.Gaine > 0) && !SystemesAncrage.Existe(s.Torons) && !dejaSaisis.Contains(s.Torons)) is { } inconnu)
                     e["lignes"] = [$"Type d'ancrage S{inconnu.Torons} inconnu : les types existants sont {SystemesAncrage.Liste}."];
@@ -305,6 +307,8 @@ public static class DevisEndpoints
                 if (l is null) continue;
                 l.RatioActif = li.RatioActif;
                 l.RatioPassif = li.RatioPassif;
+                // Vide ou zéro : la dalle suit le ratio passif moyen du devis.
+                l.RatioPassifMoyen = li.RatioPassifMoyen is > 0 ? Math.Round(li.RatioPassifMoyen.Value, 2) : null;
                 l.Systemes = (li.Systemes ?? []).Where(s => s.Ancrages > 0 || s.Gaine > 0).GroupBy(s => s.Torons).Select(x => x.First())
                     .OrderBy(s => s.Torons).Select(s => new SystemeLigne { Torons = s.Torons, Ancrages = s.Ancrages, Gaine = s.Gaine }).ToList();
             }
@@ -458,7 +462,7 @@ public static class DevisEndpoints
             lignes = d.Lignes.OrderBy(l => l.Ordre).Select(l => new
             {
                 id = l.Id, dalleId = l.DalleId, reference = l.Reference, emplacement = l.Emplacement, surface = l.Surface,
-                ratioActif = l.RatioActif, ratioPassif = l.RatioPassif, prixM2 = l.PrixM2, montantHT = l.MontantHT,
+                ratioActif = l.RatioActif, ratioPassif = l.RatioPassif, ratioPassifMoyen = l.RatioPassifMoyen, prixM2 = l.PrixM2, montantHT = l.MontantHT,
                 systemes = l.Systemes.Select(s => new { torons = s.Torons, ancrages = s.Ancrages, gaine = s.Gaine }),
                 adapt = p?.Dalles.FirstOrDefault(x => x.Id == l.DalleId)?.Adapt is not null,
             }),

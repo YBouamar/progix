@@ -59,5 +59,7 @@ export const peutGererCommercial = (u: User | null) => !!u && COMMERCIAL.include
 /** Création d'un projet et modification de sa fiche : module « Création des projets » en écriture (fonctions commerciales et ingénieurs par défaut). */
 export const peutGererProjets = (u: User | null) => peutEcrire(u, "gestion_projets");
 export const peutDiriger = (u: User | null) => !!u && ["directeur", "chef_projet"].includes(u.role);
+/** Suppression d'un projet : la direction sans condition, les ingénieurs tant que le projet n'a pas avancé (contrôlé par le serveur). */
+export const peutSupprimerProjet = (u: User | null) => peutDiriger(u) || (!!u && ["ingenieur_chef", "ingenieur"].includes(u.role));
 const MONTANTS = ["directeur", "chef_projet", "responsable_administratif", "administrateur", "ingenieur_chef", "ingenieur"];
 export const voitMontants = (u: User | null) => !!u && MONTANTS.includes(u.role);

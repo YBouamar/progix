@@ -270,6 +270,10 @@ namespace Progix.Modules.Devis.Infrastructure.Migrations
                         .HasPrecision(8, 3)
                         .HasColumnType("numeric(8,3)");
 
+                    b.Property<decimal?>("RatioPassifMoyen")
+                        .HasPrecision(8, 2)
+                        .HasColumnType("numeric(8,2)");
+
                     b.Property<string>("Reference")
                         .IsRequired()
                         .HasMaxLength(30)

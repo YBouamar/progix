@@ -189,18 +189,25 @@ public static class ProjetsEndpoints
             return Results.Ok(await ToDetail(p, partenaires));
         }).RequireAuthorization(p => p.RequireRole(Roles.Directeur));
 
-        g.MapPost("/{id:guid}/supprimer", async (Guid id, MotifInput input, ProjetsDbContext db, IPartenairesLookup partenaires, ClaimsPrincipal user) =>
+        g.MapPost("/{id:guid}/supprimer", async (Guid id, MotifInput input, ProjetsDbContext db, IPartenairesLookup partenaires, IEnumerable<IUsagesProjet> usages, ClaimsPrincipal user, CancellationToken ct) =>
         {
-            var p = await db.Projets.FirstOrDefaultAsync(x => x.Id == id);
+            var p = await db.Projets.FirstOrDefaultAsync(x => x.Id == id, ct);
             if (p is null) return Results.NotFound();
+            if (p.Supprime) return Conflit("Ce projet est déjà supprimé.");
             if (string.IsNullOrWhiteSpace(input.Motif)) return MotifRequis();
+            // Un ingénieur ne supprime qu'un projet pas encore avancé ; la direction supprime sans condition.
+            if (!Policies.RolesDirection.Any(user.IsInRole))
+            {
+                if (await EngagementAsync(id, db, usages, ct) is { } motif)
+                    return Conflit($"Ce projet ne peut pas être supprimé par un ingénieur : {motif}. Demandez au directeur ou au chef de projet.");
+            }
             p.Supprime = true;
             p.SuppressionMotif = input.Motif.Trim();
             p.SuppressionPar = user.UserName();
             p.SuppressionLe = DateTime.UtcNow;
             await db.SaveChangesAsync();
             return Results.Ok(await ToDetail(p, partenaires));
-        }).RequireAuthorization(Policies.Direction);
+        }).RequireAuthorization(p => p.RequireRole(Policies.RolesSuppressionProjet));
 
         g.MapPost("/{id:guid}/restaurer", async (Guid id, ProjetsDbContext db, IPartenairesLookup partenaires) =>
         {
@@ -215,6 +222,16 @@ public static class ProjetsEndpoints
     }
 
     internal static IResult Conflit(string message) => Results.Conflict(new { message });
+
+    /// <summary>Ce qui montre qu'un projet a avancé (étape de chantier faite, devis envoyé, contrat, livraison, facture, paiement), ou null.</summary>
+    internal static async Task<string?> EngagementAsync(Guid projetId, ProjetsDbContext db, IEnumerable<IUsagesProjet> usages, CancellationToken ct)
+    {
+        var dalles = db.Dalles.Where(d => d.ProjetId == projetId).Select(d => d.Id);
+        if (await db.Etapes.AnyAsync(e => dalles.Contains(e.DalleId) && e.FaitLe != null, ct)) return "une étape du chantier est faite";
+        foreach (var u in usages)
+            if (await u.UsageAsync(projetId, ct) is { } motif) return motif;
+        return null;
+    }
 
     private static IResult MotifRequis() =>
         Results.ValidationProblem(new Dictionary<string, string[]> { ["motif"] = ["Le motif est obligatoire."] });

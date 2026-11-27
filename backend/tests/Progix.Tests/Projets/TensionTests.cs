@@ -3,7 +3,7 @@ using Progix.Modules.Projets.Endpoints;
 
 namespace Progix.Tests.Projets;
 
-/// <summary>Allongements de mise en tension et tolérance EN 13670 : ± 15 % par câble, ± 5 % pour le groupe.</summary>
+/// <summary>Allongements de mise en tension et tolérance de la fiche : entre 0,95 et 1,10 fois Ao, par câble et pour le groupe.</summary>
 public class TensionTests
 {
     private static MesureTension Cable(decimal theorique, decimal deltaA, decimal? deltaB = null) => new()
@@ -14,19 +14,21 @@ public class TensionTests
 
     [Theory]
     [InlineData(100, true)]
-    [InlineData(85, true)]
-    [InlineData(84.9, false)]
-    [InlineData(115, true)]
-    [InlineData(115.1, false)]
-    public void Cable_seul_a_plus_ou_moins_15_pourcent(decimal mesure, bool conforme) =>
+    [InlineData(95, true)]
+    [InlineData(94.9, false)]
+    [InlineData(110, true)]
+    [InlineData(110.1, false)]
+    [InlineData(85, false)]
+    [InlineData(115, false)]
+    public void Cable_seul_entre_0_95_et_1_10_Ao(decimal mesure, bool conforme) =>
         Assert.Equal(conforme, Cable(100, mesure).Conforme);
 
     [Fact]
     public void Bornes_affichees_du_cable()
     {
         var c = Cable(100, 100);
-        Assert.Equal(85.0m, c.Min);
-        Assert.Equal(115.0m, c.Max);
+        Assert.Equal(95.0m, c.Min);
+        Assert.Equal(110.0m, c.Max);
     }
 
     [Fact]
@@ -48,21 +50,22 @@ public class TensionTests
     }
 
     [Fact]
-    public void Groupe_hors_tolerance_meme_si_chaque_cable_est_conforme()
+    public void Groupe_hors_tolerance_sur_la_somme()
     {
-        // 110 et 104 : chaque câble dans ± 15 %, mais le groupe fait + 7 %.
-        var s = TensionEndpoints.Calculer([Cable(100, 110), Cable(100, 104)]);
-        Assert.Equal(0, s.HorsTolerance);
-        Assert.Equal(7.0m, s.Ecart);
+        // 110 et 109 sont conformes, 112 est hors tolérance ; ensemble, le groupe fait + 10,3 % : hors des bornes.
+        var s = TensionEndpoints.Calculer([Cable(100, 110), Cable(100, 109), Cable(100, 112)]);
+        Assert.Equal(1, s.HorsTolerance);
+        Assert.Equal(10.3m, s.Ecart);
         Assert.False(s.Conforme);
     }
 
     [Fact]
-    public void Groupe_conforme_a_plus_ou_moins_5_pourcent()
+    public void Groupe_conforme_entre_0_95_et_1_10()
     {
-        var s = TensionEndpoints.Calculer([Cable(100, 104), Cable(100, 100)]);
+        // + 8 % : refusé par l'ancienne règle à ± 5 %, accepté par la fiche.
+        var s = TensionEndpoints.Calculer([Cable(100, 108), Cable(100, 108)]);
         Assert.True(s.Conforme);
-        Assert.Equal(2.0m, s.Ecart);
+        Assert.Equal(8.0m, s.Ecart);
     }
 
     [Fact]

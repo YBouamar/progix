@@ -144,9 +144,10 @@ Légende : **[décidé]** règle donnée par le métier ; **[code]** règle trou
 
 ## 6. Mise en tension
 
-- [décidé] Tolérance EN 13670 : ± 5 % pour le groupe, ± 15 % pour un câble seul.
+- [décidé 2026-11-27] Tolérance de la **fiche de mise en tension** de l'entreprise (colonnes « 0,95 Ao » et « 1,1 Ao »), confirmée par le responsable des chantiers : elle remplace la tolérance EN 13670 retenue le 2026-10-23.
 - [code] Allongement mesuré = (lecture 100 % moins lecture 25 %) côté A, plus côté B si tendu des deux côtés. Allongement théorique = force × (1 moins pertes) × longueur / (section × module), paramétrable (221 kN, 150 mm², 195 000 MPa, 5 %).
-- [code depuis 2026-10-23] Câble seul entre 0,85 et 1,15 fois Ao ; groupe (somme des mesures) entre 0,95 et 1,05 fois la somme des Ao (`MesureTension`, `TensionEndpoints.Calculer`).
+- [code depuis 2026-11-27] Câble seul entre 0,95 et 1,10 fois Ao. [hypothèse à valider] Groupe (somme des mesures) entre 0,95 et 1,10 fois la somme des Ao : la fiche ne donne pas de borne propre au groupe (`MesureTension`, `TensionEndpoints.Calculer`).
+- [décidé 2026-11-27, code] Ordre des colonnes de l'écran et de la fiche PDF : Total, Moyenne, Ao, 0,95 Ao, 1,1 Ao.
 - [code] Hors tolérance : la validation reste possible avec une remarque d'investigation obligatoire.
 
 ## 7. Commande usine, logistique et stock

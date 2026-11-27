@@ -106,7 +106,7 @@ public static class TensionEndpoints
         var theo = completes.Sum(x => x.Theorique);
         var mes = completes.Sum(x => x.Mesure!.Value);
         decimal? ecart = theo > 0 ? Math.Round((mes - theo) / theo * 100, 1) : null;
-        // EN 13670 : le groupe a sa propre tolérance, plus serrée que celle d'un câble seul (± 5 % contre ± 15 %).
+        // Le groupe est contrôlé sur la somme des allongements, avec les bornes de la fiche.
         return new Synthese(theo, mes, ecart, theo > 0 ? mes >= theo * MesureTension.GroupeBas && mes <= theo * MesureTension.GroupeHaut : null,
             completes.Count(x => x.Conforme == false), m.Count - completes.Count, m.Count);
     }

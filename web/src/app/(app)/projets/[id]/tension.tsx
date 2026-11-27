@@ -17,7 +17,7 @@ const mm = (n: number) => `${n.toLocaleString("fr-FR", { maximumFractionDigits: 
 const pct = (n: number) => `${n > 0 ? "+" : ""}${n.toLocaleString("fr-FR", { maximumFractionDigits: 1 })} %`;
 const CELL = "h-8 w-full min-w-14 rounded-md border border-bordure-forte bg-white px-2 text-right font-display text-[13px] focus:border-marine focus:outline-none disabled:border-transparent disabled:bg-transparent";
 
-/** Fiche de mise en tension : lectures à 25 % et 100 % de chaque côté. Tolérance EN 13670 : ± 15 % de Ao par câble, ± 5 % pour le groupe. */
+/** Fiche de mise en tension : lectures à 25 % et 100 % de chaque côté. Tolérance de la fiche de mise en tension : entre 0,95 et 1,10 fois Ao, par câble et pour le groupe. */
 export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId: string }) {
   const [vue, setVue] = useState<Vue | null>(null);
   const [lignes, setLignes] = useState<Ligne[]>([]);
@@ -38,8 +38,8 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
 
   // Calcul en direct, identique à celui du serveur.
   const calcul = useMemo(() => {
-    const bas = vue?.borneBasse ?? 0.85, haut = vue?.borneHaute ?? 1.15;
-    const gBas = vue?.groupeBas ?? 0.95, gHaut = vue?.groupeHaut ?? 1.05;
+    const bas = vue?.borneBasse ?? 0.95, haut = vue?.borneHaute ?? 1.1;
+    const gBas = vue?.groupeBas ?? 0.95, gHaut = vue?.groupeHaut ?? 1.1;
     let theo = 0, mes = 0, hors = 0, manque = 0, n = 0;
     const rows = lignes.map((l) => {
       const t = lireNombre(l.theo);
@@ -100,7 +100,7 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
       <div className="text-[13px] font-bold">Fiche de mise en tension</div>
       <p className="mt-0.5 text-[12px] text-secondaire">
         De chaque côté, Δ = lecture à 100 % moins lecture à 25 %. Allongement du câble = Δ côté A + Δ côté B ; le côté B reste vide si le câble est tendu d&apos;un seul côté.
-        Tolérance EN 13670 : chaque câble entre {fr(vue.borneBasse)} et {fr(vue.borneHaute)} fois l&apos;allongement théorique Ao, le groupe entre {fr(vue.groupeBas)} et {fr(vue.groupeHaut)} fois la somme des Ao. Hors de ces bornes, une investigation est à mener.
+        Tolérance de la fiche de mise en tension : chaque câble entre {fr(vue.borneBasse)} et {fr(vue.borneHaute)} fois l&apos;allongement théorique Ao, le groupe entre {fr(vue.groupeBas)} et {fr(vue.groupeHaut)} fois la somme des Ao. Hors de ces bornes, une investigation est à mener.
         Ao = longueur × {vue.mmParMetre.toLocaleString("fr-FR")} mm par mètre (réglé dans le Paramétrage), modifiable câble par câble.
       </p>
 
@@ -120,11 +120,11 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
                 <th rowSpan={2} className="py-1 pr-2 align-bottom font-semibold">Tendon</th>
                 <th rowSpan={2} className="px-1 py-1 align-bottom font-semibold">Syst.</th>
                 <th rowSpan={2} className="px-1 py-1 text-right align-bottom font-semibold">Long. m</th>
-                <th rowSpan={2} className="px-1 py-1 text-right align-bottom font-semibold">Ao mm</th>
                 <th colSpan={3} className="border-b border-l border-bordure px-1 py-1 text-center font-semibold">Côté A</th>
                 <th colSpan={3} className="border-b border-l border-bordure px-1 py-1 text-center font-semibold">Côté B</th>
                 <th rowSpan={2} className="border-l border-bordure px-2 py-1 text-right align-bottom font-semibold">Total</th>
                 <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">Moyenne</th>
+                <th rowSpan={2} className="px-1 py-1 text-right align-bottom font-semibold">Ao mm</th>
                 <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">{fr(vue.borneBasse)} Ao</th>
                 <th rowSpan={2} className="px-2 py-1 text-right align-bottom font-semibold">{fr(vue.borneHaute)} Ao</th>
                 <th rowSpan={2} className="px-2 py-1 align-bottom font-semibold">Verdict</th>
@@ -150,13 +150,13 @@ export function FicheTension({ projetId, dalleId }: { projetId: string; dalleId:
                     <td className="py-1 pr-2"><input className={cn(CELL, "w-16 min-w-16 text-left font-bold text-marine")} disabled={lecture} aria-label={`Tendon, ligne ${i + 1}`} value={l.cable} onChange={(e) => majLigne(i, { cable: e.target.value })} /></td>
                     <td className="whitespace-nowrap px-1 py-1 text-[12px] text-secondaire">{reperes[l.cable.trim().toUpperCase()] ?? ""}</td>
                     <td className="w-16 px-1 py-1"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Longueur, ${l.cable}`} value={l.lon} onChange={(e) => majLigne(i, { lon: e.target.value, theo: theoPour(e.target.value) || l.theo })} /></td>
-                    <td className="w-16 px-1 py-1"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Ao, ${l.cable}`} value={l.theo} onChange={(e) => majLigne(i, { theo: e.target.value })} /></td>
                     {lectureCell("a25", "Côté A à 25 %", true)}{lectureCell("a100", "Côté A à 100 %")}
                     <td className="whitespace-nowrap px-1 py-1 text-right font-display text-secondaire">{nb(r.dA)}</td>
                     {lectureCell("b25", "Côté B à 25 %", true)}{lectureCell("b100", "Côté B à 100 %")}
                     <td className="whitespace-nowrap px-1 py-1 text-right font-display text-secondaire">{nb(r.dB)}</td>
                     <td className="whitespace-nowrap border-l border-bordure px-2 py-1 text-right font-display font-bold">{nb(r.m)}</td>
                     <td className="whitespace-nowrap px-2 py-1 text-right font-display">{nb(r.moy)}</td>
+                    <td className="w-16 px-1 py-1"><input className={CELL} disabled={lecture} inputMode="decimal" aria-label={`Ao, ${l.cable}`} value={l.theo} onChange={(e) => majLigne(i, { theo: e.target.value })} /></td>
                     <td className="whitespace-nowrap px-2 py-1 text-right font-display text-secondaire">{nb(r.min)}</td>
                     <td className="whitespace-nowrap px-2 py-1 text-right font-display text-secondaire">{nb(r.max)}</td>
                     <td className="whitespace-nowrap px-2 py-1">

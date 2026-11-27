@@ -5,16 +5,17 @@ namespace Progix.Modules.Projets.Domain;
 /// <summary>
 /// Mesure d'un câble à la mise en tension, d'après la fiche de l'entreprise : lectures à 25 % et à 100 % de la force, côté A et côté B.
 /// Allongement d'un côté = lecture à 100 % moins lecture à 25 % ; allongement du câble = côté A plus côté B.
-/// Tolérance EN 13670 : ± 15 % de l'allongement théorique Ao pour un câble seul, ± 5 % pour le groupe de câbles de la dalle.
+/// Tolérance de la fiche de mise en tension de l'entreprise (confirmée par le responsable des chantiers le 2026-11-27) :
+/// entre 0,95 et 1,10 fois l'allongement théorique Ao, pour un câble seul comme pour le groupe de câbles de la dalle.
 /// </summary>
 public class MesureTension : Entity
 {
-    // Câble seul : entre 0,85 et 1,15 fois Ao.
-    public const decimal BorneBasse = 0.85m;
-    public const decimal BorneHaute = 1.15m;
-    // Groupe : entre 0,95 et 1,05 fois la somme des Ao.
+    // Câble seul : entre 0,95 et 1,10 fois Ao (colonnes « 0,95 Ao » et « 1,1 Ao » de la fiche).
+    public const decimal BorneBasse = 0.95m;
+    public const decimal BorneHaute = 1.10m;
+    // Groupe : entre 0,95 et 1,10 fois la somme des Ao, mêmes bornes que le câble seul (la fiche n'en donne pas d'autres).
     public const decimal GroupeBas = 0.95m;
-    public const decimal GroupeHaut = 1.05m;
+    public const decimal GroupeHaut = 1.10m;
 
     public Guid DalleId { get; set; }
     public int Ordre { get; set; }
